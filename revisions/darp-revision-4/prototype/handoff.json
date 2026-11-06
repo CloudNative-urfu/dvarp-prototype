@@ -1,0 +1,221 @@
+{
+  "mode": "deep_case",
+  "step": "report",
+  "attempt": 1,
+  "budget": 3,
+  "action": "build",
+  "component": null,
+  "components": [
+    {
+      "id": "repro",
+      "title": "Воспроизводимость: seed, манифест прогона, хеши корпуса и конфигураций, версии моделей",
+      "status": "inherited"
+    },
+    {
+      "id": "state_store",
+      "title": "Синтетическая БД магазина (SQLite), генератор данных, снимок и восстановление перед эпизодом",
+      "status": "inherited"
+    },
+    {
+      "id": "event_log",
+      "title": "Единый журнал событий и затрат по компонентам с раздельным учётом атакующей и защищаемой сторон",
+      "status": "inherited"
+    },
+    {
+      "id": "executor",
+      "title": "Исполнитель: проверка прав, принадлежности заказа и разовых операций; граница безопасности g0",
+      "status": "inherited"
+    },
+    {
+      "id": "tools",
+      "title": "Ровно пять инструментов агента возвратов поверх исполнителя",
+      "status": "inherited"
+    },
+    {
+      "id": "llm",
+      "title": "Клиент OpenAI-совместимой модели через RESEARCH_LLM_* и детерминированная заглушка модели за тем же интерфейсом; учёт токенов и лимиты запросов",
+      "status": "inherited"
+    },
+    {
+      "id": "guard_contract",
+      "title": "Контракт плагина-гвардрейла: вход (текст, контекст с происхождением, доверенная задача, неисполненный вызов) → сигнал и запись затрат; реестр плагинов; запрет записи в БД",
+      "status": "inherited"
+    },
+    {
+      "id": "guard_plugins",
+      "title": "Встроенные офлайн-плагины (фильтр входа, валидатор аргументов инструмента, проверка происхождения контекста, проверка утечек в выходе) и выключенные по умолчанию адаптеры OSS-детекторов",
+      "status": "inherited"
+    },
+    {
+      "id": "manual_queue",
+      "title": "Общая очередь ручных разборов: дискретно-событийная модель с конечным числом операторов и явным временем обслуживания",
+      "status": "inherited"
+    },
+    {
+      "id": "guard_policy",
+      "title": "Конвейер точек установки (вход, контекст, инструмент, выход) и политика реакции: продолжить, изолировать фрагмент, уточнить, эскалировать, завершить безопасно; исполнение реакции кодом",
+      "status": "inherited"
+    },
+    {
+      "id": "channel",
+      "title": "Единственный текстовый канал между сторонами, барьер интерфейса и отдельно маркированный research-mode",
+      "status": "inherited"
+    },
+    {
+      "id": "corpus",
+      "title": "Размеченный корпус атак по трём осям и сопоставимых чистых контролей с ground truth, происхождением и хешем (dirty English)",
+      "status": "inherited"
+    },
+    {
+      "id": "attackers",
+      "title": "Атакующая сторона за интерфейсом канала: режим D (корпус) и режим A (LLM-агент с памятью, лимитом попыток и обратной связью только из канала); превышение лимита — нарушение протокола",
+      "status": "inherited"
+    },
+    {
+      "id": "agent",
+      "title": "Агент поддержки возвратов (LLM с инструментами), не знающий о гвардрейлах: перехват идёт через конвейер",
+      "status": "inherited"
+    },
+    {
+      "id": "simple_baseline",
+      "title": "g_simple: структурированная форма и правила возврата без свободного LLM-агента",
+      "status": "inherited"
+    },
+    {
+      "id": "configs",
+      "title": "Конфигурации g0, g_proc (правила процесса, дедупликация, квоты), g_simple, конфигурации с гвардрейлами, контроль «чистый детектор»; заморозка по хешу",
+      "status": "inherited"
+    },
+    {
+      "id": "evaluator",
+      "title": "Оценщик: сверка состояния БД с ground truth без чтения текста агента; исходы атаки выполнено/отказано/проигнорировано",
+      "status": "inherited"
+    },
+    {
+      "id": "runner",
+      "title": "Оркестратор эпизодов и потоков: снимок/восстановление, фиксированный seed, парные прогоны с атакующим трафиком и без, повтор для обнаружения расхождений",
+      "status": "inherited"
+    },
+    {
+      "id": "metrics",
+      "title": "Метрики FR-1.23 и break-even: ΔNet, L* на границах диапазонов цен, случаи V(g0)−V(g)≤0, Pareto-фронт, стоимость на предотвращённое нарушение",
+      "status": "inherited"
+    },
+    {
+      "id": "report_cli",
+      "title": "CLI: сквозной офлайн-прогон всех конфигураций с выдачей таблицы метрик и L* в файлы, живой прогон через RESEARCH_LLM_* с жёсткими лимитами",
+      "status": "inherited"
+    }
+  ],
+  "requirements": [
+    "FR-1.1",
+    "FR-1.2",
+    "FR-1.3",
+    "FR-1.4",
+    "FR-1.5",
+    "FR-1.6",
+    "FR-1.7",
+    "FR-1.8",
+    "FR-1.9",
+    "FR-1.10",
+    "FR-1.11",
+    "FR-1.12",
+    "FR-1.13",
+    "FR-1.14",
+    "FR-1.15",
+    "FR-1.16",
+    "FR-1.17",
+    "FR-1.18",
+    "FR-1.19",
+    "FR-1.20",
+    "FR-1.21",
+    "FR-1.22",
+    "FR-1.23",
+    "FR-1.24",
+    "NFR-2.1",
+    "NFR-2.2",
+    "NFR-2.3",
+    "NFR-2.4",
+    "NFR-2.5",
+    "NFR-2.6",
+    "NFR-2.7",
+    "NFR-2.8",
+    "NFR-2.9",
+    "NFR-2.10",
+    "NFR-2.11",
+    "NFR-2.12",
+    "NFR-2.13",
+    "NFR-2.14"
+  ],
+  "key_requirements": [
+    "FR-1.2",
+    "FR-1.3",
+    "FR-1.5",
+    "FR-1.6",
+    "FR-1.7",
+    "FR-1.8",
+    "FR-1.9",
+    "FR-1.13",
+    "FR-1.14",
+    "FR-1.15",
+    "FR-1.16",
+    "FR-1.17",
+    "FR-1.18",
+    "FR-1.19",
+    "FR-1.24",
+    "NFR-2.8",
+    "NFR-2.9"
+  ],
+  "case": {
+    "repository": "https://github.com/CloudNative-urfu/darp.git",
+    "ref": "research",
+    "commit": "a805eeebe6f2a15e3ed0990adf255a5488b724a3",
+    "documents": {
+      "docs/guardrails-as-a-vector-of-attack.md": "f514663ad024cd9f311468626b5e1910535e840a00fd3a647f9e97924341f875",
+      "docs/guardrails-break-even.md": "bfed37bd1821c1e94e089e7ab21c1acbf2629f58e6bdf71bc5ce8f6f63c2d9d2",
+      "docs/guardrails-target-audience.md": "9c9356f01fd2dff281e5ff207b085618daf5322b787f26cd465073384932a487",
+      "docs/guardrails-usp.md": "62b8af2b3548189145de71561ef63ee6970ac1e190726505de62824324990452",
+      "docs/guardrails_requirements.md": "b75b9a3a8ac0f8b5ff9085a85a042c543dfdde10328fc72d581036d80128078b",
+      "docs/methodology/README.md": "7fe60247d87967a080b12f560f12943947feb4020ea87399cfe23cc7abde7e05",
+      "docs/methodology/act-or-escalate.md": "83f3894fa8b9fdc1314d960a0027ea6f98d6a367fd65a783bd3ed271d4366acb",
+      "docs/methodology/agentdog.md": "ac77634c70b4d0675bf17fc327073dc9130698cfa1c14ecf860c0cba96ad8605",
+      "docs/methodology/agentdojo.md": "e474f9db76b812803f2ccdd08d9d50219b8314b9943053276913468a02710170",
+      "docs/methodology/ago.md": "50f2b4d097cb9ba4b3e1a23533ba0fb420f7138bc1204c1756c060cc38733a7e",
+      "docs/methodology/atom.md": "9cbea868fe16ad5b2ea0c784cdd15d48a1925390689573a19949478351f22409",
+      "docs/methodology/bells-o.md": "aeaf2ca872ef8cae1bf9a8f9fdef9dd47cc5746cc01192656c1955139d815269",
+      "docs/methodology/detection-to-decision.md": "82e6c0f371231dbe8ffc5c2fd5ae6a231f702ef6d8db6b266cf447b9b8ec390c",
+      "docs/methodology/educational-tutors.md": "7f0e6955495cf68e2a5a27d4e6772c332f88231bc443c53bee83316fdd5dfccc",
+      "docs/methodology/fp-dos.md": "9395bc09157141286469eb350e9a09e54cc90278e47a101af05f46375c5ab839",
+      "docs/methodology/gate-ai.md": "168889a8e132e02d66674c8de708f059db1b599ddac59e47b0b0d06a24861fa2",
+      "docs/methodology/injecagent.md": "b04b7db5a6a42ebb4295474ed1891e71a216c663066cd818c7738faabcf71446",
+      "docs/methodology/mutedrag.md": "6408a5004f04aed95ba297e2e524304b2c93df19563cbcc5b618724719d91098",
+      "docs/methodology/oversight-capacity.md": "22d1f8d15970b2ce678e8ff828a8385b4c7cde2f460355cd136f50e71f5f0afd",
+      "docs/methodology/payments-dispute.md": "c9b6a4db7822a3f2c9a54131cdd9bd51242f6194c8a54080128feb8ef224dd89",
+      "docs/methodology/piatlas.md": "253bdf2dd55cef55a13250fc09ea3d02f5fdebe659373f3b0a75f34f736b275f",
+      "docs/methodology/policy-is-not-capability.md": "15af242034e8a896acc558b6a961fbbe11984511d280ade2fbbf59867275893f",
+      "docs/methodology/ragwarrant.md": "e5386bf726474a401339bdffd1eedc3acd14f641b4d453d1b98f023c6a730263",
+      "docs/methodology/routeguard.md": "9afc58d0abbd976f0971ecdd0669f8d02d36a883ba07a55b7695c874ca0ea5cd",
+      "docs/methodology/safepyramid.md": "fc035953fe368eaf2f9837a6c92ba8dfa75677e9f48c6f451cbd578176844567",
+      "docs/methodology/shield-to-target.md": "792f6598b02b28c8ff17989c06fed941fff8be17107e6711e2c84219575f6a07",
+      "docs/methodology/sok-jailbreak-guardrails.md": "54d9d4e54a85cec23d9d6a60b3bc2537569e7dc6d874ffffea885ed912f34fd9",
+      "docs/methodology/stepshield.md": "a8d057f55d59604f6d2283d550a11e84799e87d46b22108756a58286dc97b268"
+    }
+  },
+  "failures": [],
+  "verification": {
+    "time": 1793989995.467072,
+    "ok": true,
+    "checks": []
+  },
+  "model": {
+    "name": "qwen/qwen3.5-9b",
+    "api": "OpenAI-compatible chat completions",
+    "base_url": "http://127.0.0.1:8787/v1",
+    "declared_context": 262144,
+    "environment": [
+      "RESEARCH_LLM_BASE_URL",
+      "RESEARCH_LLM_MODEL",
+      "RESEARCH_LLM_API_KEY"
+    ]
+  }
+}
