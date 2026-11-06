@@ -1,0 +1,162 @@
+{
+  "control_of": "g_layered",
+  "defender": "agent",
+  "executor_boundary": "955561c084ad57a95d4b6b01e04aa38126105db4d311347046205bea08b09fee",
+  "family": "guarded",
+  "fingerprint": "10acdbbb46c01f47c45ba87e2fc10f83c2838f333173dfb8a8e95948c40d72ff",
+  "guards": [
+    {
+      "id": "input-filter",
+      "params": {},
+      "stages": [
+        "input"
+      ]
+    },
+    {
+      "id": "context-provenance",
+      "params": {},
+      "stages": [
+        "context"
+      ]
+    },
+    {
+      "id": "tool-arg-validator",
+      "params": {},
+      "stages": [
+        "tool"
+      ]
+    }
+  ],
+  "name": "g_layered_minus_output_leak",
+  "notes": "Leave-one-out of g_layered: without output-leak.",
+  "operational_definition": [
+    "input: [input-filter] allow->continue, flag->escalate, block->terminate, error->continue",
+    "context: [context-provenance] allow->continue, flag->isolate, block->isolate, error->continue",
+    "tool: [tool-arg-validator] allow->continue, flag->isolate, block->clarify, error->isolate",
+    "clarifications per episode: 2"
+  ],
+  "policy": {
+    "detect_only": false,
+    "max_clarifications": 2,
+    "name": "g_layered-minus-output-leak",
+    "stages": {
+      "context": {
+        "on": {
+          "allow": "continue",
+          "block": "isolate",
+          "error": "continue",
+          "flag": "isolate"
+        },
+        "score_block": null,
+        "score_flag": null
+      },
+      "input": {
+        "on": {
+          "allow": "continue",
+          "block": "terminate",
+          "error": "continue",
+          "flag": "escalate"
+        },
+        "score_block": null,
+        "score_flag": null
+      },
+      "tool": {
+        "on": {
+          "allow": "continue",
+          "block": "clarify",
+          "error": "isolate",
+          "flag": "isolate"
+        },
+        "score_block": null,
+        "score_flag": null
+      }
+    },
+    "version": "guard-policy-1"
+  },
+  "process": null,
+  "queue_discipline": "fifo",
+  "resolved": {
+    "guard_set_fingerprint": "29156d9f9dd6755c14fe4117f6bff9ad5cf54ffcdc6b129d20f3664836c86536",
+    "guards": [
+      {
+        "plugin": {
+          "deployment": "builtin",
+          "enabled_by_default": true,
+          "license": "",
+          "mechanism": "rules",
+          "origin": "own rules; patterns of InjecAgent, AgentDojo, garak encoding probes (see rules.py)",
+          "params": {
+            "block_at": 0.85,
+            "flag_at": 0.5,
+            "min_b64_len": 16,
+            "quote_discount": 0.4
+          },
+          "plugin_id": "input-filter",
+          "stages": [
+            "input",
+            "context"
+          ],
+          "version": "1.0"
+        },
+        "stages": [
+          "input"
+        ]
+      },
+      {
+        "plugin": {
+          "deployment": "builtin",
+          "enabled_by_default": true,
+          "license": "",
+          "mechanism": "rules",
+          "origin": "own; trusted/untrusted separation per section 3.2 (provenance check)",
+          "params": {
+            "block_at": 0.85,
+            "flag_at": 0.5,
+            "quote_discount": 0.4,
+            "taint_score": 0.6,
+            "unknown_rule_weight": 0.6
+          },
+          "plugin_id": "context-provenance",
+          "stages": [
+            "input",
+            "context",
+            "tool"
+          ],
+          "version": "1.0"
+        },
+        "stages": [
+          "context"
+        ]
+      },
+      {
+        "plugin": {
+          "deployment": "builtin",
+          "enabled_by_default": true,
+          "license": "",
+          "mechanism": "rules",
+          "origin": "own; argument-validator idea from arXiv 2610.09906; rules R1-R7 from trusted policy table",
+          "params": {
+            "check_refusals": true,
+            "flag_score": 0.6
+          },
+          "plugin_id": "tool-arg-validator",
+          "stages": [
+            "tool"
+          ],
+          "version": "1.0"
+        },
+        "stages": [
+          "tool"
+        ]
+      }
+    ],
+    "policy_fingerprint": "d44452d3790718393ed7b4c4b8a1cfb751ea89e0e21511348969e49ce9ded6e2",
+    "policy_version": "guard-policy-1",
+    "process_fingerprint": null,
+    "process_version": null,
+    "simple_fingerprint": null
+  },
+  "role": "loo",
+  "schema": "darp-config-1",
+  "seed_label": "main"
+}

@@ -1,0 +1,8 @@
+{
+  "source_campaign": "/home/geekiot/.local/share/research-campaigns/darp-revision-1",
+  "source_snapshot": "/home/geekiot/.local/share/research-campaigns/darp-revision-1/cycles/01/snapshot",
+  "source_manifest_sha256": "d70662dad0f4abd0ed84bfebe193007acc340a556eaca56d43255b3561385425",
+  "created": 1793915614.464306,
+  "mode": "revision",
+  "entry_stage": "integrate"
+}

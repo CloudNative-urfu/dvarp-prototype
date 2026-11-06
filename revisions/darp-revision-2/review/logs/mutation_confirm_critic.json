@@ -1,0 +1,50 @@
+{
+ "amount_ignored": {
+  "returncode": 1,
+  "failed": [
+   "test_contradictions_get_objection (tests.test_revision2_confirm.ConfirmNegative.test_contradictions_get_objection)",
+   "test_contradictions_get_objection (tests.test_revision2_confirm.ConfirmNegative.test_contradictions_get_objection)",
+   "test_objection_restates_correct_facts (tests.test_revision2_confirm.ConfirmNegative.test_objection_restates_correct_facts)"
+  ],
+  "tail": "FAILED (failures=3)"
+ },
+ "order_ignored": {
+  "returncode": 1,
+  "failed": [
+   "test_refund_on_other_customer_order_with_right_amount (tests.test_revision2_confirm.ConfirmAmbiguous.test_refund_on_other_customer_order_with_right_amount)",
+   "test_contradictions_get_objection (tests.test_revision2_confirm.ConfirmNegative.test_contradictions_get_objection)"
+  ],
+  "tail": "FAILED (failures=2)"
+ },
+ "contradiction_to_yes": {
+  "returncode": 1,
+  "failed": [
+   "test_contradictions_get_objection (tests.test_revision2_confirm.ConfirmNegative.test_contradictions_get_objection)",
+   "test_contradictions_get_objection (tests.test_revision2_confirm.ConfirmNegative.test_contradictions_get_objection)",
+   "test_contradictions_get_objection (tests.test_revision2_confirm.ConfirmNegative.test_contradictions_get_objection)",
+   "test_contradictions_get_objection (tests.test_revision2_confirm.ConfirmNegative.test_contradictions_get_objection)",
+   "test_contradictions_get_objection (tests.test_revision2_confirm.ConfirmNegative.test_contradictions_get_objection)",
+   "test_contradictions_get_objection (tests.test_revision2_confirm.ConfirmNegative.test_contradictions_get_objection)",
+   "test_objection_restates_correct_facts (tests.test_revision2_confirm.ConfirmNegative.test_objection_restates_correct_facts)",
+   "test_wrong_order_and_amount_not_confirmed (tests.test_revision2_confirm.CriticExamples.test_wrong_order_and_amount_not_confirmed)",
+   "test_wrong_proposal_is_corrected_before_refund (tests.test_revision2_confirm.RunnerConfirm.test_wrong_proposal_is_corrected_before_refund)"
+  ],
+  "tail": "FAILED (failures=9)"
+ },
+ "incomplete_to_yes": {
+  "returncode": 1,
+  "failed": [
+   "test_bare_confirmation_requires_clarification (tests.test_revision2_confirm.ConfirmAmbiguous.test_bare_confirmation_requires_clarification)",
+   "test_bare_confirmation_requires_clarification (tests.test_revision2_confirm.ConfirmAmbiguous.test_bare_confirmation_requires_clarification)",
+   "test_bare_confirmation_requires_clarification (tests.test_revision2_confirm.ConfirmAmbiguous.test_bare_confirmation_requires_clarification)",
+   "test_bare_confirmation_requires_clarification (tests.test_revision2_confirm.ConfirmAmbiguous.test_bare_confirmation_requires_clarification)",
+   "test_unknown_amount_fact_is_not_confirmed (tests.test_revision2_confirm.ConfirmAmbiguous.test_unknown_amount_fact_is_not_confirmed)"
+  ],
+  "tail": "FAILED (failures=5)"
+ },
+ "mixed_slot_keeps_confirm_dropped": {
+  "returncode": 0,
+  "failed": [],
+  "tail": "OK"
+ }
+}

@@ -1,0 +1,77 @@
+{
+  "control_of": null,
+  "defender": "agent",
+  "executor_boundary": "955561c084ad57a95d4b6b01e04aa38126105db4d311347046205bea08b09fee",
+  "family": "guarded",
+  "fingerprint": "3193300082c4d79a72186aa4da3044575b8c1b7569adab6c4b2110fe9a7acdb3",
+  "guards": [
+    {
+      "id": "deberta-pi-v2",
+      "params": {},
+      "stages": [
+        "input"
+      ]
+    }
+  ],
+  "name": "g_in_oss",
+  "notes": "OSS detector protectai/deberta-v3-base-prompt-injection-v2 (rev 90c9989, ONNX, threshold 0.5 from the model card) at input with the g_in reaction; registered at revision 2 (lock v3).",
+  "operational_definition": [
+    "input: [deberta-pi-v2] allow->continue, flag->escalate, block->terminate, error->continue",
+    "clarifications per episode: 2"
+  ],
+  "policy": {
+    "detect_only": false,
+    "max_clarifications": 2,
+    "name": "g_in_oss",
+    "stages": {
+      "input": {
+        "on": {
+          "allow": "continue",
+          "block": "terminate",
+          "error": "continue",
+          "flag": "escalate"
+        },
+        "score_block": null,
+        "score_flag": null
+      }
+    },
+    "version": "guard-policy-1"
+  },
+  "process": null,
+  "queue_discipline": "fifo",
+  "resolved": {
+    "guard_set_fingerprint": "3063f67f3e00ac8f3d7c5be89f215ee77260515c939324d2df99d86671e3b6d7",
+    "guards": [
+      {
+        "plugin": {
+          "deployment": "self_hosted",
+          "enabled_by_default": false,
+          "license": "apache-2.0",
+          "mechanism": "classifier",
+          "origin": "protectai/deberta-v3-base-prompt-injection-v2 @ 90c9989b (HF), ONNX export; AgentDojo's BERT-detector defense class (case/docs/methodology/agentdojo.md)",
+          "params": {
+            "flag_signal": "flag",
+            "threshold": 0.5
+          },
+          "plugin_id": "deberta-pi-v2",
+          "stages": [
+            "input",
+            "context"
+          ],
+          "version": "90c9989"
+        },
+        "stages": [
+          "input"
+        ]
+      }
+    ],
+    "policy_fingerprint": "16916df9d009e747f941800a2089b3ae2940f6b86fd3d417cadc38cce0b16378",
+    "policy_version": "guard-policy-1",
+    "process_fingerprint": null,
+    "process_version": null,
+    "simple_fingerprint": null
+  },
+  "role": "main",
+  "schema": "darp-config-1",
+  "seed_label": "main"
+}
