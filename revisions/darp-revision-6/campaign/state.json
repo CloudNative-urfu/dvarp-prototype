@@ -1,0 +1,1117 @@
+{
+  "mode": "deep_case",
+  "version": 1,
+  "status": "completed",
+  "cycle": 1,
+  "stage": "done",
+  "winner": null,
+  "components": [
+    {
+      "id": "repro",
+      "title": "Воспроизводимость: seed, манифест прогона, хеши корпуса и конфигураций, версии моделей",
+      "requirements": [
+        "NFR-2.2"
+      ],
+      "depends_on": [],
+      "check_command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_repro.py"
+      ]
+    },
+    {
+      "id": "state_store",
+      "title": "Синтетическая БД магазина (SQLite), генератор данных, снимок и восстановление перед эпизодом",
+      "requirements": [
+        "FR-1.10",
+        "NFR-2.1",
+        "NFR-2.13"
+      ],
+      "depends_on": [
+        "repro"
+      ],
+      "check_command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_state_store.py"
+      ]
+    },
+    {
+      "id": "event_log",
+      "title": "Единый журнал событий и затрат по компонентам с раздельным учётом атакующей и защищаемой сторон",
+      "requirements": [
+        "FR-1.17",
+        "NFR-2.9"
+      ],
+      "depends_on": [
+        "repro"
+      ],
+      "check_command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_event_log.py"
+      ]
+    },
+    {
+      "id": "corpus",
+      "title": "Размеченный корпус атак по трём осям и сопоставимых чистых контролей с ground truth, происхождением и хешем (dirty English)",
+      "requirements": [
+        "FR-1.21",
+        "FR-1.22",
+        "NFR-2.7",
+        "NFR-2.13"
+      ],
+      "depends_on": [
+        "repro"
+      ],
+      "check_command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_corpus.py"
+      ]
+    },
+    {
+      "id": "executor",
+      "title": "Исполнитель: проверка прав, принадлежности заказа и разовых операций; граница безопасности g0",
+      "requirements": [
+        "FR-1.13",
+        "FR-1.14"
+      ],
+      "depends_on": [
+        "state_store",
+        "event_log"
+      ],
+      "check_command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_executor.py"
+      ]
+    },
+    {
+      "id": "llm",
+      "title": "Клиент OpenAI-совместимой модели через RESEARCH_LLM_* и детерминированная заглушка модели за тем же интерфейсом; учёт токенов и лимиты запросов",
+      "requirements": [
+        "NFR-2.5",
+        "NFR-2.6"
+      ],
+      "depends_on": [
+        "repro",
+        "event_log"
+      ],
+      "check_command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_llm.py"
+      ]
+    },
+    {
+      "id": "guard_contract",
+      "title": "Контракт плагина-гвардрейла: вход (текст, контекст с происхождением, доверенная задача, неисполненный вызов) → сигнал и запись затрат; реестр плагинов; запрет записи в БД",
+      "requirements": [
+        "FR-1.5",
+        "FR-1.6",
+        "FR-1.7",
+        "FR-1.8"
+      ],
+      "depends_on": [
+        "event_log"
+      ],
+      "check_command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_guard_contract.py"
+      ]
+    },
+    {
+      "id": "manual_queue",
+      "title": "Общая очередь ручных разборов: дискретно-событийная модель с конечным числом операторов и явным временем обслуживания",
+      "requirements": [
+        "FR-1.15",
+        "FR-1.16"
+      ],
+      "depends_on": [
+        "event_log"
+      ],
+      "check_command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_manual_queue.py"
+      ]
+    },
+    {
+      "id": "channel",
+      "title": "Единственный текстовый канал между сторонами, барьер интерфейса и отдельно маркированный research-mode",
+      "requirements": [
+        "FR-1.1",
+        "FR-1.2",
+        "FR-1.3",
+        "FR-1.4"
+      ],
+      "depends_on": [
+        "event_log"
+      ],
+      "check_command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_channel.py"
+      ]
+    },
+    {
+      "id": "evaluator",
+      "title": "Оценщик: сверка состояния БД с ground truth без чтения текста агента; исходы атаки выполнено/отказано/проигнорировано",
+      "requirements": [
+        "FR-1.18",
+        "FR-1.19"
+      ],
+      "depends_on": [
+        "state_store",
+        "corpus",
+        "event_log"
+      ],
+      "check_command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_evaluator.py"
+      ]
+    },
+    {
+      "id": "tools",
+      "title": "Ровно пять инструментов агента возвратов поверх исполнителя",
+      "requirements": [
+        "FR-1.11"
+      ],
+      "depends_on": [
+        "executor"
+      ],
+      "check_command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_tools.py"
+      ]
+    },
+    {
+      "id": "guard_plugins",
+      "title": "Встроенные офлайн-плагины (фильтр входа, валидатор аргументов инструмента, проверка происхождения контекста, проверка утечек в выходе) и выключенные по умолчанию адаптеры OSS-детекторов",
+      "requirements": [
+        "FR-1.5",
+        "NFR-2.4"
+      ],
+      "depends_on": [
+        "guard_contract"
+      ],
+      "check_command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_guard_plugins.py"
+      ]
+    },
+    {
+      "id": "guard_policy",
+      "title": "Конвейер точек установки (вход, контекст, инструмент, выход) и политика реакции: продолжить, изолировать фрагмент, уточнить, эскалировать, завершить безопасно; исполнение реакции кодом",
+      "requirements": [
+        "FR-1.8",
+        "FR-1.9"
+      ],
+      "depends_on": [
+        "guard_contract",
+        "manual_queue",
+        "event_log"
+      ],
+      "check_command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_guard_policy.py"
+      ]
+    },
+    {
+      "id": "attackers",
+      "title": "Атакующая сторона за интерфейсом канала: режим D (корпус) и режим A (LLM-агент с памятью, лимитом попыток и обратной связью только из канала); превышение лимита — нарушение протокола",
+      "requirements": [
+        "FR-1.4",
+        "FR-1.20",
+        "NFR-2.11"
+      ],
+      "depends_on": [
+        "channel",
+        "corpus",
+        "llm"
+      ],
+      "check_command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_attackers.py"
+      ]
+    },
+    {
+      "id": "agent",
+      "title": "Агент поддержки возвратов (LLM с инструментами), не знающий о гвардрейлах: перехват идёт через конвейер",
+      "requirements": [
+        "FR-1.9",
+        "FR-1.10",
+        "FR-1.12",
+        "NFR-2.7"
+      ],
+      "depends_on": [
+        "tools",
+        "llm",
+        "channel",
+        "guard_policy"
+      ],
+      "check_command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_agent.py"
+      ]
+    },
+    {
+      "id": "simple_baseline",
+      "title": "g_simple: структурированная форма и правила возврата без свободного LLM-агента",
+      "requirements": [
+        "FR-1.12",
+        "NFR-2.12"
+      ],
+      "depends_on": [
+        "tools",
+        "channel"
+      ],
+      "check_command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_simple_baseline.py"
+      ]
+    },
+    {
+      "id": "configs",
+      "title": "Конфигурации g0, g_proc (правила процесса, дедупликация, квоты), g_simple, конфигурации с гвардрейлами, контроль «чистый детектор»; заморозка по хешу",
+      "requirements": [
+        "NFR-2.10",
+        "NFR-2.12",
+        "FR-1.14"
+      ],
+      "depends_on": [
+        "guard_plugins",
+        "guard_policy",
+        "simple_baseline"
+      ],
+      "check_command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_configs.py"
+      ]
+    },
+    {
+      "id": "runner",
+      "title": "Оркестратор эпизодов и потоков: снимок/восстановление, фиксированный seed, парные прогоны с атакующим трафиком и без, повтор для обнаружения расхождений",
+      "requirements": [
+        "NFR-2.1",
+        "NFR-2.3",
+        "NFR-2.8",
+        "NFR-2.9"
+      ],
+      "depends_on": [
+        "agent",
+        "attackers",
+        "configs",
+        "evaluator",
+        "manual_queue",
+        "state_store"
+      ],
+      "check_command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_runner.py"
+      ]
+    },
+    {
+      "id": "metrics",
+      "title": "Метрики FR-1.23 и break-even: ΔNet, L* на границах диапазонов цен, случаи V(g0)−V(g)≤0, Pareto-фронт, стоимость на предотвращённое нарушение",
+      "requirements": [
+        "FR-1.23",
+        "FR-1.24",
+        "NFR-2.9"
+      ],
+      "depends_on": [
+        "runner",
+        "evaluator",
+        "event_log"
+      ],
+      "check_command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_metrics.py"
+      ]
+    },
+    {
+      "id": "report_cli",
+      "title": "CLI: сквозной офлайн-прогон всех конфигураций с выдачей таблицы метрик и L* в файлы, живой прогон через RESEARCH_LLM_* с жёсткими лимитами",
+      "requirements": [
+        "NFR-2.14",
+        "NFR-2.5"
+      ],
+      "depends_on": [
+        "metrics"
+      ],
+      "check_command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_report_cli.py"
+      ]
+    }
+  ],
+  "steps": {
+    "decompose": {
+      "status": "inherited",
+      "attempts": 0,
+      "infra_failures": 0,
+      "failures": [],
+      "source_campaign": "darp-revision-5"
+    },
+    "build:repro": {
+      "status": "inherited",
+      "attempts": 0,
+      "infra_failures": 0,
+      "failures": [],
+      "source_campaign": "darp-revision-5"
+    },
+    "build:state_store": {
+      "status": "inherited",
+      "attempts": 0,
+      "infra_failures": 0,
+      "failures": [],
+      "source_campaign": "darp-revision-5"
+    },
+    "build:event_log": {
+      "status": "inherited",
+      "attempts": 0,
+      "infra_failures": 0,
+      "failures": [],
+      "source_campaign": "darp-revision-5"
+    },
+    "build:corpus": {
+      "status": "inherited",
+      "attempts": 0,
+      "infra_failures": 0,
+      "failures": [],
+      "source_campaign": "darp-revision-5"
+    },
+    "build:executor": {
+      "status": "inherited",
+      "attempts": 0,
+      "infra_failures": 0,
+      "failures": [],
+      "source_campaign": "darp-revision-5"
+    },
+    "build:llm": {
+      "status": "inherited",
+      "attempts": 0,
+      "infra_failures": 0,
+      "failures": [],
+      "source_campaign": "darp-revision-5"
+    },
+    "build:guard_contract": {
+      "status": "inherited",
+      "attempts": 0,
+      "infra_failures": 0,
+      "failures": [],
+      "source_campaign": "darp-revision-5"
+    },
+    "build:manual_queue": {
+      "status": "inherited",
+      "attempts": 0,
+      "infra_failures": 0,
+      "failures": [],
+      "source_campaign": "darp-revision-5"
+    },
+    "build:channel": {
+      "status": "inherited",
+      "attempts": 0,
+      "infra_failures": 0,
+      "failures": [],
+      "source_campaign": "darp-revision-5"
+    },
+    "build:evaluator": {
+      "status": "inherited",
+      "attempts": 0,
+      "infra_failures": 0,
+      "failures": [],
+      "source_campaign": "darp-revision-5"
+    },
+    "build:tools": {
+      "status": "inherited",
+      "attempts": 0,
+      "infra_failures": 0,
+      "failures": [],
+      "source_campaign": "darp-revision-5"
+    },
+    "build:guard_plugins": {
+      "status": "inherited",
+      "attempts": 0,
+      "infra_failures": 0,
+      "failures": [],
+      "source_campaign": "darp-revision-5"
+    },
+    "build:guard_policy": {
+      "status": "inherited",
+      "attempts": 0,
+      "infra_failures": 0,
+      "failures": [],
+      "source_campaign": "darp-revision-5"
+    },
+    "build:attackers": {
+      "status": "inherited",
+      "attempts": 0,
+      "infra_failures": 0,
+      "failures": [],
+      "source_campaign": "darp-revision-5"
+    },
+    "build:agent": {
+      "status": "inherited",
+      "attempts": 0,
+      "infra_failures": 0,
+      "failures": [],
+      "source_campaign": "darp-revision-5"
+    },
+    "build:simple_baseline": {
+      "status": "inherited",
+      "attempts": 0,
+      "infra_failures": 0,
+      "failures": [],
+      "source_campaign": "darp-revision-5"
+    },
+    "build:configs": {
+      "status": "inherited",
+      "attempts": 0,
+      "infra_failures": 0,
+      "failures": [],
+      "source_campaign": "darp-revision-5"
+    },
+    "build:runner": {
+      "status": "inherited",
+      "attempts": 0,
+      "infra_failures": 0,
+      "failures": [],
+      "source_campaign": "darp-revision-5"
+    },
+    "build:metrics": {
+      "status": "inherited",
+      "attempts": 0,
+      "infra_failures": 0,
+      "failures": [],
+      "source_campaign": "darp-revision-5"
+    },
+    "build:report_cli": {
+      "status": "inherited",
+      "attempts": 0,
+      "infra_failures": 0,
+      "failures": [],
+      "source_campaign": "darp-revision-5"
+    },
+    "integrate": {
+      "status": "done",
+      "attempts": 2,
+      "infra_failures": 0,
+      "failures": [
+        {
+          "attempt": 1,
+          "kind": "check_failed",
+          "detail": "Snapshot size limit exceeded; keep model weights and caches outside artifacts",
+          "argv": [
+            "python3",
+            "scripts/verify_e2e.py",
+            "--out",
+            "runs/verify"
+          ],
+          "log": "logs/check-integrate-1794046777379493876.log",
+          "tail": ""
+        }
+      ]
+    },
+    "fix": {
+      "status": "done",
+      "attempts": 0,
+      "infra_failures": 0,
+      "failures": []
+    },
+    "report": {
+      "status": "done",
+      "attempts": 1,
+      "infra_failures": 0,
+      "failures": []
+    },
+    "critique": {
+      "status": "done",
+      "attempts": 1,
+      "infra_failures": 0,
+      "failures": []
+    }
+  },
+  "error": null,
+  "limit_history": [
+    {
+      "detected_at": 1794025199.8873928,
+      "resume_at": 1794039720.0,
+      "reason": "usage_limit_reached / HTTP 429 / You've hit your session limit · resets 1:20pm (Asia/Yekaterinburg)",
+      "stage": "integrate"
+    }
+  ],
+  "verification": {
+    "time": 1794053287.7533698,
+    "ok": true,
+    "checks": [
+      {
+        "name": "build:repro",
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-t",
+          ".",
+          "-p",
+          "test_repro.py"
+        ],
+        "ok": true,
+        "exit_code": 0,
+        "error": null,
+        "log": "logs/check-build-repro-1794051305081564195.log",
+        "tail": ""
+      },
+      {
+        "name": "build:state_store",
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-t",
+          ".",
+          "-p",
+          "test_state_store.py"
+        ],
+        "ok": true,
+        "exit_code": 0,
+        "error": null,
+        "log": "logs/check-build-state_store-1794051306974345748.log",
+        "tail": ""
+      },
+      {
+        "name": "build:event_log",
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-t",
+          ".",
+          "-p",
+          "test_event_log.py"
+        ],
+        "ok": true,
+        "exit_code": 0,
+        "error": null,
+        "log": "logs/check-build-event_log-1794051309390138907.log",
+        "tail": ""
+      },
+      {
+        "name": "build:corpus",
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-t",
+          ".",
+          "-p",
+          "test_corpus.py"
+        ],
+        "ok": true,
+        "exit_code": 0,
+        "error": null,
+        "log": "logs/check-build-corpus-1794051310997029179.log",
+        "tail": ""
+      },
+      {
+        "name": "build:executor",
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-t",
+          ".",
+          "-p",
+          "test_executor.py"
+        ],
+        "ok": true,
+        "exit_code": 0,
+        "error": null,
+        "log": "logs/check-build-executor-1794051314879135341.log",
+        "tail": ""
+      },
+      {
+        "name": "build:llm",
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-t",
+          ".",
+          "-p",
+          "test_llm.py"
+        ],
+        "ok": true,
+        "exit_code": 0,
+        "error": null,
+        "log": "logs/check-build-llm-1794051317102635178.log",
+        "tail": ""
+      },
+      {
+        "name": "build:guard_contract",
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-t",
+          ".",
+          "-p",
+          "test_guard_contract.py"
+        ],
+        "ok": true,
+        "exit_code": 0,
+        "error": null,
+        "log": "logs/check-build-guard_contract-1794051319010067656.log",
+        "tail": ""
+      },
+      {
+        "name": "build:manual_queue",
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-t",
+          ".",
+          "-p",
+          "test_manual_queue.py"
+        ],
+        "ok": true,
+        "exit_code": 0,
+        "error": null,
+        "log": "logs/check-build-manual_queue-1794051320724883722.log",
+        "tail": ""
+      },
+      {
+        "name": "build:channel",
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-t",
+          ".",
+          "-p",
+          "test_channel.py"
+        ],
+        "ok": true,
+        "exit_code": 0,
+        "error": null,
+        "log": "logs/check-build-channel-1794051323340715903.log",
+        "tail": ""
+      },
+      {
+        "name": "build:evaluator",
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-t",
+          ".",
+          "-p",
+          "test_evaluator.py"
+        ],
+        "ok": true,
+        "exit_code": 0,
+        "error": null,
+        "log": "logs/check-build-evaluator-1794051324793969663.log",
+        "tail": ""
+      },
+      {
+        "name": "build:tools",
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-t",
+          ".",
+          "-p",
+          "test_tools.py"
+        ],
+        "ok": true,
+        "exit_code": 0,
+        "error": null,
+        "log": "logs/check-build-tools-1794051327346655547.log",
+        "tail": ""
+      },
+      {
+        "name": "build:guard_plugins",
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-t",
+          ".",
+          "-p",
+          "test_guard_plugins.py"
+        ],
+        "ok": true,
+        "exit_code": 0,
+        "error": null,
+        "log": "logs/check-build-guard_plugins-1794051329175696447.log",
+        "tail": ""
+      },
+      {
+        "name": "build:guard_policy",
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-t",
+          ".",
+          "-p",
+          "test_guard_policy.py"
+        ],
+        "ok": true,
+        "exit_code": 0,
+        "error": null,
+        "log": "logs/check-build-guard_policy-1794051331749444905.log",
+        "tail": ""
+      },
+      {
+        "name": "build:attackers",
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-t",
+          ".",
+          "-p",
+          "test_attackers.py"
+        ],
+        "ok": true,
+        "exit_code": 0,
+        "error": null,
+        "log": "logs/check-build-attackers-1794051333811066289.log",
+        "tail": ""
+      },
+      {
+        "name": "build:agent",
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-t",
+          ".",
+          "-p",
+          "test_agent.py"
+        ],
+        "ok": true,
+        "exit_code": 0,
+        "error": null,
+        "log": "logs/check-build-agent-1794051335697939981.log",
+        "tail": ""
+      },
+      {
+        "name": "build:simple_baseline",
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-t",
+          ".",
+          "-p",
+          "test_simple_baseline.py"
+        ],
+        "ok": true,
+        "exit_code": 0,
+        "error": null,
+        "log": "logs/check-build-simple_baseline-1794051339696071286.log",
+        "tail": ""
+      },
+      {
+        "name": "build:configs",
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-t",
+          ".",
+          "-p",
+          "test_configs.py"
+        ],
+        "ok": true,
+        "exit_code": 0,
+        "error": null,
+        "log": "logs/check-build-configs-1794051345762810350.log",
+        "tail": ""
+      },
+      {
+        "name": "build:runner",
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-t",
+          ".",
+          "-p",
+          "test_runner.py"
+        ],
+        "ok": true,
+        "exit_code": 0,
+        "error": null,
+        "log": "logs/check-build-runner-1794051352101088860.log",
+        "tail": ""
+      },
+      {
+        "name": "build:metrics",
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-t",
+          ".",
+          "-p",
+          "test_metrics.py"
+        ],
+        "ok": true,
+        "exit_code": 0,
+        "error": null,
+        "log": "logs/check-build-metrics-1794051360106479820.log",
+        "tail": ""
+      },
+      {
+        "name": "build:report_cli",
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-t",
+          ".",
+          "-p",
+          "test_report_cli.py"
+        ],
+        "ok": true,
+        "exit_code": 0,
+        "error": null,
+        "log": "logs/check-build-report_cli-1794051372401021787.log",
+        "tail": ""
+      },
+      {
+        "name": "verify_command",
+        "argv": [
+          "python3",
+          "scripts/verify_e2e.py",
+          "--out",
+          "runs/verify"
+        ],
+        "ok": true,
+        "exit_code": 0,
+        "error": null,
+        "log": "logs/check-verify_command-1794051391252529454.log",
+        "tail": ""
+      }
+    ]
+  }
+}
