@@ -1,0 +1,99 @@
+{
+ "coverage": {
+  "control_type": {
+   "financial_terms": 5,
+   "legal_complaint": 6,
+   "long_emotional": 3,
+   "needs_clarification": 5,
+   "quoted_injection": 5
+  },
+  "delivery": {
+   "indirect_data": 4,
+   "masked_legit": 6,
+   "multi_turn": 7,
+   "single_turn": 7
+  },
+  "goal": {
+   "break": 12,
+   "burn": 4,
+   "shift": 4,
+   "slow": 4
+  },
+  "mechanism": {
+   "direct_task": 5,
+   "instruction_split": 3,
+   "obfuscation": 4,
+   "role_switch": 3,
+   "staged_injection": 4,
+   "trust_spoof": 5
+  },
+  "split": {
+   "dev": 17,
+   "holdout": 7
+  }
+ },
+ "dirty_rates": {
+  "attack": 0.9583,
+  "control": 1.0
+ },
+ "entry_hashes": {
+  "atk-01": "015eb624594892b5e9e0acc1c6f4e0815d89266747bd38d6a5720d74f699dde2",
+  "atk-02": "f56bfcdcf3394922b21cc95c08f7b11ded278143b7b3fc92321e923f02d07187",
+  "atk-03": "b1cef7e44371958ac7cff3ca9c1823498dbdf57bd4986d662363e112bea4011d",
+  "atk-04": "312a8af7334c702fb98fee61b91bfa61c05fdf6bdf1f3fefcd1b277d34b2bd20",
+  "atk-05": "29036cf25a1937b7aea49ce43d1ce5c9600b27bfe876dddda8ba2e21e4f5b73f",
+  "atk-06": "7f1483fda51cdf2d12a9c19f3855752f2bb4308a1e0d9a218fcbba1f21b99bdf",
+  "atk-07": "1c3fcccb5378f9b9105d25d0789db626bf6a557da04d5563fe6469655163bfc8",
+  "atk-08": "bb85d059a7d4be2dcc395657bee17db563245f95ec18fe15d5560605183be13c",
+  "atk-09": "030400d38d29a44d5d10a60824375b04dad1365f1ff0ce702874e8ed67fc0d1f",
+  "atk-10": "b1a858b5182172220cab3d43e43fd5f8b8b90a1978c05e8d65695dd619bc94dc",
+  "atk-11": "98c1bdb1315eabf8e2f73093a20f73d5e19f1cd9af653fe569854eee6d650ef5",
+  "atk-12": "d266002b6c3594aa2f79dc3899ba49e2e6978b7294d8133f851c2bd3318f6cbd",
+  "atk-13": "88fbf31dd01b8a9cc23e135d4cfe9fba59ccffc3291fccf93635426993552bf0",
+  "atk-14": "b7de3c53f2e4df232f1ff80ec14291717173b57b8fc6ae764a4048683684625b",
+  "atk-15": "3d057382f7c1aa62c769c0b3d22809ed24c48620a8cd3a2989aaa6f49c1a895b",
+  "atk-16": "e17e0f617fa1816352f804893ff948a091054a217b3bc8848b46dd68eddbaf24",
+  "atk-17": "fd9bedf64753c632fab67b8bfd7d99a8ff00fd4c837678d4deb6b5088818ef76",
+  "atk-18": "7668b1d4277a9cc59b88bfac93e9f33829ee32865888bf2d538bcf975bcf9471",
+  "atk-19": "f18c76a372444c0df90fbf1734b5b97e7f23734b73ef814c1de9ca4002ea6b8d",
+  "atk-20": "6609e50a364dbcf2540fbd6473870107faf91194120298d83a679cb0acfa46eb",
+  "atk-21": "ec44c822fafac80e45a8ff0f818da17afd2e1078f74d21ed0abff6bc8dd268d7",
+  "atk-22": "73f2d4b7a8d6bd255fed9d74a8f97328373a65af7fe635303c2ae05668a0c6a6",
+  "atk-23": "28411f9600056bd3f9cb18ebd0117d6afa62aa3be605956a8c16e387fc3ffd85",
+  "atk-24": "58cdb6a099e1ad1aff380ffa4eb042614630ddc0014abb84b2144b5edd004fc6",
+  "ctl-01": "86232e97bd1bb2f3d70422b1e8134bdc715fe7f0db9669878b34d6ab97b6f467",
+  "ctl-02": "bbee3dae9391a8dd4b998cbb5e130ff574a1c1dc413885b37de3e20586b145b9",
+  "ctl-03": "77647f5e3644602946c2fdc8f02d26a84bb2c5c0a67e25475f84857b802d4b8d",
+  "ctl-04": "300e07142a5b2d53cab5b6ba0b8e9c3c6c3e2320f9bb1f90028bb944fa42c5ef",
+  "ctl-05": "43cd02ea63bce4d54a100ea4f105aa10789c1f3db7f530a7e58904bd63d079da",
+  "ctl-06": "10f5fed168a7158089e6de32248acdf7dc9d047b7159f6ca3a69370943aa2965",
+  "ctl-07": "31c08ff85d773e21ac4b41af6a8f1442c078948774bff0558e0c64680c650071",
+  "ctl-08": "b0dd5790311fb21d4af32182821e87497348843fe6fd85ea70bdfde8399edbc8",
+  "ctl-09": "62073a3ebd392de5c37791d621892e55c1525adfa3d8c619991138b4b18050da",
+  "ctl-10": "7efa14d9fb7c793e4478eae938d65f7c81bc1db869351eb34069bb7a6439fb7e",
+  "ctl-11": "927f831946d3b326b8d155ec650621e33870831a0f2195f4271f1da0198c5971",
+  "ctl-12": "44cbb37e12b0dcdb6b0297f78849b248919bac0d848f24fe5db86f200c61774f",
+  "ctl-13": "8ac8e600b94ae946e41664b13e5c0014a25c069a688854e632457885b5b80bfe",
+  "ctl-14": "2c4536352bad130e3a8dcebcd30f81f45e4ca059aba1e537270a7f85a63248c5",
+  "ctl-15": "1dd2e2d92689e84bc5c3dbe2c16a58d9ba4010604f8c7e77b1f4ebc2566f5f16",
+  "ctl-16": "faa124901f53e2a977d46a17dbae55f8e18251963d68e47bd1c1bb86446fc4d3",
+  "ctl-17": "3100d5d48656d0c70ad560473f5d2487454a6ed1d3c64b9d0e90320ebf90386e",
+  "ctl-18": "7b10c74164e3cbcacbd2de9e8b5f59e5901133aaaadd8c5183d04d897b084d54",
+  "ctl-19": "a14758eee14323397f9bf5ccba24c43991d497a5ec52cc45dc7bf903325b3c1c",
+  "ctl-20": "1429087d426a0e1b9ed6b21c43095ad89468c15bf9d171184d8289f0b2c3042e",
+  "ctl-21": "f50690e32c65e8c891c3f7c977d80c5b676f23924144c814d29741652cedb9d6",
+  "ctl-22": "625f36f89834dde8fd2b941cad18031118cdb6410f30b6c54e8a2c391c5937ee",
+  "ctl-23": "ecb90c0a421370bdc69525b7a2573d66dcba6966e891234f98b59156f4f453eb",
+  "ctl-24": "d8eb328173a7d53830da4fbe57d381377ac30d27d3f7851fad2beb8e77aa0b30"
+ },
+ "file": "darp_corpus_v1.jsonl",
+ "language": "en (dirty English, NFR-2.7)",
+ "n_attacks": 24,
+ "n_controls": 24,
+ "n_entries": 48,
+ "n_independent_scenarios": 24,
+ "schema": "darp.corpus/1",
+ "sha256": "4e155426043e7eefcce1106b8a5b2e1f5db8b54c5a436f991db829b67a9229c5",
+ "synthetic": true,
+ "version": "v1"
+}

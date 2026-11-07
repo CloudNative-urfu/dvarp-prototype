@@ -1,0 +1,80 @@
+{
+ "author": "Claude (polygon author), written 2026-11-06 before evaluation",
+ "coverage": {
+  "control_type": {
+   "financial_terms": 4,
+   "legal_complaint": 5,
+   "long_emotional": 1,
+   "needs_clarification": 2,
+   "quoted_injection": 1
+  },
+  "delivery": {
+   "indirect_data": 3,
+   "masked_legit": 4,
+   "multi_turn": 2,
+   "single_turn": 4
+  },
+  "goal": {
+   "break": 13,
+   "burn": 0,
+   "shift": 0,
+   "slow": 0
+  },
+  "mechanism": {
+   "direct_task": 2,
+   "instruction_split": 1,
+   "obfuscation": 0,
+   "role_switch": 1,
+   "staged_injection": 1,
+   "trust_spoof": 8
+  },
+  "split": {
+   "dev": 0,
+   "holdout": 13
+  }
+ },
+ "design": "13 break attacks with paired controls of the same surface; classes the claims mechanism is vulnerable to and classes it is not",
+ "dirty_rates": {
+  "attack": 0.7692,
+  "control": 1.0
+ },
+ "entry_hashes": {
+  "atk-01": "66fd2fce08fa2e9b5d192aa917fca7bd844956438f1510b665b76fad95d16a73",
+  "atk-02": "d7623f15b3d12d8631e7184091e29f9666f9e970840624faf1d67c951d7afca8",
+  "atk-03": "1c0ee9612c0c5170e8277db6d36a898b786b438a85da212cdd68027ea33ed6cc",
+  "atk-04": "d45f908f96731a00391a7067c86752deffe0b12fab0d8015fd284987933d3810",
+  "atk-05": "d58dc22d3d21a5532d233632cdf962250b2c127ccbf025be7329d6fe2869c5f1",
+  "atk-06": "4380aa4145c9722c79611c8bb2738de64babd69584077871df551e3deb5598f6",
+  "atk-07": "30f73679337122532f5bc00b3524e2575d49324601f6054e5cd61ea19f703f16",
+  "atk-08": "470d2ef404884457e107901414eda2f48dd070d7d8b38c9e45345fa38ed496de",
+  "atk-09": "c86aab99f5f75810cad4a7ee3fb033fdd6a4c4b55c85941861dec2aecf466707",
+  "atk-10": "7177256dfcd16c12af1006aee0ed8141b532054178a498044e7ab2e32cba8773",
+  "atk-11": "4edb592184ada0170965e2643796acaf8e5dff28114d2a9fb8355cce70f38ec3",
+  "atk-12": "f3ad049e1fd2516618f221c08bb608ddbb0f3a31d602b5470e0fc50e482c7865",
+  "atk-13": "46304803c72d0eb85d4d97ffc317a4d590d0fdcd29bad3d9c7983f8224dbcbb8",
+  "ctl-01": "be8226806615a70966b8090c7bafdbcb345827b3737943a09d682358c16e2db5",
+  "ctl-02": "ffc76a167dcf51dd49185599d5cdc039fdf0acd56a30818cea76cc9fe1ddd457",
+  "ctl-03": "fa3f83a4fc582aefb02434be347c5a8feaecec44ebf1fb09ad045d9486a381f5",
+  "ctl-04": "5945e356e8ce2801d72706a399c5568a7812ad3515c7b15f634c2c6a4ec95b0c",
+  "ctl-05": "eb4d10c7f7b2470716ef37fa7ad36775e1ca56bd5a07f99b1451734c94652d03",
+  "ctl-06": "65c1a3c3c4d7d66cb3e6b9f1d9c190ddf213e3b60a26cc382b5c52fd45741955",
+  "ctl-07": "ada664639a4a24e52dc61d296eda2432b92e825658cebabb0fa78ccb2bff0b67",
+  "ctl-08": "36b9041cbe7d39523df35ed315aa3784eaad2fa5ffdc6591fcc1a797ab60c8fa",
+  "ctl-09": "04048466bbe4973b67e11ef6ef83116f757b774b7dc3763daae2771d8e3e7fb6",
+  "ctl-10": "5be16c3496c60f8083860d42a3685ff46dc0720893804853feb02a41da76a2cd",
+  "ctl-11": "ec89401caa5b9bcddeedf217626de2bc3c51ac6d7b79653af36193b3bd9323a3",
+  "ctl-12": "93ea910be93861354c3e2b536a90611a7bd6b9610b5959a51ad252c66f4deb0b",
+  "ctl-13": "c7113491b6847a274c8eaf6285722e9c5f960471b616e2ec6c46bbae57712f5b"
+ },
+ "file": "darp_corpus_heldout_v3.jsonl",
+ "independence": "written by the polygon author after fixing the claims mechanism and without looking at outcomes on this set; NOT blind to the mechanism; detector rules were not opened while writing",
+ "language": "en (dirty English, NFR-2.7)",
+ "n_attacks": 13,
+ "n_controls": 13,
+ "n_entries": 26,
+ "n_independent_scenarios": 13,
+ "schema": "darp.corpus/1",
+ "sha256": "b5c99ea005261cece897de9f4a0feaf8e5c283caaf9b035274483b3c32795b8d",
+ "synthetic": true,
+ "version": "heldout_v3"
+}
