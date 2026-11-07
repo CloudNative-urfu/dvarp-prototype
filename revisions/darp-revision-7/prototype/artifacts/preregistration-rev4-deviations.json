@@ -1,0 +1,26 @@
+{
+ "schema": "darp-preregistration-deviations/rev4",
+ "preregistration_sha256": "5b84de7dbcf9de9d481a613022c4f05b8702fc0d13b604f66be5cdeecdacbe61",
+ "created_utc": "2026-11-06T17:27:21.494760+00:00",
+ "deviations": [
+  {
+   "id": "D4.1",
+   "file": "scripts/live_mode_a_v.py",
+   "frozen_sha256": "fb228b237e09ad9453b9fbf0004f3030c4b157f061d102311d748f06104e57ad",
+   "new_sha256": "6ca5f7505e03fcb93797787d3c8562f7adb9403e37f9efa01b0a41be8e36ada7",
+   "when": "after live run1, before live run2",
+   "what": "replay mode takes the run budget from the compared results.json (budget_source in results); previously replay used CLI defaults (60 requests) while run1 used 55 and hit the limit (5 refusals before send) -> 3 false replay divergences",
+   "effect_on_live_runs": "none: changed code path executes only with --replay and --compare; live run2 uses the same live code path as run1 (record mode)",
+   "evidence": [
+    "artifacts/checks/revision4/regressions/replay_budget_OLD.log",
+    "artifacts/checks/revision4/regressions/replay_budget_NEW.log",
+    "tests/test_revision4_replay.py::test_replay_uses_recorded_budget"
+   ]
+  },
+  {
+   "id": "D4.2",
+   "file": "tests/test_revision4_replay.py, scripts/rev4_repeat_compare.py",
+   "what": "added after preregistration: regression test for D4.1 and an offline comparator of the two live runs (H4.2); neither changes any measured outcome"
+  }
+ ]
+}

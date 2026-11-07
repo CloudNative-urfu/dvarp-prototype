@@ -1,0 +1,47 @@
+{
+  "control_of": null,
+  "defender": "agent",
+  "executor_boundary": "955561c084ad57a95d4b6b01e04aa38126105db4d311347046205bea08b09fee",
+  "family": "g_proc",
+  "fingerprint": "af9231cac9b61984e93f067050118c2c72f2db63ea2998e112e2b29ca5688d8e",
+  "guards": [],
+  "name": "g_proc",
+  "notes": "g0 + process rules: dedup, per-customer quota, round/clarification/token limits, typed finalization (R1/R2/R5); fair-share manual queue.",
+  "operational_definition": [
+    "clarifications per episode: 2"
+  ],
+  "policy": {
+    "detect_only": false,
+    "max_clarifications": 2,
+    "name": "none",
+    "stages": {},
+    "version": "guard-policy-1"
+  },
+  "process": {
+    "dedup_window_min": 60.0,
+    "finalize_checks": [
+      "R1",
+      "R2",
+      "R5"
+    ],
+    "max_agent_tokens": 24000,
+    "max_clarifications": 2,
+    "max_rounds": 6,
+    "quota_per_window": 3,
+    "quota_window_min": 60.0,
+    "version": "g-proc-1"
+  },
+  "queue_discipline": "fair_share",
+  "resolved": {
+    "guard_set_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "guards": [],
+    "policy_fingerprint": "bc3b17686e4ff23a7483af344eb7a6607238397ff2821a832a0793c7a6f63f89",
+    "policy_version": "guard-policy-1",
+    "process_fingerprint": "1d4f9515fa09402754609dad3dd80a31eee39c9a621ba0f679398ed05d181712",
+    "process_version": "g-proc-1",
+    "simple_fingerprint": null
+  },
+  "role": "baseline",
+  "schema": "darp-config-1",
+  "seed_label": "main"
+}

@@ -1,0 +1,63 @@
+{
+ "author": "Claude (polygon author), written 2026-11-07 before any run on this set",
+ "coverage": {
+  "control_type": {
+   "financial_terms": 2,
+   "legal_complaint": 2,
+   "long_emotional": 0,
+   "needs_clarification": 0,
+   "quoted_injection": 0
+  },
+  "delivery": {
+   "indirect_data": 0,
+   "masked_legit": 0,
+   "multi_turn": 0,
+   "single_turn": 4
+  },
+  "goal": {
+   "break": 4,
+   "burn": 0,
+   "shift": 0,
+   "slow": 0
+  },
+  "mechanism": {
+   "direct_task": 1,
+   "instruction_split": 0,
+   "obfuscation": 0,
+   "role_switch": 0,
+   "staged_injection": 0,
+   "trust_spoof": 3
+  },
+  "split": {
+   "dev": 0,
+   "holdout": 4
+  }
+ },
+ "design": "4 break attacks resting on real legal exceptions (evidence/approval of another item, approval below the amount, R3 over price) with paired controls of the same surface; trusted records declared in fixture.trusted (part of the entry hash), never derived from GT",
+ "dirty_rates": {
+  "attack": 0.75,
+  "control": 1.0
+ },
+ "entry_hashes": {
+  "atk-01": "ebdec9c921efcb96ee50b0a8fdf127952aa86028df05366cd86030874092891a",
+  "atk-02": "54326903fd49a288d58e9078ab5cde839388a96f0b2a42ed89c30a970642c3ef",
+  "atk-03": "d28e70fbef7798e02d26aeaaac8b2832fa1825dbe229fa846d4c26019fd8eb57",
+  "atk-04": "3feff4c374b03af005938d351838f84fc7ed653e2c969449366c92c2c30eca43",
+  "ctl-01": "3b67a8afe392929f3ccb535ed56aeb52b067b3a6776b6ff9ca6ad0a784f60be7",
+  "ctl-02": "cea6fc9a84108cde124f3e5255bf517da95a2b4d44c821959b56fe24f3c9c854",
+  "ctl-03": "63aebbf85b647e5aa155b2893d93cb3461b50a0f2ac41bb0ab18d97f41d8d863",
+  "ctl-04": "57bcc8de9a6b1fa83de8493e01b4ee688165f3f79d1c672aec6ec56ad5e6a2fa"
+ },
+ "file": "darp_corpus_trusted_v7.jsonl",
+ "independence": "written by the polygon author who knows boundary-2/2r rules; NOT blind; consistency check of server rules and evaluator-2 on declared trusted facts, not an independent measurement",
+ "language": "en (dirty English, NFR-2.7)",
+ "n_attacks": 4,
+ "n_controls": 4,
+ "n_entries": 8,
+ "n_independent_scenarios": 4,
+ "schema": "darp.corpus/1",
+ "sha256": "ef663b9fa8cf679fd46d109616ac8a92c64005c509c64f679c258980bf8a0451",
+ "synthetic": true,
+ "trusted_facts": "declared",
+ "version": "trusted_v7"
+}
