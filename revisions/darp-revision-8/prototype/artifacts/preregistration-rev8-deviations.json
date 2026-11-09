@@ -1,0 +1,102 @@
+{
+ "prereg": "artifacts/preregistration-rev8.json",
+ "note": "Changes of files frozen by earlier preregistrations made in darp-revision-8 (integrate). Written before the rev8 live slice; every change is backed by a byte-identical regression in verify.",
+ "deviations": [
+  {
+   "id": "D8.1",
+   "what": "boundary fingerprints (BOUNDARY_FINGERPRINTS) of boundary-2/2r unchanged although the executor connection of 2/2r now also has TEMP append-only triggers and PRAGMA/ATTACH denial",
+   "why": "the boundary spec is declarative (rules R1/R2/R5, routing); the new protection is depth-of-defence on the same connection and does not change any legal result. Not changed to keep rev6/rev7 tables and the lock comparable",
+   "effect_on_numbers": "none (rev7 boundary_diag/foundation_table/regression_rev6 byte-identical)"
+  },
+  {
+   "id": "D8.2",
+   "file": "configs/configs.lock.json",
+   "what": "lock v6",
+   "why": "D8.2 lock v6: only defense_code.executor re-hashed (history-append-only: TEMP triggers + PRAGMA/ATTACH deny in the executor authorizer); configurations, their files and set_fingerprint unchanged; lock v5 kept in configs/history/configs.lock.006...",
+   "code_hash_current": "75f5919c7f1899729c24f0767479c9ae8d48a0b2bdc8aa7ebb25cc10f05d10c3",
+   "effect_on_numbers": "none"
+  },
+  {
+   "id": "D8.3",
+   "file": "darp_range/executor/executor.py",
+   "what": "history-append-only",
+   "why": "D8.3 history-append-only (T1): executor-boundary-2/2r install TEMP append-only triggers with recursive_triggers=ON before set_authorizer; the authorizer denies ATTACH/DETACH and non-read PRAGMAs. boundary-1 unchanged; rev7 tables reproduced byte-identically (verify rev7 checks)",
+   "code_hash_current": "6725d014f3b515ce80f43210b6194fb27d7e9953b5247f242cedd66c95345baa",
+   "effect_on_numbers": "none on saved tables"
+  },
+  {
+   "id": "D8.4a",
+   "file": "darp_range/channel/legal_user.py",
+   "what": "facts_patient",
+   "why": "D8.4 patient-legal-customer (T3): new confirm mode facts_patient and end reason agent_stalled appended; existing modes facts/grammar_rev5 byte-identical (rev5 blind set rows, rev6/rev7 tables and cassettes reproduced in verify)",
+   "code_hash_current": "405455cff5bb5d4ee3dd992b2d463f2573c557f0a1fb940f6660f756daee090d",
+   "effect_on_numbers": "none for facts/grammar_rev5"
+  },
+  {
+   "id": "D8.4b",
+   "file": "darp_range/runner/plan.py",
+   "what": "plan accepts facts_patient",
+   "why": "D8.4 RunPlan.legal_confirm accepts facts_patient (LEGAL_CONFIRM_MODES extended; defaults unchanged)",
+   "code_hash_current": "87379d6c703753ffc514dc23a9013cd8b81b8306c29417d4f7906a8c58cfa305",
+   "effect_on_numbers": "none"
+  },
+  {
+   "id": "D8.5",
+   "file": "scripts/rev7_boundary_diag.py",
+   "what": "--legal-confirm facts_patient",
+   "why": "D8.5 rev7_boundary_diag.py: --legal-confirm accepts facts_patient (choices only); default facts run byte-identical to the saved rev7 table",
+   "code_hash_current": "3bae76ff1d2ccde716ffd23b0a9f98bea6aa0341b3e9f6cfdb5359d3aefdf140",
+   "effect_on_numbers": "none"
+  },
+  {
+   "id": "D8.6",
+   "file": "scripts/verify_e2e.py",
+   "what": "rev7 budget check reads artifacts/revision-7-budget.json (byte copy of the rev7 improvement-budget.json); artifacts/improvement-budget.json now accounts for rev8. Prereg checks rev3/rev5/rev7 also accept updates declared here",
+   "why": "the pass budget file is per pass",
+   "effect_on_numbers": "none"
+  }
+ ],
+ "file_hash_updates": {
+  "artifacts/preregistration-rev3.json": {
+   "configs/configs.lock.json": {
+    "preregistered": "378feb12fa21cef5e91229d4378d1f0f48631a4bdff73f5f745500f511ae9f78",
+    "current": "75f5919c7f1899729c24f0767479c9ae8d48a0b2bdc8aa7ebb25cc10f05d10c3",
+    "reason": "D8.2 lock v6: only defense_code.executor re-hashed (history-append-only: TEMP triggers + PRAGMA/ATTACH deny in the executor authorizer); configurations, their files and set_fingerprint unchanged; lock v5 kept in configs/history/configs.lock.006..."
+   }
+  },
+  "artifacts/preregistration-rev5.json": {
+   "darp_range/channel/legal_user.py": {
+    "preregistered": "6c1b23ef69116b46249892471a4bade2a373a051ed49cf5ee1e36f03d2710f4d",
+    "current": "405455cff5bb5d4ee3dd992b2d463f2573c557f0a1fb940f6660f756daee090d",
+    "reason": "D8.4 patient-legal-customer (T3): new confirm mode facts_patient and end reason agent_stalled appended; existing modes facts/grammar_rev5 byte-identical (rev5 blind set rows, rev6/rev7 tables and cassettes reproduced in verify)"
+   }
+  },
+  "artifacts/preregistration-rev7.json": {
+   "darp_range/executor/executor.py": {
+    "preregistered": "ae577cf2ecf0cc1852feefbe47aa42a842de0ebe38644e9e43529080b4b72a6a",
+    "current": "6725d014f3b515ce80f43210b6194fb27d7e9953b5247f242cedd66c95345baa",
+    "reason": "D8.3 history-append-only (T1): executor-boundary-2/2r install TEMP append-only triggers with recursive_triggers=ON before set_authorizer; the authorizer denies ATTACH/DETACH and non-read PRAGMAs. boundary-1 unchanged; rev7 tables reproduced byte-identically (verify rev7 checks)"
+   },
+   "darp_range/channel/legal_user.py": {
+    "preregistered": "f8723fa2baf549d53e7a9c8734e9c239f51de0b0d1a07d65e53cf69d2f049b0e",
+    "current": "405455cff5bb5d4ee3dd992b2d463f2573c557f0a1fb940f6660f756daee090d",
+    "reason": "D8.4 patient-legal-customer (T3): new confirm mode facts_patient and end reason agent_stalled appended; existing modes facts/grammar_rev5 byte-identical (rev5 blind set rows, rev6/rev7 tables and cassettes reproduced in verify)"
+   },
+   "darp_range/runner/plan.py": {
+    "preregistered": "658c5874f7061ef6a1c9ea2a528e054e02d6cfb106605558add7262a82449914",
+    "current": "87379d6c703753ffc514dc23a9013cd8b81b8306c29417d4f7906a8c58cfa305",
+    "reason": "D8.4 RunPlan.legal_confirm accepts facts_patient (LEGAL_CONFIRM_MODES extended; defaults unchanged)"
+   },
+   "scripts/rev7_boundary_diag.py": {
+    "preregistered": "0b53765c7113614029c5678a3063da1ceb6a80ec20f669ebe03042af0eee0c47",
+    "current": "3bae76ff1d2ccde716ffd23b0a9f98bea6aa0341b3e9f6cfdb5359d3aefdf140",
+    "reason": "D8.5 rev7_boundary_diag.py: --legal-confirm accepts facts_patient (choices only); default facts run byte-identical to the saved rev7 table"
+   },
+   "configs/configs.lock.json": {
+    "preregistered": "a9db70916807656b7040bf48984e1bd09b1aae99ed50c2b0cfe9cfeca7dd98f7",
+    "current": "75f5919c7f1899729c24f0767479c9ae8d48a0b2bdc8aa7ebb25cc10f05d10c3",
+    "reason": "D8.2 lock v6: only defense_code.executor re-hashed (history-append-only: TEMP triggers + PRAGMA/ATTACH deny in the executor authorizer); configurations, their files and set_fingerprint unchanged; lock v5 kept in configs/history/configs.lock.006..."
+   }
+  }
+ }
+}

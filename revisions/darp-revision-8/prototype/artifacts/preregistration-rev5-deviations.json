@@ -1,0 +1,31 @@
+{
+ "preregistration": "artifacts/preregistration-rev5.json",
+ "prereg_sha256": "51a9dc0d47f606858e74e70d1a55ba6a32e2b126af6c05120579f016aa48e42d",
+ "deviations": [
+  {
+   "id": "D5.1",
+   "what": "logs manifest SHA256SUMS listed itself (hashed while empty), so the manifest hash in the preregistration covers a self-referential file",
+   "effect": "first confirm-impact run reported logs_sha256_ok=false only for ./SHA256SUMS; all 39 data-file hashes are identical to the preregistered manifest",
+   "fix": "manifest regenerated without the self entry; the original kept as artifacts/checks/revision5/live_legal_logs_SHA256SUMS.prereg_selfref",
+   "affects_results": false
+  },
+  {
+   "id": "D5.2",
+   "what": "rev5_blind_eval.py looked up contract_frozen_sha256 under blind_set instead of confirm_allowlist (KeyError before any probe was evaluated)",
+   "effect": "script crashed before evaluation; fixed the key lookup; no numbers were produced by the failing run",
+   "affects_results": false
+  },
+  {
+   "id": "D5.3",
+   "what": "confirm-impact decision: the preregistered allowed outcome '0/N confirm episodes, bound not measurable' is emitted as decision 'bound_not_measurable_on_live_logs' when no run has both a compared config and recorded confirm episodes (first run printed 'simulator_detail_limited_impact', which would have been vacuous)",
+   "effect": "wording of the decision only; inputs unchanged",
+   "affects_results": false
+  },
+  {
+   "id": "D5.4",
+   "what": "supplementary analysis added after the first run: worst-case flips over confirm episodes re-judged by the CURRENT contract (recorded legal_user events come from rev1/rev2 client versions)",
+   "effect": "reported separately as supplementary_rejudged; not part of the preregistered decision rule",
+   "affects_results": false
+  }
+ ]
+}
