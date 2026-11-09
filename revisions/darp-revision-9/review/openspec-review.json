@@ -1,0 +1,63 @@
+{
+ "change": "attacker-isolation-boundary",
+ "reviewer": "critic deep_case rev9 (independent; checkboxes of the author are not edited)",
+ "tasks": [
+  {
+   "id": "access-matrix",
+   "status": "partial",
+   "summary": "Матрица и валидатор есть и работают: отрицательные контроли и мутанты автора убиты, isolation_verify PASS в моей копии. Понижено до partial: (1) строка defender→attacker_memory: deny не соответствует факту — шпион в процессе брокера через gc видит бриф, прошлые AttemptRecord с тактиками и 13 промптов атакующего с его памятью; (2) валидатор проверяет наличие ссылки на пробу, а не её смысл: provenance_registry ссылается на чужую пробу read_corpus_gt, почти все allow-строки защиты, оценщика и брокера ссылаются на один test_mode_d_byte_identical; (3) нет поля enforcement os|convention, хотя строки defender/evaluator держатся на соглашении; (4) строка system_interpreter «no project data» неверна: /nix/store смонтирован целиком.",
+   "evidence": [
+    "artifacts/critic_logs/defspy/run.log",
+    "artifacts/critic_logs/defspy/defender_sees_attacker.json",
+    "artifacts/critic_logs/isolation_verify.log",
+    "artifacts/critic_logs/malicious/malicious_child_result.json"
+   ]
+  },
+  {
+   "id": "attacker-sandbox-ipc",
+   "status": "partial",
+   "summary": "Подтверждено: атакующий реально работает под bwrap; побайтная регрессия D/A на заглушке с seeds 7/8/9 проходит; внутри нет RESEARCH_LLM_*; накладные расходы A-stub +8.1 % (у автора +9.1 %); сеть и запись закрыты. Понижено до partial по spec attacker-isolation: (1) «closed-schema» соблюдается только на уровне имён полей — поддельный AttemptRecord (FORGED-EP, attempt=99, выдуманная реплика, believed_success=true) принят брокером без ipc_errors; некорректные cost, чужой episode_id и неверные turns дают EventLogError/TypeError, а не ipc_protocol_error; (2) «all namespaces unshared» никак не проверяется тестами: мутант без PID/IPC namespace (MX6) выживает, в нём видно 13 хостовых PID; (3) «read-only only to the interpreter» нарушено: целиком /nix/store раскрывает имена инфраструктуры фабрики (автор это записал в simplifications); (4) sandbox включается только явно — verify, run_command и report_cli идут in-process.",
+   "evidence": [
+    "artifacts/critic_logs/malicious/run.log",
+    "artifacts/critic_logs/malicious/run1_badcost.log",
+    "artifacts/critic_logs/malicious/run2_other_episode.log",
+    "artifacts/critic_logs/malicious/run3_bad_record_typeerror.log",
+    "artifacts/critic_logs/critic_mutants.log",
+    "artifacts/critic_logs/mx6_leak.log",
+    "artifacts/critic_logs/isolation_verify/summary.json"
+   ]
+  },
+  {
+   "id": "os-negative-probes",
+   "status": "implemented",
+   "summary": "Критерий приёмки выполнен и воспроизведён: 19 отрицательных проб в sandbox дают DENY, 3 позитивные — PASS; in-process gc-канарейка — PASS (RED, L1 воспроизведена); слабый sandbox даёт файловые утечки и утечку /proc/<ppid>/environ; отдельная команда быстрая. Остатки, не входящие в критерий приёмки: пробы не замечают удаления --die-with-parent, --cap-drop ALL, --new-session и PID/IPC namespace (мои MX2/MX3/MX4/MX6 выживают); proc_ppid_environ смотрит только /proc/<ppid>, а не все видимые PID; результаты проб сообщает сам ребёнок (самоотчёт).",
+   "evidence": [
+    "artifacts/critic_logs/isolation_verify.log",
+    "artifacts/critic_logs/isolation_verify/summary.json",
+    "artifacts/critic_logs/critic_mutants.log",
+    "artifacts/critic_logs/mutate_rev9.log"
+   ]
+  },
+  {
+   "id": "payload-audit-invariance",
+   "status": "implemented",
+   "summary": "Воспроизведено в isolation_verify: при 4 скрытых изменениях × 3 брифах sha256 всех payload совпадают; изменённый ответ агента меняет следующий payload; system_prompt_leak_via_reply измеряется; канарейки ключа в журнале нет; мутанты M9.5/M9.12 убиты. Ограничения: ответы агента фиксированы (это регрессионный страж барьера, а не живое измерение); сам журнал payload лежит в процессе брокера, где его читает защищаемая сторона (см. access-matrix).",
+   "evidence": [
+    "artifacts/critic_logs/isolation_verify.log",
+    "artifacts/critic_logs/isolation_verify/summary.json",
+    "artifacts/critic_logs/mutate_rev9.log",
+    "artifacts/critic_logs/defspy/defender_sees_attacker.json"
+   ]
+  },
+  {
+   "id": "attack-provenance-gate",
+   "status": "partial",
+   "summary": "Реестр (60 legacy-атак implementation-informed, хеши MANIFEST не изменены), отказ на поддельном blind-critic и вычисление claim_level воспроизведены. Понижено до partial: spec attack-provenance требует, чтобы claim_level был в манифесте прогона (The run manifest SHALL contain claim_level), а он пишется только в боковой attacker_isolation.json и только в regression.run_isolated; Runner по умолчанию (attacker_factory=None) идёт in-process и метку в manifest.json не пишет. Кроме того, условие «OS-пробы этого прогона прошли» опирается на самоотчёт процесса атакующего: враждебный ребёнок с ложным self_check проходит старт.",
+   "evidence": [
+    "artifacts/critic_logs/isolation_verify.log",
+    "artifacts/critic_logs/malicious/run.log",
+    "artifacts/critic_logs/full_verify_isolated.log"
+   ]
+  }
+ ]
+}

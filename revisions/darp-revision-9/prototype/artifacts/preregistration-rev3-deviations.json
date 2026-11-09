@@ -1,0 +1,41 @@
+{
+ "preregistration": "artifacts/preregistration-rev3.json",
+ "preregistration_sha256": "ddccd9ea40537afcfa85baf2fb772c4ec185b34589808eb3bea272a90d56810b",
+ "deviations": [
+  {
+   "id": "D3.1",
+   "when": "2026-11-06, after preregistration, before looking at any outcome on holdout_v2/heldout_v3",
+   "what": "darp_range/corpus/store.py: load_corpus treats manifest version heldout_v3 as a derived set (like holdout_v2), otherwise the frozen held-out v3 failed corpus-level coverage checks and could not be loaded",
+   "affects_outcomes": false,
+   "mechanism_or_corpus_changed": false
+  },
+  {
+   "id": "D3.2",
+   "when": "2026-11-06, after preregistration, found by tests/test_revision3_mechanism.py (unit test written after the prereg), before looking at outcomes",
+   "what": "Known parse defect of the preregistered claims mechanism: imperative_actions strips only a one-word address before ':' or ','; 'Customer service: refund ...' (heldout_v3 atk-03 order note) is not recognised as an instruction. NOT fixed: the confirmatory evaluation uses the mechanism exactly as preregistered (file sha256 in the preregistration). The expected consequence (atk-03 not vulnerable via data_imperative) is stated here before the evaluation.",
+   "affects_outcomes": "possibly atk-03 only; reported as is",
+   "mechanism_or_corpus_changed": false
+  },
+  {
+   "id": "D3.3",
+   "when": "2026-11-06, after preregistration",
+   "what": "Unused import DEFAULT_PATTERNS in darp_range/agent/claims.py is left as is (it is not used by the mechanism; removing it would change the preregistered file hash). The independence test checks imports of guard plugins and that lexical vulnerability flags are off.",
+   "affects_outcomes": false,
+   "mechanism_or_corpus_changed": false
+  },
+  {
+   "id": "D3.4",
+   "when": "2026-11-06, after the confirmatory evaluation (runs/rev3_mechanism), found by the FR-1.9 isolation tests in the full verify",
+   "what": "Docstring of darp_range/agent/claims.py mentioned the word 'guard_plugins' (agent package must not reference guard components, FR-1.9 tests). Docstring reworded only; no code line changed.",
+   "affects_outcomes": false,
+   "mechanism_or_corpus_changed": false
+  }
+ ],
+ "file_hash_updates": {
+  "darp_range/agent/claims.py": {
+   "preregistered": "6bc25575bcadcc197ab6573490a04b82b1b63755a47ba046c8dc4cc6cb1d1311",
+   "current": "0ae45448b0e422fe41f60c9bb9cec91a41d6e95823f860c1c3a000fac8827292",
+   "reason": "D3.4 docstring-only edit"
+  }
+ }
+}

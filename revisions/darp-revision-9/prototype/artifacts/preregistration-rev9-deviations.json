@@ -1,0 +1,38 @@
+{
+ "prereg": "(revision 9 has no live preregistration: 0 live requests)",
+ "note": "Revision 9 deviations against frozen file lists of earlier preregistrations. Found by the clean-copy verify (revision7_checks FAIL: undeclared darp_range/runner/flow.py) and declared here, after the change and before the final verify.",
+ "deviations": [
+  {
+   "id": "D9.1",
+   "file": "darp_range/runner/flow.py",
+   "code_hash_preregistered": "531822c8ea637efc3139e2d49d40604f945852cf7ad719b22afdb150b735086b",
+   "code_hash_current": "4618afe49cb4cf36462cb2da19c3ffb7d715aeb80d5006a41e7b43029f5de96d",
+   "what": "hook for the sandboxed attacker factory (FlowContext.attacker_factory) and process close after the campaign",
+   "why": "necessary dependency of approved task attacker-sandbox-ipc (runner integration)",
+   "effect_on_numbers": "none: default path identical; prior unittest outcomes unchanged; rev6-rev8 regressions in verify"
+  },
+  {
+   "id": "D9.2",
+   "file": "scripts/verify_e2e.py",
+   "what": "revision8_checks reads the rev8 pass budget from artifacts/revision-8-budget.json (archived copy) instead of artifacts/improvement-budget.json, which now holds the rev9 pass",
+   "why": "clean-copy verify #2 FAIL: KeyError 'requests_total' in revision8_checks (log artifacts/rev9/clean_verify.log); same pattern as D8.6 for rev7",
+   "effect_on_numbers": "none: check reads an archived, unchanged rev8 budget file; thresholds unchanged"
+  }
+ ],
+ "file_hash_updates": {
+  "artifacts/preregistration-rev7.json": {
+   "darp_range/runner/flow.py": {
+    "preregistered": "531822c8ea637efc3139e2d49d40604f945852cf7ad719b22afdb150b735086b",
+    "current": "4618afe49cb4cf36462cb2da19c3ffb7d715aeb80d5006a41e7b43029f5de96d",
+    "reason": "D9.1 attacker-sandbox-ipc: FlowContext.attacker_factory (default None -> make_attacker, unchanged behaviour) and closing the attacker process after run_campaign; no change to episode, evaluator, schedule or plan fingerprints (unittest 935 prior tests unchanged; byte regressions rev6-rev8 in verify)"
+   }
+  },
+  "artifacts/preregistration-rev8.json": {
+   "darp_range/runner/flow.py": {
+    "preregistered": "531822c8ea637efc3139e2d49d40604f945852cf7ad719b22afdb150b735086b",
+    "current": "4618afe49cb4cf36462cb2da19c3ffb7d715aeb80d5006a41e7b43029f5de96d",
+    "reason": "D9.1 attacker-sandbox-ipc: FlowContext.attacker_factory (default None -> make_attacker, unchanged behaviour) and closing the attacker process after run_campaign; no change to episode, evaluator, schedule or plan fingerprints (unittest 935 prior tests unchanged; byte regressions rev6-rev8 in verify)"
+   }
+  }
+ }
+}

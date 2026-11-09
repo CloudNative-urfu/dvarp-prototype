@@ -1,0 +1,64 @@
+{
+ "change": "attacker-isolation-boundary",
+ "tasks": [
+  {
+   "id": "access-matrix",
+   "status": "implemented",
+   "summary": "configs/isolation/access_matrix.json (38 строк: attacker 25, defender 5, evaluator 4, broker 4) + darp_range/isolation/matrix.py::validate. Каждая из 20 deny-строк атакующего ссылается на существующую отрицательную OS-пробу (19 проб покрыты), allow-строки — на позитивные пробы или существующие unittest; ключ API разрешён только broker; boundary-2r current, boundary-1 legacy, boundary-2 historical. Отрицательные контроли (удаление ссылки, deny без теста, ключ атакующему) роняют валидацию; мутанты M9.10/M9.11 убиты. Докстринг event_log/log.py исправлен (writer._emit.__self__ — это EventLog, граница — отдельный процесс). Ограничение: deny-строки defender/evaluator по ключу — соглашение + статический тест, не OS-изоляция (защита в процессе брокера).",
+   "evidence": [
+    "artifacts/rev9/isolation/summary.json",
+    "configs/isolation/access_matrix.json",
+    "tests/test_isolation_matrix.py",
+    "artifacts/rev9/mutations/mutations.json"
+   ]
+  },
+  {
+   "id": "attacker-sandbox-ipc",
+   "status": "implemented",
+   "summary": "Атакующий (режимы D и A: corpus/llm/template/random) — отдельный процесс под bwrap (--unshare-all --die-with-parent --new-session --clearenv --cap-drop ALL, ro /nix/store, ro staged-пакет, ro attack-only вход, tmpfs /tmp, --remount-ro /, bwrap с env={}, stderr через pipe); брокер в родителе держит канал, ChatModel с ключом, EventLog, журнал payload; IPC JSON-lines по закрытой схеме. Побайтная регрессия sandbox ↔ in-process (кампании/AttemptRecord, транскрипты, траектории, хеши БД, вердикты): D корпус v1 g0 seeds 7/8/9 — 3×216 эпизодов идентичны; A stub (4 брифа, g0+g_in, ≥3 кампании с 3 попытками) seeds 7/8/9 — идентичны. В процессе атакующего нет RESEARCH_LLM_* (самопроверка и проба env_secret_self с синтетическим ключом). Отказ bwrap (нет бинарника / падает) → SandboxUnavailable; с fallback — in_process_research. Неизвестное поле IPC → нарушение протокола ipc_protocol_error (counts_as_result=false). Накладные расходы A stub: +9.1 % (медиана 3 чередующихся повторов, цель ≤20 %); D: +7.5…13 %. Ограничения: sandbox включается фабрикой (Runner(attacker_factory=...)); verify_command и прежние скрипты остаются in-process (метка in_process_research) по Migration Plan; живой Qwen через sandbox не запускался (0 запросов; проверено фейковым транспортом).",
+   "evidence": [
+    "artifacts/rev9/isolation/regression_mode_d.json",
+    "artifacts/rev9/isolation/regression_mode_a.json",
+    "artifacts/rev9/isolation/overhead_mode_a.json",
+    "artifacts/rev9/isolation/summary.json",
+    "tests/test_isolation_sandbox.py",
+    "artifacts/rev9/unittest_after_isolated.log"
+   ]
+  },
+  {
+   "id": "os-negative-probes",
+   "status": "implemented",
+   "summary": "19 отрицательных + 3 позитивные пробы (darp_range/isolation/probes.py), выполняются изнутри процесса атакующего по IPC; синтетические канарейки (БД, events.jsonl, кассета, GT, переменная окружения брокера, событие агента в EventLog). Sandbox: 19/19 DENY, 3/3 позитивных PASS, канареек нет. In-process: gc_eventlog_canary PASS с канарейкой (L1 воспроизведена) и ещё 17 утечек. Слабый sandbox (subprocess того же uid): 16 утечек, включая файловые и /proc/<ppid>/environ с канарейкой. Чувствительность: --bind корня проекта → 11 утечек, --share-net → 3; мутанты M9.1–M9.4 убиты (M9.1: bwrap с окружением брокера даёт утечку ключа через /proc/1/environ — подтверждает решение env={}). Первая версия sandbox провалила 2 пробы (stderr-файл хоста через /proc/1/fd, запись в корень sandbox) — исправлено, исходный FAIL сохранён. Отдельная команда scripts/isolation_probes.py ≈0.3 с; полный isolation_verify ≈70 с.",
+   "evidence": [
+    "artifacts/rev9/isolation/probes/probes.json",
+    "artifacts/rev9/isolation/probes/probes.md",
+    "artifacts/rev9/red/probes_v0_before_stderr_remount_fix.json",
+    "tests/test_isolation_probes.py",
+    "artifacts/rev9/mutations/mutations.json"
+   ]
+  },
+  {
+   "id": "payload-audit-invariance",
+   "status": "implemented",
+   "summary": "Брокер пишет журнал payload (канонический JSON messages + sha256, цепочка хешей, отдельный файл от EventLog; без заголовков/URL/ключа). Дифференциальный тест (darp_range/isolation/invariance.py): 3 брифа (atk-01 break, atk-13 slow, atk-17 burn) × 3 попытки, 63 запроса на вариант; 4 скрытых изменения (порог R5 в БД, GT записи корпуса, системный промпт агента с канарейкой, политика гвардрейла с канарейкой) → sha256 всех payload побайтно равны. Отрицательный контроль: изменённый 1-й ответ агента меняет payload ровно следующего запроса (индекс 1, 4 сообщения). Агент, цитирующий канарейку промпта → канарейка в payload, system_prompt_leak_via_reply=true (evaluator/prompt_leak.py, без фильтрации); без цитирования — false и ни одной скрытой канарейки ни в одном payload. Синтетический ключ: с фейковым живым транспортом ключ уходит только в заголовок сервера, в журнале payload и входе атакующего его нет. Мутанты M9.5 (брокер подмешивает скрытое состояние) и M9.12 (GT во входе) убиты. Ограничение: ответы агента фиксированы (FixedReplyDefender), т.е. это регрессионный страж барьера, не измерение живой утечки.",
+   "evidence": [
+    "artifacts/rev9/isolation/invariance.json",
+    "tests/test_isolation_audit.py",
+    "darp_range/isolation/audit.py",
+    "darp_range/evaluator/prompt_leak.py",
+    "artifacts/rev9/mutations/mutations.json"
+   ]
+  },
+  {
+   "id": "attack-provenance-gate",
+   "status": "implemented",
+   "summary": "Реестр оценщика configs/isolation/provenance_registry.json: 60 атак (v1 24, holdout_v2 19, heldout_v3 13, trusted_v7 4) → implementation-informed, sha256 MANIFEST каждого корпуса записан и совпадает (v1/holdout_v2/heldout_v3 сверены с preregistration-rev3). Происхождение — запись брокера (BriefProvenance), а не поле входа атакующего (хеш записи зависит от GT). claim_level вычисляется: sandbox+пробы+v1 → isolated_implementation_informed; in-process/откат → in_process_research; research-mode с зарегистрированными слепыми брифами → не black-box; провал пробы → in_process_research с sandboxed=true; поддельный blind-critic → ProvenanceError, прогон отказывается. Положительный контроль правила на синтетическом реестре → isolated_black_box_candidate (не заявление). Мутанты M9.7, M9.8 убиты. Ограничения: claim_level пишется в attacker_isolation.json рядом с manifest.json (run_isolated), а не внутрь manifest.json Runner; новых атак и blind-набора нет.",
+   "evidence": [
+    "configs/isolation/provenance_registry.json",
+    "artifacts/rev9/isolation/claim_sandbox_legacy.json",
+    "artifacts/rev9/isolation/summary.json",
+    "tests/test_isolation_provenance.py"
+   ]
+  }
+ ]
+}

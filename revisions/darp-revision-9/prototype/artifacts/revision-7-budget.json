@@ -1,0 +1,79 @@
+{
+ "pass": "darp-revision-7",
+ "pass_budget": {
+  "requests": 180,
+  "wall_s": 3600
+ },
+ "critic_reserve": {
+  "requests": 60,
+  "wall_s": 900
+ },
+ "per_run_limits": {
+  "requests": 60,
+  "tokens": 150000,
+  "wall_s": 900
+ },
+ "author": {
+  "planned": "live-legal-slice: <=90 requests (45 per foundation), run A --reps 1,2 (<=60), run B --reps 3 (<=30); preregistration-rev7.json sha256 a54f091f4bb359545b9e6db64e08d65bf637b704b6a61d01359eed10ddc759ab recorded before the first request",
+  "attempts": [
+   {
+    "run": "runs/rev7_live_legal/runA (copy: artifacts/checks/revision7/live_legal/runA)",
+    "command": "python3 scripts/rev7_live_legal_slice.py --out runs/rev7_live_legal/runA --reps 1,2",
+    "started_utc": "2026-11-07T13:53:11Z",
+    "limits": {
+     "max_requests": 60,
+     "max_tokens": 150000,
+     "max_requests_per_episode": 5,
+     "max_tokens_per_episode": 24000,
+     "max_output_tokens": 512,
+     "max_episodes": 12,
+     "max_wall_s": 900.0,
+     "timeout_s": 60.0
+    },
+    "requests": 52,
+    "tokens": 111383,
+    "wall_s": 120.155,
+    "refused_before_send": {},
+    "provider": [
+     "Darkbloom"
+    ],
+    "episodes": 12,
+    "status": "completed"
+   },
+   {
+    "run": "runs/rev7_live_legal/runB (copy: artifacts/checks/revision7/live_legal/runB)",
+    "command": "python3 scripts/rev7_live_legal_slice.py --out runs/rev7_live_legal/runB --reps 3",
+    "started_utc": "2026-11-07T13:55:44Z",
+    "limits": {
+     "max_requests": 30,
+     "max_tokens": 150000,
+     "max_requests_per_episode": 5,
+     "max_tokens_per_episode": 24000,
+     "max_output_tokens": 512,
+     "max_episodes": 6,
+     "max_wall_s": 900.0,
+     "timeout_s": 60.0
+    },
+    "requests": 26,
+    "tokens": 55643,
+    "wall_s": 56.739,
+    "refused_before_send": {},
+    "provider": [
+     "Darkbloom"
+    ],
+    "episodes": 6,
+    "status": "completed"
+   }
+  ],
+  "requests_total": 78,
+  "tokens_total": 167026,
+  "wall_s_total": 176.9,
+  "other_live_requests": 0,
+  "note": "all other rev7 author work is offline (tests, mutations, diagnostics, relabel, verify): 0 requests. No failed/aborted live attempt."
+ },
+ "remaining_for_critic": {
+  "requests": 102,
+  "wall_s": 3423.1
+ },
+ "critic_reserve_respected": true
+}

@@ -1,0 +1,55 @@
+{
+ "prereg": "artifacts/preregistration-rev7.json",
+ "prereg_sha256": "a54f091f4bb359545b9e6db64e08d65bf637b704b6a61d01359eed10ddc759ab",
+ "deviations": [
+  {
+   "id": "D7.1",
+   "what": "scripts/rev7_live_legal_slice.py:label_episode read per-episode tokens from llm_call 'data' (always 0); fixed to read 'cost' (tokens_in/tokens_out)",
+   "when": "after live run A, before live run B",
+   "why": "found while reading run A rows: tokens per episode 0 although the run meter counted 111383",
+   "effect_on_numbers": "none for category/task_status/measurement (verified: replay of run A with the fixed script is exact on these fields); run A raw results.json keeps tokens=0, scripts/rev7_live_slice_summary.py recomputes labels and tokens from events.jsonl",
+   "code_hash_preregistered": "5948e63f78e5b990a1b238e927daa4db50e9b9211004cf8425ba919d7f415c1e",
+   "code_hash_current": "3833d1822c13b65ce49957834efcface9ae9746b748e0c037ceec8bb4ff03c4c",
+   "file": "scripts/rev7_live_legal_slice.py"
+  },
+  {
+   "id": "D7.2",
+   "what": "live slice pairs v2/v2r are not byte-identical inputs: episode id (and ticket id T-<case>) contains the foundation suffix, the agent sees the ticket id in read_ticket",
+   "when": "found after both live runs (pair divergence analysis)",
+   "why": "design oversight of the slice script",
+   "effect_on_numbers": "the first agent request of every pair has the same prompt sha (ticket id is not in the first prompt) and the replies already differ in 3/9 pairs (recent_qty2) -> provider nondeterminism is shown independently; later divergence cannot be attributed to the provider alone. Not changed in code: replay of the recorded cassettes needs the same ids. Upgrade: per-foundation EventLog with identical episode ids",
+   "code_change": "none"
+  },
+  {
+   "id": "D7.3",
+   "what": "configs/configs.lock.json: lock v4 (rev6) replaced by lock v5 in the integrate stage of rev7, BEFORE preregistration-rev7",
+   "why": "darp_range/executor gained executor-boundary-2r and the depth authorizer; the lock records defense_code.executor and `configs verify` rejects code drift. Configurations, their files and set_fingerprint 6f20a02e... unchanged; boundary-1 and boundary-2 spec/fingerprints unchanged",
+   "lock_v4_kept_at": "configs/history/configs.lock.005.2026-11-07T040956Z.json (byte-identical to the rev6 lock)",
+   "effect_on_numbers": "none"
+  },
+  {
+   "id": "D7.4",
+   "what": "authorizer-depth applied to boundary-2 as well (plan: boundary-2/2r) without changing the boundary-2 spec/fingerprint",
+   "why": "review-routing requires boundary-2 fingerprint and rev6 results to stay byte-identical; the depth authorizer only forbids writes the executor never makes",
+   "effect_on_numbers": "none (rev6_boundary_diag and legal suite byte-identical, see artifacts/checks/revision7/regression_rev6.json); the boundary-2r spec includes the authorizer check explicitly"
+  },
+  {
+   "id": "D7.5",
+   "file": "scripts/rev7_relabel_live.py",
+   "what": "sources of rev3 run1/run2 switched from runs/rev3_live_A* to byte-identical copies under artifacts (events: artifacts/checks/revision3/live_mode_a/run{1,2}; results of run1: artifacts/checks/revision7/live_A_sources/rev3_run1, sha256 recorded there)",
+   "why": "verify runs from a clean copy without runs/; with the old paths rev3 sources would be reported missing",
+   "effect_on_numbers": "none: counts and the list of changed rows are identical (compared before replacing artifacts/checks/revision7/relabel)",
+   "code_hash_preregistered": "9b0496d4b803f65bd8cbfd3a770fc9ac37140e7f60a031d05c586a9a9a02e3f1",
+   "code_hash_current": "f19ae45df5a236dd82d43037fbd7e8333e6b80aa932c1dec2732d838f9c6938f"
+  }
+ ],
+ "file_hash_updates": {
+  "artifacts/preregistration-rev3.json": {
+   "configs/configs.lock.json": {
+    "preregistered": "378feb12fa21cef5e91229d4378d1f0f48631a4bdff73f5f745500f511ae9f78",
+    "current": "a9db70916807656b7040bf48984e1bd09b1aae99ed50c2b0cfe9cfeca7dd98f7",
+    "reason": "D7.3 lock v5: only defense_code.executor re-hashed (executor-boundary-2r, depth authorizer); lock v3 kept in configs/history/configs.lock.004..., lock v4 in configs.lock.005..."
+   }
+  }
+ }
+}

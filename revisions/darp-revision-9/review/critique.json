@@ -1,0 +1,232 @@
+{
+ "summary": "Ревизия 9 (change attacker-isolation-boundary): атакующий может работать в отдельном процессе под bubblewrap; брокер держит канал, ключ, журнал и журнал payload. Добавлены матрица доступа (38 строк), 19 отрицательных и 3 позитивные OS-пробы, тест инвариантности payload и реестр происхождения с claim_level. Критик воспроизвёл: isolation_verify PASS 12/12, мутации rev9 12/12, OpenSpec valid, полный verify в netns — PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с. Враждебный процесс под настоящим argv bwrap подтвердил, что сеть, запись, файлы проекта и ключ закрыты. Изоляция при этом односторонняя и opt-in: ни один рабочий прогон её не использует. Брокер доверяет самоотчётам ребёнка (поддельный AttemptRecord принят). Тесты не замечают удаления pid/ipc-namespace и флагов cap-drop/die-with-parent/new-session. Защита в процессе брокера через gc видит бриф, тактики и память атакующего. Главный вопрос кейса (L* на живой модели и на основе v2r) в этой ревизии не продвинулся.",
+ "built": [
+  "darp_range/isolation: bwrap-launcher (--unshare-all --clearenv --cap-drop ALL, ro stage/input, tmpfs /tmp, --remount-ro /), IPC JSON-lines с закрытой схемой, брокер SandboxedAttacker с тем же API, что у Attacker, AttackerFactory для Runner, fallback in_process_research",
+  "Побайтная регрессия sandbox ↔ in-process: режим D (корпус v1, seeds 7/8/9) и режим A на заглушке — воспроизведено критиком",
+  "19 отрицательных и 3 позитивные OS-пробы с синтетическими канарейками; контроли чувствительности: in-process (gc/EventLog PASS) и weak subprocess (файлы и environ PASS)",
+  "configs/isolation/access_matrix.json + matrix.validate с отрицательными контролями; ключ разрешён только брокеру",
+  "PayloadAudit (канонические messages + sha256, без ключа) и дифференциальный тест: 4 скрытых изменения × 3 брифа; исход system_prompt_leak_via_reply",
+  "Реестр происхождения: 60 legacy-атак implementation-informed, MANIFEST не изменён; claim_level вычисляется из фактов (sandbox, пробы, research, provenance, ошибки IPC)",
+  "12 мутантов rev9 (все убиты); полный verify 118 шагов, unittest 970"
+ ],
+ "weak": [
+  "Изоляция opt-in: verify, run_command и report_cli идут in-process; claim_level пишется только в боковой attacker_isolation.json для run_isolated, а не в manifest.json, как требует spec",
+  "Брокер принимает AttemptRecord ребёнка без сверки: episode_id/brief_id/attempt/turns/believed_success подделываются; события attempt с произвольными cost/t_sim принимаются",
+  "Некорректные event/record ребёнка дают EventLogError/TypeError, т. е. ошибку эпизода, а не IPC protocol_violation",
+  "self_check и OS-пробы выполняет и сообщает сам процесс атакующего: доказательство изоляции — самоотчёт проверяемой стороны",
+  "Тесты нечувствительны к удалению --die-with-parent, --cap-drop ALL, --new-session и pid/ipc-namespace (мутанты MX2/3/4/6 выжили); при MX6 видно 13 хостовых PID",
+  "Защищаемая сторона в процессе брокера через gc видит brief.objective, прошлые AttemptRecord с тактиками и промпты атакующего с памятью (PayloadAudit); строка матрицы defender→attacker_memory deny завышена; тест test_broker_holds_no_attacker_memory проверяет только a.memory==[]",
+  "Матрица проверяет наличие ссылок, а не их смысл: provenance_registry deny ссылается на пробу read_corpus_gt; большинство allow-строк — на один test_mode_d_byte_identical; ключ у defender/evaluator — convention",
+  "/nix/store смонтирован целиком (видны research-factory, llm-proxy, autopilot); хостовые пути видны в /proc/1/cmdline и mountinfo",
+  "Накладные расходы режима D (32 % по progress автора) не опубликованы в improvement-results",
+  "Главный вопрос кейса не продвинулся: L* в verify на основе v1, живых измерений гвардрейлов нет, заглушка циклична, корпус мал и не слеп, статьи нет",
+  "Ремонт по кругу: перезапись artifacts/improvement-budget.json ломает проверку прошлой ревизии (D8.6 → D9.2, тот же KeyError); каждая ревизия ломает замороженные хеши прошлых предрегистраций и закрывает это отклонением (D6.4, D7.3, D8.2, D9.1) — в rev9 три полных verify по ~47 мин; verify вырос со 101 до 118 шагов, упрощений стало 246",
+  "OpenSpec-задачи по оценке критика: implemented 2 (os-negative-probes, payload-audit-invariance), partial 3 (access-matrix, attacker-sandbox-ipc, attack-provenance-gate); автор заявлял 5/5 implemented. Подробности — artifacts/openspec-review.json и artifacts/coevolution-progress.md."
+ ],
+ "fixes": [
+  {
+   "evidence": "artifacts/critic_logs/malicious/run.log; candidate/darp_range/isolation/sandbox.py:328 record_from_json, :502 _pump",
+   "fix": "Брокер сверяет record (episode_id, brief_id, номер попытки, turns.message/reply) с собственной копией сообщений канала; затраты модели считает только сам; любая ошибка разбора event/record → IPC_VIOLATION. Тесты: поддельный record, cost с чужим полем, чужой episode_id → protocol_violation."
+  },
+  {
+   "evidence": "artifacts/critic_logs/critic_mutants.log; artifacts/critic_logs/mx6_leak.log",
+   "fix": "Добавить пробы: число видимых PID ≤ 2, перебор /proc/*/environ на канарейку, CapEff=0, setsid/отсутствие управляющего tty, гибель ребёнка при гибели брокера. Мутанты MX2/MX3/MX4/MX6 должны быть убиты."
+  },
+  {
+   "evidence": "artifacts/critic_logs/defspy/run.log; candidate/configs/isolation/access_matrix.json (defender/attacker_memory); candidate/tests/test_isolation_sandbox.py:133",
+   "fix": "Исправить строку матрицы на deny(convention) или вынести защищаемую сторону в отдельный процесс. Добавить пробу со стороны защиты: gc-поиск AttemptRecord/PayloadAudit/brief — сейчас RED, после изоляции DENY."
+  },
+  {
+   "evidence": "candidate/darp_range/runner/flow.py:407; candidate/darp_range/isolation/regression.py:94",
+   "fix": "Писать claim_level в manifest.json каждого прогона (по умолчанию in_process_research); для живого режима A сделать sandbox путём по умолчанию."
+  },
+  {
+   "evidence": "candidate/darp_range/isolation/child/attacker_child.py (self_check, run_probes)",
+   "fix": "Выполнять пробы кодом брокера в отдельном пробном процессе под тем же argv; брокер сам сверяет argv и mountinfo; не принимать self_check как доказательство."
+  },
+  {
+   "evidence": "candidate/artifacts/preregistration-rev9-deviations.json D9.2; preregistration-rev8-deviations.json D8.6",
+   "fix": "Завести пофайловые бюджеты revision-N-budget.json с начала прохода и не переписывать общий improvement-budget.json; проверки прошлых ревизий читают только свой файл. Иначе revision9_checks упадёт в следующем проходе."
+  },
+  {
+   "evidence": "candidate/configs/isolation/access_matrix.json; artifacts/critic_logs/malicious/malicious_child_result.json (nix_store hits)",
+   "fix": "Своя проба на каждую deny-строку (provenance_registry — отдельная канарейка); поле enforcement os|convention; монтировать замыкание интерпретатора вместо всего /nix/store."
+  },
+  {
+   "evidence": "improvement_darp_revision_9/critique.md п.1, п.2, п.5; candidate/artifacts/improvement-results.md «Остатки» п.4",
+   "fix": "Вернуться к главному вопросу: таблица L* на v2r в verify, живой срез гвардрейлов (g0 vs g_in и др.) через sandbox-атакующего, слепой набор критика, быстрый verify без пересчёта всех прошлых ревизий."
+  }
+ ],
+ "requirements": {
+  "FR-1.1": {
+   "status": "simplified",
+   "note": "Критик понижает с implemented: изоляция двух сторон односторонняя и opt-in. Атакующий может работать под bwrap (воспроизведено: isolation_verify PASS, побайтная регрессия D/A), но ни verify, ни run_command, ни report_cli sandbox не используют (Runner(attacker_factory=None) → in-process, flow.py:407). Защищаемая сторона в процессе брокера видит бриф и историю попыток атакующего (critic_logs/defspy)."
+  },
+  "FR-1.2": {
+   "status": "implemented",
+   "note": "Статус автора (implemented) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "FR-1.3": {
+   "status": "simplified",
+   "note": "Согласен с автором (simplified). Барьер «атакующий не видит логи/БД/код/ключ» под bwrap подтверждён 19 пробами и моим враждебным процессом (сеть, запись, файлы проекта закрыты). Но: (а) по умолчанию путь in-process (gc → EventLog, L1); (б) вторая половина нарушена — защита через gc видит brief.objective, прошлые AttemptRecord с тактиками и промпты атакующего с памятью в PayloadAudit; (в) тесты не чувствительны к удалению pid/ipc-namespace, --cap-drop, --die-with-parent, --new-session; (г) брокер доверяет AttemptRecord/self_check/пробам, которые сообщает сам ребёнок; (д) /nix/store смонтирован целиком."
+  },
+  "FR-1.4": {
+   "status": "implemented",
+   "note": "Статус автора (implemented) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "FR-1.5": {
+   "status": "implemented",
+   "note": "Статус автора (implemented) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "FR-1.6": {
+   "status": "implemented",
+   "note": "Статус автора (implemented) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "FR-1.7": {
+   "status": "implemented",
+   "note": "Статус автора (implemented) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "FR-1.8": {
+   "status": "implemented",
+   "note": "Статус автора (implemented) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "FR-1.9": {
+   "status": "implemented",
+   "note": "Статус автора (implemented) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "FR-1.10": {
+   "status": "implemented",
+   "note": "Статус автора (implemented) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "FR-1.11": {
+   "status": "implemented",
+   "note": "Статус автора (implemented) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "FR-1.12": {
+   "status": "implemented",
+   "note": "Статус автора (implemented) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "FR-1.13": {
+   "status": "implemented",
+   "note": "Статус автора (implemented) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "FR-1.14": {
+   "status": "implemented",
+   "note": "Статус автора (implemented) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "FR-1.15": {
+   "status": "implemented",
+   "note": "Статус автора (implemented) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "FR-1.16": {
+   "status": "simplified",
+   "note": "Статус автора (simplified) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "FR-1.17": {
+   "status": "implemented",
+   "note": "Статус автора (implemented) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "FR-1.18": {
+   "status": "implemented",
+   "note": "Статус автора (implemented) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "FR-1.19": {
+   "status": "implemented",
+   "note": "Статус автора (implemented) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "FR-1.20": {
+   "status": "simplified",
+   "note": "Согласен. Режимы D/A работают и in-process, и в sandbox (побайтно одинаково на заглушке). Брокер соблюдает лимит модели: 7 ответов, затем llm_error. Но в sandbox трасса и believed_success попытки — непроверенный самоотчёт ребёнка (поддельный record принят). Живой A через sandbox не запускался."
+  },
+  "FR-1.21": {
+   "status": "simplified",
+   "note": "Статус автора (simplified) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "FR-1.22": {
+   "status": "simplified",
+   "note": "Статус автора (simplified) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "FR-1.23": {
+   "status": "implemented",
+   "note": "Метрики считаются, verify PASS. Оговорка прошлой критики остаётся: основная таблица — заглушка, основа v1."
+  },
+  "FR-1.24": {
+   "status": "implemented",
+   "note": "L* считается и пересчитывается в приёмке (verify PASS). Главная таблица по-прежнему на основе v1; на v2r выигрыша нет (critique rev8), живого L* нет."
+  },
+  "NFR-2.1": {
+   "status": "implemented",
+   "note": "Статус автора (implemented) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "NFR-2.2": {
+   "status": "simplified",
+   "note": "Статус автора (simplified) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "NFR-2.3": {
+   "status": "implemented",
+   "note": "Статус автора (implemented) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "NFR-2.4": {
+   "status": "implemented",
+   "note": "Статус автора (implemented) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "NFR-2.5": {
+   "status": "simplified",
+   "note": "Статус автора (simplified) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "NFR-2.6": {
+   "status": "simplified",
+   "note": "Статус автора (simplified) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "NFR-2.7": {
+   "status": "implemented",
+   "note": "Статус автора (implemented) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "NFR-2.8": {
+   "status": "implemented",
+   "note": "Статус автора (implemented) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "NFR-2.9": {
+   "status": "implemented",
+   "note": "Затраты атакующего учитываются отдельно (writer('attacker')), verify PASS. Оговорка rev9: в sandbox ребёнок может записать в события 'attempt' произвольные cost (принято tokens_in=1e9). Это раздувает только сторону атакующего, но учёт его затрат перестаёт быть независимым."
+  },
+  "NFR-2.10": {
+   "status": "implemented",
+   "note": "Статус автора (implemented) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "NFR-2.11": {
+   "status": "implemented",
+   "note": "Лимиты подтверждены: брокерский ChatModel после 7 запросов отвечает llm_error (malicious_child). Нарушение схемы IPC → protocol_violation (тест автора). Но некорректный cost/record/episode_id даёт исключение и ошибку эпизода, а не protocol_violation (critic_logs/malicious/run1–3)."
+  },
+  "NFR-2.12": {
+   "status": "implemented",
+   "note": "Статус автора (implemented) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "NFR-2.13": {
+   "status": "implemented",
+   "note": "Статус автора (implemented) подтверждаю по полному verify критика (PASS: 118/118 шагов, unittest 970 OK, ключевые 17/17, 3544 с); rev9 этот пункт не меняла."
+  },
+  "NFR-2.14": {
+   "status": "simplified",
+   "note": "Пп. 1–4 есть; статьи нет; изоляция не применялась ни к одному измерению."
+  }
+ },
+ "evidence": [
+  "artifacts/critic_logs/full_verify_isolated.log",
+  "artifacts/critic_logs/isolation_verify.log",
+  "artifacts/critic_logs/isolation_verify/summary.json",
+  "artifacts/critic_logs/mutate_rev9.log",
+  "artifacts/critic_logs/openspec_validate.log",
+  "artifacts/critic_logs/critic_mutants.log",
+  "artifacts/critic_logs/mx6_leak.log",
+  "artifacts/critic_logs/malicious/run.log",
+  "artifacts/critic_logs/malicious/run1_badcost.log",
+  "artifacts/critic_logs/malicious/run2_other_episode.log",
+  "artifacts/critic_logs/malicious/run3_bad_record_typeerror.log",
+  "artifacts/critic_logs/malicious/malicious_child_result.json",
+  "artifacts/critic_logs/defspy/run.log",
+  "artifacts/critic_logs/defspy/defender_sees_attacker.json",
+  "artifacts/critic_logs/verify_key_requirements.json",
+  "artifacts/critic_logs/verify_unit_tests.log"
+ ]
+}
