@@ -1,0 +1,18 @@
+{
+ "pass": "darp-revision-10",
+ "created_utc": "2026-11-09T20:40:00Z",
+ "note": "Пофайловый учёт (revision-scoped-checks): создан в начале прохода. Общий artifacts/improvement-budget.json не переписывается и остаётся байт-в-байт равным artifacts/revision-9-budget.json (sha256 в artifacts/rev10/revision-9-budget.sha256); ни одна проверка закрытой ревизии его не читает.",
+ "pass_budget": {"requests": 180, "wall_s": 3600},
+ "critic_reserve": {"requests": 60, "wall_s": 900},
+ "per_run_limits": {"requests": 60, "tokens": 150000, "wall_s": 900},
+ "author": {
+  "max_requests": 120,
+  "max_wall_s": 2700,
+  "planned": "0 live requests: all five tasks of change trusted-trace-and-v2r-table are offline (stub model, fake transport)",
+  "attempts": [],
+  "requests_total": 0,
+  "tokens_total": 0,
+  "wall_s_total": 0
+ },
+ "critic_reserve_respected": true
+}

@@ -1,0 +1,63 @@
+{
+ "change": "trusted-trace-and-v2r-table",
+ "tasks": [
+  {
+   "id": "revision-scoped-checks",
+   "status": "implemented",
+   "summary": "Проверки закрытых ревизий — исторический контракт (sha256 предрегистрации + замороженные записанные артефакты; drift кода информационный). Правка комментария flow.py больше не роняет rev7/rev8 (RED-лог сохранён); байт предрегистрации/сводки/кассеты rev8 → FAIL; мутант промпта агента ломает точный replay rev7/rev8; закрытых ревизий без поведенческой проверки нет; бюджет пофайловый, отклонений за rev10 нет; scripts/rev10_verify.py — 131 с.",
+   "evidence": [
+    "artifacts/rev10/red/flow_comment_closed_checks.log",
+    "artifacts/rev10/fast/comment_change_green.json",
+    "artifacts/rev10/fast/tamper_controls.json",
+    "artifacts/rev10/fast/behaviour_controls.json",
+    "artifacts/rev10/fast/closed_revisions.json",
+    "artifacts/rev10/fast/summary.md"
+   ]
+  },
+  {
+   "id": "broker-authoritative-record",
+   "status": "implemented",
+   "summary": "IPC v2: ребёнок присылает только self_report; AttemptRecord строит брокер. 7 видов порчи враждебным процессом под bwrap → protocol_violation/ipc_protocol_error без ошибки эпизода и без поддельных значений; побайтная регрессия sandbox↔in-process (D v1 seeds 7/8/9, A stub 4×≤3); мутанты R10.1–R10.5 убиты. believed_success/tactics — самоотчёт с меткой.",
+   "evidence": [
+    "artifacts/rev10/red/hostile_child_before.json",
+    "artifacts/rev10/fast/hostile_child.json",
+    "artifacts/rev10/fast/regression_sandbox_vs_in_process.json",
+    "artifacts/rev10/fast/mutations/mutations.json"
+   ]
+  },
+  {
+   "id": "broker-side-isolation-evidence",
+   "status": "implemented",
+   "summary": "Пробы выполняет процесс брокера под тем же argv bwrap; новые pid_count, proc_environ_scan, cap_eff и наблюдения хоста sid/NSpid/argv/die-with-parent; в sandbox все отрицательные DENY, позитивы PASS; in-process и weak дают утечки. MX2/MX4/MX6/B10.1 убиты; MX3 эквивалентен (CapEff=0 с флагом и без, непривилегированный bwrap).",
+   "evidence": [
+    "artifacts/rev10/red/mx_mutants_before.log",
+    "artifacts/rev10/fast/probes/probes.md",
+    "artifacts/rev10/fast/probes/probes.json",
+    "artifacts/rev10/fast/mutations/mutations.json"
+   ]
+  },
+  {
+   "id": "claim-level-in-manifest",
+   "status": "implemented",
+   "summary": "Схема манифеста /2 с claim_level и фактами в каждом прогоне; без фабрики — in_process_research, sandbox v1 — isolated_implementation_informed, research-mode — не выше research; живой A без bwrap и флага — ошибка при 0 запросах; матрица: enforcement, своя проба на deny+os; defender→attacker_memory=convention, gc-проба находит канарейку атакующего (известная утечка). При интеграции исправлены отрицательные контроли (ловили побочную ошибку отпечатка) — мутанты C10.1–C10.5 убиты.",
+   "evidence": [
+    "tests/test_rev10_claim_matrix.py",
+    "artifacts/rev10/fast/defender_gc_probe.json",
+    "artifacts/rev10/fast/mutations/mutations.json",
+    "configs/isolation/access_matrix.json"
+   ]
+  },
+  {
+   "id": "v2r-primary-table",
+   "status": "implemented",
+   "summary": "Главный прогон verify и L* — на v2r (seeds 7/8/9), отчёт пишет foundation=v2r; v1 — legacy-шаг с меткой. Приёмка проверяет правила статусов §9.2, не знак ΔV; мутанты V10.1/V10.2 убиты. Регрессия legacy v1: стабильные столбцы побайтно равны эталону кода rev9, столбцы измеренных затрат — информационно (побайтное равенство недостижимо даже для одного кода — контроль шума; упрощение записано). На заглушке v2r все конфигурации unresolved.",
+   "evidence": [
+    "tests/test_rev10_v2r.py",
+    "tests/test_rev10_legacy_compare.py",
+    "artifacts/rev10/legacy_v1_reference/README.md",
+    "artifacts/rev10/legacy_v1_noise_control.json",
+    "artifacts/rev10/legacy_v1_current_vs_reference.json"
+   ]
+  }
+ ]
+}

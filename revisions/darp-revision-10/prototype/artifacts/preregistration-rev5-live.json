@@ -1,0 +1,29 @@
+{
+ "schema": "darp-prereg/rev5-live-addendum",
+ "created_utc": "2026-11-06T22:49:51Z",
+ "parent": "artifacts/preregistration-rev5.json",
+ "parent_sha256": "51a9dc0d47f606858e74e70d1a55ba6a32e2b126af6c05120579f016aa48e42d",
+ "before_first_live_request": true,
+ "frozen_sha256": {
+  "scripts/live_mode_a_v.py": "843e1e57fcdc2bd1cb1c0846f3c3f5bf351346548a1588d420395d08a8d67e1c",
+  "darp_range/report_cli/live.py": "509da38e2022bb9e360892848de97021257127e0955b5564f8bacdb2d997184f",
+  "darp_range/llm/cassette.py": "121b33e7ce902accd29f119a0a8ec4dc169fadf38e21f719cf6a7c9bec5643f7",
+  "darp_range/agent/prompt.py": "8cd3566ecfba2b50e5b33e984598bb0f37f0f30082240b144b20217950beefe4",
+  "darp_range/channel/proposal_contract.py": "89f9c75cf60226b914d8481b6525ae84a36ef79a1f816d3c472251bd3baba95b",
+  "darp_range/channel/legal_user.py": "6c1b23ef69116b46249892471a4bade2a373a051ed49cf5ee1e36f03d2710f4d",
+  "configs/configs.lock.json": "378feb12fa21cef5e91229d4378d1f0f48631a4bdff73f5f745500f511ae9f78"
+ },
+ "offline_checks_passed": [
+  "tests/test_revision5_live_interleaved.py (4/4)",
+  "artifacts/checks/revision5/starvation_{OLD,NEW}.json"
+ ],
+ "commands": [
+  "python3 scripts/live_mode_a_v.py --prereg artifacts/preregistration-rev5.json --out runs/rev5_live_A_run1 --interleave",
+  "python3 scripts/live_mode_a_v.py --prereg artifacts/preregistration-rev5.json --out runs/rev5_live_A_run2 --interleave --first-config g_in"
+ ],
+ "budget_before": {
+  "pass_used_requests": 0,
+  "author_max": 120,
+  "critic_reserve": 60
+ }
+}

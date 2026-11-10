@@ -1,0 +1,20 @@
+{
+ "change": "trusted-trace-and-v2r-table",
+ "tasks": [
+  {"id": "revision-scoped-checks", "status": "implemented",
+   "summary": "Воспроизведено: правка комментария flow.py → historical check PASS, flow.py в drift; мой мутант оценщика (unjustified_refusal→lost) ломает точный replay rev7 runA/runB (2+1 дефекта replay_outcome) — поведенческая проверка работает. Остатки: замороженный список historical_artifacts.json самоаттестован (подмена сводки rev8 + пересчёт списка и его sha256 → PASS); preregistration-rev1.json не проверяется вообще (подмена байта → PASS); список BEHAVIOURAL — ручной перечень строк, а не вычисляемая связь с шагами verify.",
+   "evidence": ["artifacts/logs/rsc_checks.log", "artifacts/logs/rev10_verify.log"]},
+  {"id": "broker-authoritative-record", "status": "implemented",
+   "summary": "7 видов порчи автора воспроизведены (rev10_verify PASS). Мой враждебный ребёнок: cpu_ms/latency_ms=3 599 999 мс на реплику принимаются (самоотчёт затрат атакующего ограничен лишь 1 ч/сообщение), произвольные поля data в событии message_composed попадают в журнал, зависший ребёнок вешает брокер без тайм-аута (90 с → kill), 64 МиБ stderr буферизуются брокером без предела. Трасса (id, реплики, ответы) действительно строится брокером — подделать её не удалось.",
+   "evidence": ["artifacts/logs/hostile2.log", "artifacts/logs/hostile2_hang.log", "artifacts/critic_tools/hostile2/child2.py"]},
+  {"id": "broker-side-isolation-evidence", "status": "implemented",
+   "summary": "Мои мутанты argv: MX2, MX4, MX6, MX7 (--share-net), MX9 (/input rw) убиты брокерскими пробами; MX3 эквивалентен (CapEff=0 с флагом и без, проверено напрямую bwrap 0.12.0); MX8 (без --clearenv) эквивалентен, т.к. брокер запускает bwrap с env={}. Пробы выполняются в отдельном пробном процессе с тем же argv, а не в процессе атакующего прогона — доказательство относится к launcher, не к конкретному процессу.",
+   "evidence": ["artifacts/logs/mx_mutants.log", "artifacts/logs/mx_mutants.json", "artifacts/logs/mx3_capeff.log"]},
+  {"id": "claim-level-in-manifest", "status": "partial",
+   "summary": "manifest/2 с claim_level есть; мой живой прогон live_mode_a_v.py без флагов пошёл через bwrap (7 запросов) и получил isolated_implementation_informed. Но одобренная задача требовала sandbox по умолчанию и для runner с attack_strategy=llm, agent_mode=live: Runner без фабрики молча работает in-process (claim_level=in_process_research), report_cli live --attack-mode A фабрику не использует вовсе. Spec-сценарий (только live A) выполнен, текст задачи brief — нет. Матрица: 27 deny/os строк с 27 разными пробами — подтверждено.",
+   "evidence": ["artifacts/logs/runner_live_a_default.log", "artifacts/critic_live_A_sandbox/manifest.json", "artifacts/logs/matrix_rows.txt"]},
+  {"id": "v2r-primary-table", "status": "partial",
+   "summary": "Главный прогон на v2r, отчёт пишет foundation=v2r, статусы проверяются по правилам §9.2. Но (1) spec-сценарий «legacy-таблицы побайтно равны» заменён упрощением (стабильные столбцы), (2) spec-сценарий «report lists them as no_safety_gain» не выполнен буквально: все 18 конфигураций итогом unresolved (формула no_safety_gain), V=0 во всех конфигурациях и seed — главная таблица не даёт владельцу ни одного L* и ни одного направленного вывода; (3) порог времени verify обойдён параллельным запуском, а не сокращением.",
+   "evidence": ["artifacts/logs/full_verify.log", "artifacts/logs/full_verify_e2e/report.md"]}
+ ]
+}

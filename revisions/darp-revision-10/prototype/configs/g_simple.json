@@ -1,0 +1,34 @@
+{
+  "control_of": null,
+  "defender": "simple",
+  "executor_boundary": "955561c084ad57a95d4b6b01e04aa38126105db4d311347046205bea08b09fee",
+  "family": "g_simple",
+  "fingerprint": "57d625bda12ebaf54adffc5596790f70a48582d884fbd335683f2ae0d243eeac",
+  "guards": [],
+  "name": "g_simple",
+  "notes": "Structured form + refund rules, no free LLM agent (FR-1.12).",
+  "operational_definition": [
+    "clarifications per episode: 2"
+  ],
+  "policy": {
+    "detect_only": false,
+    "max_clarifications": 2,
+    "name": "none",
+    "stages": {},
+    "version": "guard-policy-1"
+  },
+  "process": null,
+  "queue_discipline": "fifo",
+  "resolved": {
+    "guard_set_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "guards": [],
+    "policy_fingerprint": "bc3b17686e4ff23a7483af344eb7a6607238397ff2821a832a0793c7a6f63f89",
+    "policy_version": "guard-policy-1",
+    "process_fingerprint": null,
+    "process_version": null,
+    "simple_fingerprint": "1ac2efececcc39e695855ca3af826afafd3b264dafebc9b6f8c3ef35f9d1a24e"
+  },
+  "role": "baseline",
+  "schema": "darp-config-1",
+  "seed_label": "main"
+}

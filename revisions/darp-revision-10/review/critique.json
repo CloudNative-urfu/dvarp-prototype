@@ -1,0 +1,239 @@
+{
+ "summary": "Ревизия 10 (change trusted-trace-and-v2r-table) реализовала пять одобренных задач: исторические проверки закрытых ревизий, трассу попытки, собираемую брокером, брокерские OS-пробы, claim_level в манифесте и главную таблицу L* на основе v2r. Мой полный verify из чистой копии в netns: PASS (108/108 шагов, 1005 тестов, ключевые 17/17, 3175 с); rev10_verify PASS за 137 с; живой режим A через bwrap по умолчанию работает (7 запросов, isolated_implementation_informed). Первопричина ремонта по кругу (хеши закрытых ревизий) устранена. Главная таблица v2r по существу пуста: V=0 у всех 19 конфигураций на 3 seed, все unresolved, L* не определён. Новые остатки: нет тайм-аута IPC (зависание вешает брокер), самоотчёт cpu/latency атакующего, Runner/report_cli live A не в sandbox по умолчанию, самоаттестованный список исторических артефактов и непроверяемая предрегистрация rev1.",
+ "built": [
+  "scripts/historical.py: sha256 предрегистраций rev2–8 и записанных артефактов rev2–9 как FAIL-проверки, дрейф кода — информационный; правка flow.py не роняет verify (проверено)",
+  "IPC v2: AttemptRecord строит брокер из своей копии канала, ребёнок шлёт только self_report; 7 видов порчи → ipc_protocol_error (воспроизведено)",
+  "broker_probes.py: пробный процесс брокера под тем же argv bwrap + наблюдения хоста sid/NSpid/argv/die-with-parent; мои MX2/4/6/7/9 убиты",
+  "manifest /2 с claim_level и фактами; live_mode_a_v.py по умолчанию в bwrap (мой живой прогон подтвердил)",
+  "матрица доступа с enforcement os|convention, 27 deny/os строк с 27 собственными пробами; defender→attacker_memory честно convention",
+  "главный e2e verify на --foundation v2r (seeds 7/8/9), legacy v1 отдельным шагом, приёмка правил статусов §9.2 без требования ΔV>0",
+  "scripts/rev10_verify.py — быстрая офлайн-проверка change (137 с)",
+  "пофайловый бюджет revision-10-budget.json, improvement-budget.json не переписан"
+ ],
+ "weak": [
+  "Главная таблица v2r: V=0 во всех конфигурациях и seed → все unresolved, L* нет; корпус не ломает v2r, сравнение гвардрейлов структурно неинформативно",
+  "Нет тайм-аута IPC: молчащий процесс атакующего вешает брокер бесконечно (hostile2 hang, rc=124 по внешнему timeout)",
+  "cpu_ms/latency_ms композиции атакующего — самоотчёт до 3.6e6 мс на реплику; поля data событий атакующего не закрыты схемой; буфер stderr не ограничен",
+  "Runner и report_cli live с attack_mode=A без фабрики работают in-process без ошибки (вопреки тексту одобренной задачи; манифест честно in_process_research)",
+  "historical_artifacts.json и его .sha256 лежат рядом — подмена с пересчётом проходит; preregistration-rev1 не проверяется; BEHAVIOURAL — ручной перечень",
+  "Побайтная регрессия legacy v1 из spec заменена сравнением стабильных столбцов (упрощение)",
+  "Порог роста verify >20 % обойдён параллельным запуском; лексический regex-тест текста verify_e2e сохранён",
+  "Пробы проверяют пробный процесс launcher, не процессы атакующего в эпизодах",
+  "Защитник в процессе брокера видит память атакующего (FR-1.3, вторая половина) — записано как известная утечка",
+  "Живой A только на основе v1 (нет --foundation); живого L* на v2r нет; статьи нет"
+ ],
+ "fixes": [
+  {
+   "evidence": "candidate/artifacts/checks/revision10_verify/e2e/report.md; artifacts/logs/full_verify.log",
+   "fix": "Добавить атаки с паспортами против инвариантов v2r и/или увеличить n так, чтобы V(g0)>0; публиковать нижнюю границу L* по верхней границе ДИ ΔV и отличать наблюдаемый no_safety_gain от unresolved"
+  },
+  {
+   "evidence": "artifacts/logs/hostile2_hang.log; candidate/darp_range/isolation/sandbox.py (_Proc.recv)",
+   "fix": "Тайм-аут каждого ожидания IPC → ipc_protocol_error попытки и kill; тест hang ≤ N с"
+  },
+  {
+   "evidence": "artifacts/logs/runner_live_a_default.log; candidate/darp_range/runner/orchestrator.py; candidate/darp_range/report_cli/__main__.py",
+   "fix": "Runner при agent_mode=live и attack_strategy=llm без фабрики и без явного флага — ошибка до первого запроса; report_cli live A — AttackerFactory по умолчанию"
+  },
+  {
+   "evidence": "artifacts/logs/hostile2.log; candidate/darp_range/isolation/ipc.py",
+   "fix": "Время композиции мерит брокер; data событий атакующего — закрытая схема; ограничить буфер stderr"
+  },
+  {
+   "evidence": "artifacts/logs/rsc_checks.log; artifacts/logs/historical_lock_sha.txt",
+   "fix": "Зафиксировать sha256 historical_artifacts.json вне файла (в критике/handoff), добавить rev1 в PREREG/RECORDED, связать BEHAVIOURAL с именами шагов verify"
+  },
+  {
+   "evidence": "candidate/artifacts/rev10/legacy_v1_noise_control.json",
+   "fix": "Детерминированные часы CPU на заглушке → побайтная регрессия legacy-таблиц"
+  },
+  {
+   "evidence": "candidate/tests/test_rev10_v2r.py",
+   "fix": "Убрать regex-проверки исходника verify_e2e, оставить поведенческий primary_foundation; публиковать CPU-время и стену verify"
+  },
+  {
+   "evidence": "candidate/darp_range/isolation/broker_probes.py",
+   "fix": "Сверять cmdline и NSpid каждого процесса атакующего эпизода, не только пробного"
+  },
+  {
+   "evidence": "candidate/configs/isolation/access_matrix.json (defender→attacker_memory)",
+   "fix": "Отдельный процесс защиты, после чего строка enforcement=os с собственной пробой"
+  }
+ ],
+ "requirements": {
+  "FR-1.1": {
+   "status": "simplified",
+   "note": "Две стороны есть; атакующий может работать в отдельном процессе bwrap (мой живой A: isolated_implementation_informed), но verify/report_cli/Runner по умолчанию in-process, защитник всегда в процессе брокера."
+  },
+  "FR-1.2": {
+   "status": "implemented",
+   "note": "Единый текстовый канал; приёмка ключевых требований в моём полном verify."
+  },
+  "FR-1.3": {
+   "status": "simplified",
+   "note": "Атакующий отделён OS-пробами (MX2/4/6/7/9 убиты), но защитник видит бриф/тактики/память атакующего (gc-проба RED, строка convention); research-mode маркирован."
+  },
+  "FR-1.4": {
+   "status": "implemented",
+   "note": "D и A за одним интерфейсом; sandbox↔in-process побайтно (rev10_verify)."
+  },
+  "FR-1.5": {
+   "status": "implemented",
+   "note": "Контракт GuardPlugin, приёмка verify."
+  },
+  "FR-1.6": {
+   "status": "implemented",
+   "note": "Вход плагина с происхождением, задачей и вызовом; приёмка verify."
+  },
+  "FR-1.7": {
+   "status": "implemented",
+   "note": "Сигнал + запись затрат; приёмка verify."
+  },
+  "FR-1.8": {
+   "status": "implemented",
+   "note": "Плагин без записи в БД; приёмка verify."
+  },
+  "FR-1.9": {
+   "status": "implemented",
+   "note": "Агент не импортирует гвардрейлы; приёмка verify."
+  },
+  "FR-1.10": {
+   "status": "implemented",
+   "note": "Синтетическая SQLite, возвраты."
+  },
+  "FR-1.11": {
+   "status": "implemented",
+   "note": "Пять инструментов."
+  },
+  "FR-1.12": {
+   "status": "implemented",
+   "note": "g_simple в каждом сравнении (V=0 и на v2r)."
+  },
+  "FR-1.13": {
+   "status": "implemented",
+   "note": "Исполнитель + серверные правила v2r; на главной таблице V(g0)=0."
+  },
+  "FR-1.14": {
+   "status": "implemented",
+   "note": "Граница основы фиксирована на прогон; главная — v2r."
+  },
+  "FR-1.15": {
+   "status": "implemented",
+   "note": "Дискретно-событийная очередь."
+  },
+  "FR-1.16": {
+   "status": "simplified",
+   "note": "Общая очередь, ΔQ в таблице; причинный механизм — на фикстуре."
+  },
+  "FR-1.17": {
+   "status": "implemented",
+   "note": "Журнал с хеш-цепочками; но события атакующего принимают свободные поля data (hostile2 data_inject)."
+  },
+  "FR-1.18": {
+   "status": "implemented",
+   "note": "Оценщик по БД; мой мутант оценщика ловится replay rev7."
+  },
+  "FR-1.19": {
+   "status": "implemented",
+   "note": "executed/refused/ignored; в моём живом A — executed по БД."
+  },
+  "FR-1.20": {
+   "status": "simplified",
+   "note": "D и A; живой A через sandbox работает (7 запросов), но только на основе v1 (нет --foundation у live_mode_a_v); офлайн A — заглушка."
+  },
+  "FR-1.21": {
+   "status": "simplified",
+   "note": "Три оси; корпуса малые и implementation-informed, не слепые; на v2r не дают ни одного нарушения."
+  },
+  "FR-1.22": {
+   "status": "simplified",
+   "note": "Парные контроли по числу реплик и длине."
+  },
+  "FR-1.23": {
+   "status": "implemented",
+   "note": "Все группы метрик в главном отчёте v2r."
+  },
+  "FR-1.24": {
+   "status": "implemented",
+   "note": "L* и статусы §9.2 считаются и перепроверяются; на главной таблице v2r все 19 конфигураций unresolved (V=0), L* не определён ни для одной — расчёт работает, вывода нет."
+  },
+  "NFR-2.1": {
+   "status": "implemented",
+   "note": "Снимок/восстановление перед эпизодом."
+  },
+  "NFR-2.2": {
+   "status": "simplified",
+   "note": "Seed/хеши/версии в манифесте; веса живой модели не фиксируются."
+  },
+  "NFR-2.3": {
+   "status": "implemented",
+   "note": "Replay кассет rev7/rev8 точный; мой мутант даёт replay_outcome-дефекты."
+  },
+  "NFR-2.4": {
+   "status": "implemented",
+   "note": "Только OSS/встроенные плагины."
+  },
+  "NFR-2.5": {
+   "status": "simplified",
+   "note": "Офлайн-контур локален (verify в netns); живая модель — через прокси к внешнему провайдеру (providers: Darkbloom в моём прогоне)."
+  },
+  "NFR-2.6": {
+   "status": "simplified",
+   "note": "Qwen 9B — в пределах исключения ≤12B."
+  },
+  "NFR-2.7": {
+   "status": "implemented",
+   "note": "Английский dirty English, эвристика."
+  },
+  "NFR-2.8": {
+   "status": "implemented",
+   "note": "Парные потоки; приёмка verify."
+  },
+  "NFR-2.9": {
+   "status": "implemented",
+   "note": "Затраты атакующего отдельно, токены модели пишет брокер; остаток: cpu_ms/latency_ms композиции — самоотчёт ребёнка до 3.6e6 мс (hostile2 cpu_inflate), влияет только на self-limited строку."
+  },
+  "NFR-2.10": {
+   "status": "implemented",
+   "note": "Конфигурации заморожены по хешу."
+  },
+  "NFR-2.11": {
+   "status": "implemented",
+   "note": "Лимиты шагов/запросов → protocol_violation; остаток: зависание процесса атакующего не ограничено тайм-аутом и вешает брокер (hostile2 hang)."
+  },
+  "NFR-2.12": {
+   "status": "implemented",
+   "note": "g0, g_proc, g_simple и 16 прочих конфигураций в главном прогоне."
+  },
+  "NFR-2.13": {
+   "status": "implemented",
+   "note": "Только синтетика."
+  },
+  "NFR-2.14": {
+   "status": "simplified",
+   "note": "Код, корпус, журналы, отчёт есть; статьи нет."
+  }
+ },
+ "evidence": [
+  "artifacts/logs/full_verify.log",
+  "artifacts/logs/full_verify_key_requirements.json",
+  "artifacts/logs/rev10_verify.log",
+  "artifacts/logs/openspec_validate.log",
+  "artifacts/logs/rsc_checks.log",
+  "artifacts/logs/historical_lock_sha.txt",
+  "artifacts/logs/hostile2.log",
+  "artifacts/logs/hostile2_hang.log",
+  "artifacts/logs/mx_mutants.log",
+  "artifacts/logs/mx_mutants.json",
+  "artifacts/logs/mx3_capeff.log",
+  "artifacts/logs/runner_live_a_default.log",
+  "artifacts/logs/matrix_rows.txt",
+  "artifacts/logs/critic_live_A_sandbox.log",
+  "artifacts/logs/critic_live_A_sandbox_summary.txt",
+  "artifacts/critic_live_A_sandbox/manifest.json",
+  "artifacts/critic-budget.json",
+  "artifacts/openspec-review.json",
+  "artifacts/coevolution-progress.md",
+  "artifacts/critique.md"
+ ]
+}
