@@ -1,0 +1,59 @@
+{
+ "prereg": "artifacts/preregistration-rev6.json",
+ "deviations": [
+  {
+   "id": "D6.1",
+   "what": "scripts/rev6_boundary_diag.py changed after the first diagnostic run: classification of legal server denials by corpus ground truth (server_false_block vs server_prevented_agent_error), a data-driven cross-check of violated scenarios against attack-card inclusion_status, and an interpretation section in evaluation-results.md",
+   "why": "the first run found 15 legal episodes (heldout_v3 ctl-06, profile claims, foundation v2, g0) refused by the server; without GT classification the table could not distinguish a false block from a prevented agent error",
+   "effect_on_numbers": "none: re-rendered with --reuse from the same raw runs (runs/rev6_boundary_diag); V, task_status and denial counts are unchanged",
+   "code_hash_after": "see make_prereg_rev6.py --check output; only scripts/rev6_boundary_diag.py differs from the frozen hashes"
+  },
+  {
+   "id": "D6.2",
+   "what": "scripts/rev6_confirm_mode_compare.py changed after the first run: separate count of facts-line client replies (answers to confirm/proposal in facts mode) and of approval tokens in them",
+   "why": "the first summary counted approval tokens in all client replies after the first; all 570 came from scripted corpus continuations of question_only clients ('ok thanks, nothing to return…') in both modes, which hid the quantity the acceptance is about",
+   "effect_on_numbers": "none for task_status/rounds/fingerprints (re-collected with --reuse from the same raw runs); new fields: facts_line_replies 30, with approval token 0"
+  },
+  {
+   "id": "D6.3",
+   "what": "run_command of this pass (for the critic, no author live run): live mode A on heldout_v3 atk-06 and atk-08 × g0, g_in, interleaved, --cell-budget 13 --max-requests-per-episode 13, run limits 60 requests / 150000 tokens / 900 s",
+   "why": "preregistration-rev6 live_A_next fixes cell budget 13 and the symmetric rule floor(60 / (2 configs × 13)) = 2 scenarios; the prereg did not name which 2 of the 3 rev5 scenarios. Chosen before any live request: atk-06 (all rev4/rev5 attempts truncated at 10–12 requests — tests whether 13 is enough) and atk-08 (the only scenario executed in rev4/rev5 live runs); atk-11 dropped for every config",
+   "effect_on_numbers": "none: no live run was made by the author; checked offline with --offline-stub (4 cells measured, 0 truncated)"
+  },
+  {
+   "id": "D6.4",
+   "what": "configs/configs.lock.json: lock v3 (preregistered by rev3, unchanged through rev5) replaced by lock v4 in the integrate stage of rev6, before preregistration-rev6",
+   "why": "executor-boundary-2 changes darp_range/executor; the lock records defense_code.executor and `configs verify` rejects code drift. Configurations, their files and set_fingerprint are unchanged; boundary-1 spec/fingerprint unchanged and stays the default of every frozen configuration",
+   "lock_v3_kept_at": "configs/history/configs.lock.004.2026-11-05T222021Z.json (byte-identical, sha256 = preregistration-rev3 file_sha256)",
+   "effect_on_numbers": "none: verify on foundation v1 reproduces rev5 fingerprint_flows (seed 7) and metrics (seeds 8/9)"
+  },
+  {
+   "id": "D6.5",
+   "what": "files of the rev5 confirm contract changed: darp_range/channel/proposal_contract.py (docstring corrected by the approved task legal-client-fact-contract: the property is syntactic; uncovered classes listed) and darp_range/channel/legal_user.py (new confirm_mode='facts'; grammar_rev5 path unchanged and is the class default)",
+   "why": "approved task legal-client-fact-contract",
+   "check": "rev5 blind set evaluated with the class default (grammar_rev5) gives row-by-row the same answers as the rev5 reference artifacts/checks/revision5_verify/rev5_blind_eval.json (75/75 rows equal, safety and utility equal); verify accepts the hash drift only if it is declared here AND the rows are equal",
+   "effect_on_numbers": "none"
+  }
+ ],
+ "file_hash_updates": {
+  "artifacts/preregistration-rev3.json": {
+   "configs/configs.lock.json": {
+    "preregistered": "378feb12fa21cef5e91229d4378d1f0f48631a4bdff73f5f745500f511ae9f78",
+    "current": "ed4c0a39fa1ef4773fd1c89854b7629d3ee69e922957b004cc61ea300efea058",
+    "reason": "D6.4 lock v4: only defense_code.executor re-hashed (executor-boundary-2); lock v3 kept in configs/history"
+   }
+  },
+  "artifacts/preregistration-rev5.json": {
+   "darp_range/channel/proposal_contract.py": {
+    "preregistered": "89f9c75cf60226b914d8481b6525ae84a36ef79a1f816d3c472251bd3baba95b",
+    "current": "2b3b948a4b2e344df456b1a64fa91558a472a7e8d09df9b34bc5efd8906a565b",
+    "reason": "D6.5 docstring of proposal_contract corrected (approved task)"
+   },
+   "darp_range/channel/legal_user.py": {
+    "preregistered": "6c1b23ef69116b46249892471a4bade2a373a051ed49cf5ee1e36f03d2710f4d",
+    "current": "f8723fa2baf549d53e7a9c8734e9c239f51de0b0d1a07d65e53cf69d2f049b0e",
+    "reason": "D6.5 confirm_mode='facts' added; grammar_rev5 unchanged (class default)"
+   }
+  }
+ }
+}

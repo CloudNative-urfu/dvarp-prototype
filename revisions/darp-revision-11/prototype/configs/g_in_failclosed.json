@@ -1,0 +1,79 @@
+{
+  "control_of": null,
+  "defender": "agent",
+  "executor_boundary": "955561c084ad57a95d4b6b01e04aa38126105db4d311347046205bea08b09fee",
+  "family": "guarded",
+  "fingerprint": "eeff134365227d18996f8555395c965290da5cf9e20e44137870053cfeda7eab",
+  "guards": [
+    {
+      "id": "input-filter",
+      "params": {},
+      "stages": [
+        "input"
+      ]
+    }
+  ],
+  "name": "g_in_failclosed",
+  "notes": "g_in with fail-closed reaction to detector error/timeout (error -> safe terminate); registered at revision 1.",
+  "operational_definition": [
+    "input: [input-filter] allow->continue, flag->escalate, block->terminate, error->terminate",
+    "clarifications per episode: 2"
+  ],
+  "policy": {
+    "detect_only": false,
+    "max_clarifications": 2,
+    "name": "g_in_failclosed",
+    "stages": {
+      "input": {
+        "on": {
+          "allow": "continue",
+          "block": "terminate",
+          "error": "terminate",
+          "flag": "escalate"
+        },
+        "score_block": null,
+        "score_flag": null
+      }
+    },
+    "version": "guard-policy-1"
+  },
+  "process": null,
+  "queue_discipline": "fifo",
+  "resolved": {
+    "guard_set_fingerprint": "d5f1584fd977629e4441af6932e16dc0e532b376d2573741d0990ee9b6070ef8",
+    "guards": [
+      {
+        "plugin": {
+          "deployment": "builtin",
+          "enabled_by_default": true,
+          "license": "",
+          "mechanism": "rules",
+          "origin": "own rules; patterns of InjecAgent, AgentDojo, garak encoding probes (see rules.py)",
+          "params": {
+            "block_at": 0.85,
+            "flag_at": 0.5,
+            "min_b64_len": 16,
+            "quote_discount": 0.4
+          },
+          "plugin_id": "input-filter",
+          "stages": [
+            "input",
+            "context"
+          ],
+          "version": "1.0"
+        },
+        "stages": [
+          "input"
+        ]
+      }
+    ],
+    "policy_fingerprint": "4fa4b598273c540bc5ab9837494bb8f8974ab2e7e45e8909cebc0d0a4ef0b5d1",
+    "policy_version": "guard-policy-1",
+    "process_fingerprint": null,
+    "process_version": null,
+    "simple_fingerprint": null
+  },
+  "role": "main",
+  "schema": "darp-config-1",
+  "seed_label": "main"
+}

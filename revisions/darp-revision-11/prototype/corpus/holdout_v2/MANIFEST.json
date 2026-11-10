@@ -1,0 +1,143 @@
+{
+ "corpus_level_schema_notes": [],
+ "coverage": {
+  "control_type": {
+   "financial_terms": 4,
+   "legal_complaint": 6,
+   "long_emotional": 3,
+   "needs_clarification": 2,
+   "quoted_injection": 4
+  },
+  "delivery": {
+   "indirect_data": 4,
+   "masked_legit": 6,
+   "multi_turn": 3,
+   "single_turn": 6
+  },
+  "goal": {
+   "break": 10,
+   "burn": 3,
+   "shift": 4,
+   "slow": 2
+  },
+  "mechanism": {
+   "direct_task": 4,
+   "instruction_split": 1,
+   "obfuscation": 4,
+   "role_switch": 2,
+   "staged_injection": 3,
+   "trust_spoof": 5
+  },
+  "split": {
+   "dev": 15,
+   "holdout": 4
+  }
+ },
+ "created_utc": "2026-11-04T12:21:54Z",
+ "dirty_rates": {
+  "attack": 0.9474,
+  "control": 1.0
+ },
+ "dropped": [
+  {
+   "id": "atk-06",
+   "reason": "not paraphrased (word overlap > 0.6)"
+  },
+  {
+   "id": "atk-07",
+   "reason": "not paraphrased (word overlap > 0.6)"
+  },
+  {
+   "id": "atk-14",
+   "reason": "not paraphrased (word overlap > 0.6)"
+  },
+  {
+   "id": "atk-15",
+   "reason": "not paraphrased (word overlap > 0.6)"
+  },
+  {
+   "id": "ctl-19",
+   "reason": "not paraphrased (word overlap > 0.6)"
+  },
+  {
+   "id": "atk-19",
+   "reason": "partner dropped"
+  },
+  {
+   "id": "ctl-06",
+   "reason": "partner dropped"
+  },
+  {
+   "id": "ctl-07",
+   "reason": "partner dropped"
+  },
+  {
+   "id": "ctl-14",
+   "reason": "partner dropped"
+  },
+  {
+   "id": "ctl-15",
+   "reason": "partner dropped"
+  }
+ ],
+ "entry_hashes": {
+  "atk-01": "d925bbf48f2ad4f21a31ce7624bfdf0a7cd7093a05e4d7f9acf9a478c34dd1dd",
+  "atk-02": "fa70424e213dc065dcc14cbd4fe55c57affa9ef1ac8508eeb93d9087f15e07b9",
+  "atk-03": "15f64a00cc3e5074706f288c27ffac98d0b49d2f033923bc84cb9a505d091b17",
+  "atk-04": "03d21b11999661048cbfc717f41131be3cd2cd44dd31caa24f50d5d5919b2c28",
+  "atk-05": "f904b26d19ae4a3144edb7feee97d0fabb237d8a14730c64999a7d340c9da3a2",
+  "atk-08": "c6107f5bccd25443da7f9ef88eada416fc2638ff84dd8c1bd595f1e4e9bf0467",
+  "atk-09": "228f3a1a6560ee88e5a0540c39a167eed1810a1a4eec627efc1ed2452623323e",
+  "atk-10": "a3764b24015dc4a720e92aa8dece9f8a35cea4eda162d9b2e30088fbd79d6391",
+  "atk-11": "b3129d0613b0b53645d89ac50a6c9314a9229b82cc90f4d5170c40df14bd6fc5",
+  "atk-12": "2d8975f2c996c1f5f0cf6ac47bfa4f1c21c8c570d3b755c87810f70a54fe9922",
+  "atk-13": "c5fc15d3cc4fb3778bd7dcfaf8ac633db89cacc5dd6e4c74db8f931a628785e3",
+  "atk-16": "53c0c49728687051f6b834b7068e274eaafef53dd949fa331ec340dc1f4036be",
+  "atk-17": "8645dd70157b9a7b2d59bf673964b4a39a05461d865a295767f26e4e209ca54d",
+  "atk-18": "1be317632398c4a03c42ddd6332826293a7998e97a07ba4ac73b8e2b4167cdce",
+  "atk-20": "cd9669befbe8b4dfd04208dc9b310a184be47a9e7987eab9fc6fa5a241b7e2a1",
+  "atk-21": "567ceed322f34cd919b7cbe36443ea8567bff8d7ae61f0fdccc5df4cd5368fe7",
+  "atk-22": "385198578ddfde002ce972b9d284eeea234bc9b7d32fb4a9211d1f915e352bbb",
+  "atk-23": "0883efc00866298354ddcd2571834a3b49f5f379f09ec7264a69c8a65385abb5",
+  "atk-24": "730f388cf81b6807cf770571f9a1b11fac73bd50ed84247295ede75fc99f25cc",
+  "ctl-01": "afe72b861b8c253376a832d335c822d0ce0c1bae7c637614b08a30976084123b",
+  "ctl-02": "eb634f86573aa5c6edf96add616132a197272746d10759dccc5c9ec62e98d2c2",
+  "ctl-03": "1fba1dbe9f5b4aeb169bfd656ee4acf8005ff02da26463eb31b3f525efd1bcd7",
+  "ctl-04": "c1c67c999c40c1b23c26c74174436acfd751eb371017651c7a782fc1f445025e",
+  "ctl-05": "53a2ec14de120b53dab8bbac015d63412fa2f3baf63a593b1ff2149ca7a42877",
+  "ctl-08": "cadf8a9b713995d2c58fe7be9c82e08d39a3cb2fb887170b01bda0cae9847c46",
+  "ctl-09": "d86bc44911b3022fff711686c86d2b334644224e19bb371f7819b1458b4b2c86",
+  "ctl-10": "c8137059be98de1316bdb603f28f11d5e216c7e4c782d21a5d37c5bc2de9743c",
+  "ctl-11": "26782f89b018ca6393ed8858c61b047680991e5833cd47b172d49aa42abf57cb",
+  "ctl-12": "e9b81b974d0db2404b2fd0de757850b7fa40102bfcbface045da53a19605d918",
+  "ctl-13": "8111cc2106a6580a68a424f47b4ffd8d828dbbbc8854af9f6bee4bf1ae21525a",
+  "ctl-16": "4ec6f75f8f2993c9a925d3ef75d4d79df575aafdde3f22a993c782d621494727",
+  "ctl-17": "9b7af230e83686922b93bb0a961748dbf4f61b7f68b6e26d4aa8b056f8500401",
+  "ctl-18": "d5e2d5e6ca8b0bfc52aa9e85606cf1409b0fa96bf319063812ff019f04d690b4",
+  "ctl-20": "56762be828dc193baa3d53b978b050399671a707245f8fd3afcd4803a2243b6b",
+  "ctl-21": "3ec478166eb7db518fbc6d1a9c10ec97019b4a3aa1df123a3e7061ab23a7885a",
+  "ctl-22": "aa5b77032709319a9bf06de9fa84d3faa7c4157c201e271bd50c0b728681eea0",
+  "ctl-23": "4c3e75d12d0210e19d99d52e5e121690bb0d0f30aab0c419b3416ec950b19517",
+  "ctl-24": "844169b293cf7fa98302989bb148550d926691bcd763bd2edda2c7cb9a7a37c9"
+ },
+ "file": "darp_corpus_holdout_v2.jsonl",
+ "generator": {
+  "model": "qwen/qwen3.5-9b",
+  "prompt_sha256": "043b9304ac4a40cc869dcef4c1cca7c739176d162555cfc101558d096d65be52",
+  "prompt_version": "holdout-v2-paraphrase-2",
+  "providers": [
+   "Darkbloom"
+  ]
+ },
+ "independence": "texts written by the experimental model (not the rule/stub author); the set is visible to the author after generation, so it is NOT blind/closed",
+ "language": "en (dirty English, NFR-2.7)",
+ "n_attacks": 19,
+ "n_controls": 19,
+ "n_entries": 38,
+ "n_independent_scenarios": 19,
+ "parent_corpus_sha256": "4e155426043e7eefcce1106b8a5b2e1f5db8b54c5a436f991db829b67a9229c5",
+ "schema": "darp.corpus/1",
+ "sha256": "7d31a56d90f284fccb924e09314a15ead70365c4249d3ace6129f7a109f8f27f",
+ "synthetic": true,
+ "version": "holdout_v2"
+}

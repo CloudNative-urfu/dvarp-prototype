@@ -1,0 +1,38 @@
+{
+ "schema": "darp-oss-detector-lock-1",
+ "plugin_id": "deberta-pi-v2",
+ "model": "protectai/deberta-v3-base-prompt-injection-v2",
+ "revision": "90c9989b1a342275dd0d1a95aad283c04e075671",
+ "license": "apache-2.0",
+ "params": "~184M (DeBERTa-v3-base)",
+ "source_url_template": "https://huggingface.co/protectai/deberta-v3-base-prompt-injection-v2/resolve/{revision}/{path}",
+ "files": {
+  "onnx/model.onnx": "f0ea7f239f765aedbde7c9e163a7cb38a79c5b8853d3f76db5152172047b228c",
+  "onnx/tokenizer.json": "752fe5f0d5678ad563e1bd2ecc1ddf7a3ba7e2024d0ac1dba1a72975e26dff2f",
+  "onnx/config.json": "3093743035223c46b1497a72e939e56fa0a50afbd7bafbf7eb8aad060b8d23f8",
+  "onnx/special_tokens_map.json": "b2f1b2f15f29a6b6d9d6ea4eca1675d2c231a71477f151d48f79cc83a625ba21",
+  "onnx/tokenizer_config.json": "77d3dd1a9c30397a06545251ed9274bd92e4a85feb98497eeed50c920f962274"
+ },
+ "files_pin_note": "model.onnx sha256 equals the value measured independently at revision 1 (artifacts/checks/revision/oss_detector_eval.json); the other four were pinned at first download on 2026-11-06.",
+ "model_dir_default": "venvs/oss_models/deberta",
+ "threshold": 0.5,
+ "threshold_source": "model card default (not tuned on the corpus)",
+ "max_tokens": 512,
+ "runtime": {
+  "kind": "nix",
+  "expr": "with import <nixpkgs> {}; python3.withPackages (p: [p.onnxruntime p.tokenizers p.numpy])",
+  "nixpkgs_source_store_path": "/nix/store/87lfqfz7mc5dm4w75qikxhd6lkr9jisr-source",
+  "nixpkgs_source_nar_sha256": "sha256:1l60ar0j7j7jrrg4r7j4kscrih0qn2n0lslffzflhv86lyq650r2",
+  "nixpkgs_version": "26.11pre-git (26.11ci)",
+  "env_store_path": "/nix/store/0i9vlc6pwirvyf36qm4npj4dkizfw35l-python3-3.14.8-env",
+  "packages": {
+   "onnxruntime": {"version": "1.27.1", "store_path": "/nix/store/684i69y5l8yxr09dlzcw01044gsdvljz-python3.14-onnxruntime-1.27.1", "nar_sha256": "sha256:112f8hxw6rmwp9l4cvmg97w4fj3slidqwbfc5nn3hk6whrvxc7cn"},
+   "tokenizers": {"version": "0.23.2", "store_path": "/nix/store/fj470v9ddx9d2kjkl5nn4vpa3xs0c4az-python3.14-tokenizers-0.23.2", "nar_sha256": "sha256:1pm40a8dl82yzcsqgas9a5dp0lvwvf89g3ykf7ih6kklnvnfqm5q"},
+   "numpy": {"version": "2.5.3", "store_path": "/nix/store/pjdijd0g201aqcmwi9lfq8mgac8xkqm3-python3.14-numpy-2.5.3", "nar_sha256": "sha256:0s1plmqzfprh7rcijg0p9p2cyw18prqn4ax5jxd9yban7xrb6wg9"}
+  },
+  "python": "3.14.8",
+  "provider": "CPUExecutionProvider",
+  "intra_op_num_threads": 4
+ },
+ "score_cache": "corpus/oss_scores/deberta-pi-v2@90c9989.json"
+}

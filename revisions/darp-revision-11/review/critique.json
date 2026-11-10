@@ -1,0 +1,396 @@
+{
+  "summary": "D11-S1 исправлен; scoped re-review без новых существенных замечаний. На новом candidate: 13 recovery/регрессионных + 3 независимых негативных теста и smoke17/17 PASS. Брокер6/6 и M8 подтверждены VM координатора. Все пять задач implemented в foundation-scope; не production-ready.",
+  "backend": "OpenCode",
+  "model": "openai/gpt-6.1-sol",
+  "built": [
+    "Реальный offline-контур оператор→заявка→эмулятор выплаты→клиентский статус.",
+    "Восстановление последнего принятого POST после SIGKILL без дополнительных POST/attempts.",
+    "Монотонная сверка и бюджет сохранены; bounded IPC подтверждён отдельной VM координатора."
+  ],
+  "weak": [
+    "После фикса полный verify/rev10 не повторены: прежние результаты historical.",
+    "M1–M7/M9 воспроизводились мной до ремонта, после ремонта повторены recovery/регрессии/smoke, не весь набор мутантов.",
+    "VM-брокерские проверки запускал координатор на исходном snapshot, не критик на новом candidate; отсутствие изменений брокера сообщено координатором.",
+    "Синтетическая auth, нет вложений, подписанных push-событий и живого Qwen-среза на контуре; strict-black-box/B/C не доказаны.",
+    "Регрессионные тесты выдают неблокирующий ResourceWarning о соединениях SQLite."
+  ],
+  "fixes": [],
+  "requirements": {
+    "FR-1.1": {
+      "status": "implemented",
+      "note": "Две стороны и канал реализованы; это не утверждение симметричной OS-изоляции. Унаследованная оценка по документам, не новый полный прогон. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "FR-1.2": {
+      "status": "implemented",
+      "note": "Единый текстовый канал сохранён; старый полный verify — доказательство автора/контроллера, не мой прогон. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "FR-1.3": {
+      "status": "simplified",
+      "note": "Simplified: защита не OS-изолирована, strict-black-box не подтверждён. Прежний пробел доказательств hang/stderr/default sandbox/M8 закрыт VM координатора, не собственным host-запуском.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log",
+        "candidate/artifacts/openai-fix/broker-vm.log"
+      ]
+    },
+    "FR-1.4": {
+      "status": "implemented",
+      "note": "D/A используют интерфейс канала без изменения агента; унаследовано, заново весь контракт не проверялся. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "FR-1.5": {
+      "status": "implemented",
+      "note": "Контракт GuardPlugin и реестр сохранены; оценка по прежней приёмке, не новый самостоятельный прогон плагинов. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "FR-1.6": {
+      "status": "implemented",
+      "note": "Текст/происхождение/задача/предложенный инструмент есть в контракте; наследованная оценка. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "FR-1.7": {
+      "status": "implemented",
+      "note": "Сигнал и затраты пишет хост плагина; наследованная оценка по приёмке автора. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "FR-1.8": {
+      "status": "implemented",
+      "note": "Политику и исполнение отделяет контракт хоста, плагин не получает штатного пути записи; полного нового аудита нет. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "FR-1.9": {
+      "status": "implemented",
+      "note": "Гвардрейлы не меняют агента; срез использует прежние инструменты. Общая регрессия — только прежние доказательства. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "FR-1.10": {
+      "status": "implemented",
+      "note": "Синтетический возврат реализован; новый smoke17/17 PASS. D11-S1 исправлен и подтверждён процессными recovery-тестами и независимыми негативами.",
+      "evidence": [
+        "artifacts/openai-logs/recheck/smoke/smoke.json",
+        "artifacts/openai-logs/recheck/tests.log",
+        "artifacts/critique.md"
+      ]
+    },
+    "FR-1.11": {
+      "status": "implemented",
+      "note": "Срез исполняет прежний пятиинструментальный путь, low_value_agent и legal_approve PASS. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "artifacts/openai-logs/recheck/smoke/smoke.json",
+        "artifacts/openai-logs/recheck/tests.log",
+        "artifacts/critique.md"
+      ]
+    },
+    "FR-1.12": {
+      "status": "implemented",
+      "note": "g_simple участвует в сравнении как структурированная альтернатива; унаследованная оценка, нового сравнения нет. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "FR-1.13": {
+      "status": "implemented",
+      "note": "HTTP-негативы полномочий/владельца/суммы и конкуренции проходят; D11-S1 относится к доставке выплаты, не обходу прав. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "artifacts/openai-logs/recheck/smoke/smoke.json",
+        "artifacts/openai-logs/recheck/tests.log",
+        "artifacts/critique.md"
+      ]
+    },
+    "FR-1.14": {
+      "status": "implemented",
+      "note": "Граница g0 сохранена вне конфигураций гвардрейлов; сверка общих таблиц здесь не повторена. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "FR-1.15": {
+      "status": "implemented",
+      "note": "Модель очереди с конечной мощностью и временем сохранена. Новые решения оператора ещё не привязаны к её времени. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "FR-1.16": {
+      "status": "simplified",
+      "note": "Влияние общей очереди показано на заглушке и нагрузочных допущениях; реальное время нового контура не связано с этой моделью. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "FR-1.17": {
+      "status": "implemented",
+      "note": "Сохранён прежний журнал, в моём smoke получены отдельные JSONL-трассы сервисов. Затраты старых опытов не пересчитаны. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "artifacts/openai-logs/recheck/smoke/smoke.json",
+        "artifacts/openai-logs/recheck/tests.log",
+        "artifacts/critique.md"
+      ]
+    },
+    "FR-1.18": {
+      "status": "implemented",
+      "note": "Oracle читает БД/книгу независимо от слов агента; подложенная вторая выплата отклонена в моём прогоне. Это не доказательство полноты oracle. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "artifacts/openai-logs/recheck/smoke/smoke.json",
+        "artifacts/openai-logs/recheck/tests.log",
+        "artifacts/critique.md"
+      ]
+    },
+    "FR-1.19": {
+      "status": "implemented",
+      "note": "executed/refused/ignored и монотонность обрезанных исходов сохранены по прежней приёмке; новых атак не проводил. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "FR-1.20": {
+      "status": "simplified",
+      "note": "D/A реализованы, оценка остаётся simplified: нового живого Qwen-среза нет. Sandbox default подтверждён VM координатора; собственной повторной namespace-проверки нет.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "FR-1.21": {
+      "status": "simplified",
+      "note": "Разметка трёх осей есть; корпус малый авторский, не blind и не новые атаки на платёжный контур. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "FR-1.22": {
+      "status": "simplified",
+      "note": "Парные чистые контроли сохранены; сопоставимость ограничена синтетическими объёмами и старым корпусом. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "FR-1.23": {
+      "status": "implemented",
+      "note": "Расчёт метрик унаследован; в текущей проверке измерены wall/CPU smoke и мутантов, не экономический эффект защиты. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "FR-1.24": {
+      "status": "implemented",
+      "note": "Расчёт L* сохранён. На v2r прежний результат no_safety_gain/unresolved допустим и не равен измеренному живому порогу; заново не считал. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "NFR-2.1": {
+      "status": "implemented",
+      "note": "Детерминированный reset контура воспроизведён; snapshot эпизодов — унаследованный механизм. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "artifacts/openai-logs/recheck/smoke/smoke.json",
+        "artifacts/openai-logs/recheck/tests.log",
+        "artifacts/critique.md"
+      ]
+    },
+    "NFR-2.2": {
+      "status": "simplified",
+      "note": "Seed/корпус зафиксированы, но живые ответы и измеренные CPU-затраты не детерминированы; хеш весов внешней модели недоступен. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "NFR-2.3": {
+      "status": "implemented",
+      "note": "Механизм кассет и фиксации расхождений сохранён по прежним документам; живые повторы не выполнялись. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "NFR-2.4": {
+      "status": "implemented",
+      "note": "Проверяемый прототип/эмуляторы OSS/self-hosted; OpenAI Sol — инструмент критика, не исследуемый guardrail или сравниваемый агент. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "NFR-2.5": {
+      "status": "simplified",
+      "note": "Новый контур локальный и воспроизведён, но исторический живой агент использовал внешний прокси; весь полигон не доказан локальным. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "NFR-2.6": {
+      "status": "simplified",
+      "note": "В паспорте историческая Qwen 9B (в пределах исключения до 12B); локальное развёртывание и ресурсный режим в этой сессии не проверялись. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "NFR-2.7": {
+      "status": "implemented",
+      "note": "API/сценарии нового контура английские, отчёты русские; общего нового языкового аудита не было. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "NFR-2.8": {
+      "status": "implemented",
+      "note": "Парные прогоны сохранены по историческим доказательствам; foundation smoke не является новым измерением эффекта на очередь. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "NFR-2.9": {
+      "status": "implemented",
+      "note": "Раздельный учёт сторон сохранён; остаток самоотчёта CPU атакующего из rev10 не закрыт и не проверен заново. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "NFR-2.10": {
+      "status": "implemented",
+      "note": "Замороженные конфигурации не менялись мной; нового адаптивного эксперимента не проводилось. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "NFR-2.11": {
+      "status": "implemented",
+      "note": "Лимиты и no-factory/M9 проверены ранее мной; bounded IPC/hang, stderr cap и default sandbox подтверждены шестью VM-тестами координатора без SKIP, M8 killed. Payout-фикс брокер не затрагивал.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log",
+        "candidate/artifacts/openai-fix/broker-vm.log"
+      ]
+    },
+    "NFR-2.12": {
+      "status": "implemented",
+      "note": "g0/g_proc/g_simple сохранены в исторических сравнениях; rev11 их эффект не измеряет. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    "NFR-2.13": {
+      "status": "implemented",
+      "note": "Мой запуск только синтетический loopback-контур, 0 запросов Qwen и реальных платёжных шлюзов; реальные секреты не читались. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "artifacts/openai-logs/recheck/smoke/smoke.json",
+        "artifacts/openai-logs/recheck/tests.log",
+        "artifacts/critique.md"
+      ]
+    },
+    "NFR-2.14": {
+      "status": "simplified",
+      "note": "Код, корпус, трассы и отчёты существуют; научной статьи нет. Новая критика не закрывает это требование полностью. Scoped re-review: исходные требования вне D11-S1 не переаудировались целиком; старый полный verify historical.",
+      "evidence": [
+        "candidate/artifacts/status.json",
+        "artifacts/critique.md",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    }
+  },
+  "evidence": [
+    "artifacts/openai-logs/recheck/tests.log",
+    "artifacts/openai-logs/recheck/independent-negatives.log",
+    "artifacts/openai-logs/recheck/smoke/smoke.json",
+    "candidate/artifacts/openai-fix/broker-vm.log",
+    "artifacts/openai-logs/recheck/commands.log"
+  ],
+  "findings": [
+    {
+      "id": "D11-S1",
+      "status": "ADDRESSED",
+      "severity": "важное (закрыто)",
+      "evidence": [
+        "artifacts/openai-logs/recheck/tests.log",
+        "artifacts/openai-logs/recheck/independent-negatives.log",
+        "candidate/darp_range/shop_svc/worker.py"
+      ],
+      "note": "GET-сверка не зависит от остатка POST-бюджета; реальные SIGKILL/restart и три дополнительных негативных сценария PASS."
+    }
+  ],
+  "verdict": "no findings",
+  "limitations": {
+    "full_verify_after_fix": false,
+    "rev10_after_fix": false,
+    "broker_vm_origin": "координатор, исходный snapshot; брокер не менялся по его сообщению",
+    "own_recovery_and_regression_tests": 13,
+    "own_additional_negative_tests": 3,
+    "own_new_candidate_smoke_scenarios": 17,
+    "live_requests": 0,
+    "candidate_modified": false,
+    "revision12_started": false
+  }
+}

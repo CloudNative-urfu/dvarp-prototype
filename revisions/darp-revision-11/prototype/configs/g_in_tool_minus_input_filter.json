@@ -1,0 +1,76 @@
+{
+  "control_of": "g_in_tool",
+  "defender": "agent",
+  "executor_boundary": "955561c084ad57a95d4b6b01e04aa38126105db4d311347046205bea08b09fee",
+  "family": "guarded",
+  "fingerprint": "bdc5a3c0e657f6c1fa7f213eef0898e2a367b6bcac06ec289f819bf6db2550a6",
+  "guards": [
+    {
+      "id": "tool-arg-validator",
+      "params": {},
+      "stages": [
+        "tool"
+      ]
+    }
+  ],
+  "name": "g_in_tool_minus_input_filter",
+  "notes": "Leave-one-out of g_in_tool: without input-filter.",
+  "operational_definition": [
+    "tool: [tool-arg-validator] allow->continue, flag->isolate, block->clarify, error->isolate",
+    "clarifications per episode: 2"
+  ],
+  "policy": {
+    "detect_only": false,
+    "max_clarifications": 2,
+    "name": "g_in_tool-minus-input-filter",
+    "stages": {
+      "tool": {
+        "on": {
+          "allow": "continue",
+          "block": "clarify",
+          "error": "isolate",
+          "flag": "isolate"
+        },
+        "score_block": null,
+        "score_flag": null
+      }
+    },
+    "version": "guard-policy-1"
+  },
+  "process": null,
+  "queue_discipline": "fifo",
+  "resolved": {
+    "guard_set_fingerprint": "cbc56cc466cf84e75f33362ba95fd27bac4fdc146ce16098c84fdf84857a4ad7",
+    "guards": [
+      {
+        "plugin": {
+          "deployment": "builtin",
+          "enabled_by_default": true,
+          "license": "",
+          "mechanism": "rules",
+          "origin": "own; argument-validator idea from arXiv 2610.09906; rules R1-R7 from trusted policy table",
+          "params": {
+            "check_refusals": true,
+            "flag_score": 0.6
+          },
+          "plugin_id": "tool-arg-validator",
+          "stages": [
+            "tool"
+          ],
+          "version": "1.0"
+        },
+        "stages": [
+          "tool"
+        ]
+      }
+    ],
+    "policy_fingerprint": "dee1efcdd3a0ebabafae148e1a3dfaabeed8b75c605c9540ca412e6664d64545",
+    "policy_version": "guard-policy-1",
+    "process_fingerprint": null,
+    "process_version": null,
+    "simple_fingerprint": null
+  },
+  "role": "loo",
+  "schema": "darp-config-1",
+  "seed_label": "main"
+}

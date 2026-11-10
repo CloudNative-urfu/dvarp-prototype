@@ -1,0 +1,54 @@
+{
+  "change": "returns-operator-payout-slice",
+  "backend": "OpenCode",
+  "model": "openai/gpt-6.1-sol",
+  "tasks": [
+    {
+      "id": "operator-decision-service",
+      "status": "implemented",
+      "summary": "Новый smoke подтвердил операторские auth/права/сумму/final-sale, конкуренцию, replay и restart. M1/M2 — мой исторический прогон до payout-фикса.",
+      "evidence": [
+        "artifacts/openai-logs/recheck/smoke/smoke.json",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    {
+      "id": "payment-emulator-service",
+      "status": "implemented",
+      "summary": "Контракт книги, сумма/payee/fault и restart подтверждены новым smoke и регрессиями. M4/M5 — прежний мой прогон.",
+      "evidence": [
+        "artifacts/openai-logs/recheck/smoke/smoke.json",
+        "artifacts/openai-logs/recheck/tests.log"
+      ]
+    },
+    {
+      "id": "payout-reconciliation",
+      "status": "implemented",
+      "summary": "D11-S1 закрыт: реальные SIGKILL последнего POST+restart и pending→succeeded; дополнительные негативы проверяют 503/empty lookup, reconcile_after и устаревший ответ после concurrent success без новых POST.",
+      "evidence": [
+        "artifacts/openai-logs/recheck/tests.log",
+        "artifacts/openai-logs/recheck/independent-negatives.log",
+        "artifacts/openai-logs/recheck/smoke/smoke.json"
+      ]
+    },
+    {
+      "id": "returns-slice-e2e",
+      "status": "implemented",
+      "summary": "Новый smoke17/17 PASS с независимым oracle/подложенной второй выплатой, wall20.67с CPU9.73с. Полный verify/rev10 после фикса не повторены; исторические результаты не представлены как свежий PASS.",
+      "evidence": [
+        "artifacts/openai-logs/recheck/smoke/smoke.json",
+        "artifacts/critique.md"
+      ]
+    },
+    {
+      "id": "broker-fail-closed",
+      "status": "implemented",
+      "summary": "VM координатора: 6/6 без SKIP, M8 killed/control PASS на исходном snapshot; брокер не затрагивался payout-фиксом по его сообщению. Это не мой VM-запуск. Прежний мой no-factory/M9 учтён исторически.",
+      "evidence": [
+        "candidate/artifacts/openai-fix/broker-vm.log",
+        "candidate/artifacts/openai-fix/broker-vm.nix",
+        "artifacts/critique.md"
+      ]
+    }
+  ]
+}

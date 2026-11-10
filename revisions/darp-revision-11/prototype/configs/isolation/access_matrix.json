@@ -1,0 +1,441 @@
+{
+ "schema": "darp-access-matrix-1",
+ "revision": "10 (change trusted-trace-and-v2r-table, claim-level-in-manifest)",
+ "change": "attacker-isolation-boundary",
+ "boundary": {
+  "current": "boundary-2r",
+  "legacy": [
+   "boundary-1"
+  ],
+  "historical": [
+   "boundary-2"
+  ],
+  "note": "boundary-2r is the defence for the future league; boundary-1 kept only as a legacy research baseline (model-enforced rules, no append-only); boundary-2 historical (reproduction of rev6-rev8 runs)"
+ },
+ "threat_model": {
+  "attacker": "own code and memory, public shop rules, own account data in the brief, the chat channel (Observation) and its own model via the broker; nothing of the defender implementation, DB, logs, cassettes, corpus GT, critique, keys",
+  "defender": "own implementation, data and logs, allowed chat messages; not the attacker's memory; in rev9 still in the broker process (not OS-isolated)",
+  "evaluator": "private fixtures, oracle, full logs, provenance registry, payload audit, hidden held-out",
+  "broker": "channel, LLM client with credentials, event log, payload audit; credentials never leave it",
+  "paths": "the in-process attacker (attacker_factory=None) is the historical research baseline: claim_level in_process_research"
+ },
+ "subjects": [
+  "attacker",
+  "defender",
+  "evaluator",
+  "broker"
+ ],
+ "rows": [
+  {
+   "subject": "attacker",
+   "resource": "defender_source",
+   "access": "deny",
+   "mechanism": "bwrap mount namespace: path not bound into the sandbox (only /nix/store ro, /attacker ro, /input ro, tmpfs /tmp; root remounted ro)",
+   "test": "probe:read_defender_source",
+   "note": "",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "defender_code_import",
+   "access": "deny",
+   "mechanism": "staged package contains only attackers + shims of channel/event_log/llm/repro (isolation/sandbox.py STAGED_*)",
+   "test": "probe:import_defender_modules",
+   "note": "",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "episode_db",
+   "access": "deny",
+   "mechanism": "bwrap mount namespace: path not bound into the sandbox (only /nix/store ro, /attacker ro, /input ro, tmpfs /tmp; root remounted ro)",
+   "test": "probe:read_episode_db",
+   "note": "",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "event_log_files",
+   "access": "deny",
+   "mechanism": "bwrap mount namespace: path not bound into the sandbox (only /nix/store ro, /attacker ro, /input ro, tmpfs /tmp; root remounted ro)",
+   "test": "probe:read_event_log_jsonl",
+   "note": "",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "event_log_memory",
+   "access": "deny",
+   "mechanism": "separate process; child ComponentWriter shim sends events over IPC and holds no EventLog",
+   "test": "probe:gc_eventlog_canary",
+   "note": "in-process path (historical) leaks: L1",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "cassettes",
+   "access": "deny",
+   "mechanism": "bwrap mount namespace: path not bound into the sandbox (only /nix/store ro, /attacker ro, /input ro, tmpfs /tmp; root remounted ro)",
+   "test": "probe:read_cassettes",
+   "note": "",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "corpus_ground_truth",
+   "access": "deny",
+   "mechanism": "bwrap mount namespace: path not bound into the sandbox (only /nix/store ro, /attacker ro, /input ro, tmpfs /tmp; root remounted ro); GT and entry hash are never in the attack-only input",
+   "test": "probe:read_corpus_gt",
+   "note": "",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "provenance_registry",
+   "access": "deny",
+   "mechanism": "bwrap mount namespace: path not bound into the sandbox (only /nix/store ro, /attacker ro, /input ro, tmpfs /tmp; root remounted ro)",
+   "test": "probe:read_provenance_registry",
+   "note": "registry path is part of the corpus_gt probe list ревизия 10: своя проба и своя канарейка (раньше — чужая read_corpus_gt)",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "case_docs",
+   "access": "deny",
+   "mechanism": "bwrap mount namespace: path not bound into the sandbox (only /nix/store ro, /attacker ro, /input ro, tmpfs /tmp; root remounted ro)",
+   "test": "probe:read_case_docs",
+   "note": "",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "critique_and_artifacts",
+   "access": "deny",
+   "mechanism": "bwrap mount namespace: path not bound into the sandbox (only /nix/store ro, /attacker ro, /input ro, tmpfs /tmp; root remounted ro)",
+   "test": "probe:read_critique_artifacts",
+   "note": "",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "run_outputs",
+   "access": "deny",
+   "mechanism": "bwrap mount namespace: path not bound into the sandbox (only /nix/store ro, /attacker ro, /input ro, tmpfs /tmp; root remounted ro)",
+   "test": "probe:read_run_outputs",
+   "note": "",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "symlink_from_input",
+   "access": "deny",
+   "mechanism": "symlink targets resolve inside the sandbox mount namespace where host paths do not exist",
+   "test": "probe:symlink_escape",
+   "note": "",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "traversal_from_input",
+   "access": "deny",
+   "mechanism": "/input is a bind mount; ../ leaves it into the sandbox root (tmpfs, ro), not the host",
+   "test": "probe:dotdot_traversal",
+   "note": "",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "proc_broker_environ",
+   "access": "deny",
+   "mechanism": "--unshare-pid + own /proc; bwrap itself started with an empty environment",
+   "test": "probe:proc_ppid_environ",
+   "note": "",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "proc_broker_fd",
+   "access": "deny",
+   "mechanism": "--unshare-pid + own /proc; child stdio are pipes (no host file fds)",
+   "test": "probe:proc_ppid_fd",
+   "note": "",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "host_unix_sockets",
+   "access": "deny",
+   "mechanism": "--unshare-net (abstract sockets are per netns) + host socket paths not bound",
+   "test": "probe:unix_socket_broker",
+   "note": "",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "host_tcp_sockets",
+   "access": "deny",
+   "mechanism": "--unshare-net: own loopback only",
+   "test": "probe:tcp_socket_host",
+   "note": "",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "external_network",
+   "access": "deny",
+   "mechanism": "--unshare-net: no interfaces except lo, no routes",
+   "test": "probe:external_network",
+   "note": "",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "write_outside_tmpfs",
+   "access": "deny",
+   "mechanism": "--ro-bind for stage/input, --remount-ro /, host paths not bound",
+   "test": "probe:write_outside_tmpfs",
+   "note": "",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "llm_api_key",
+   "access": "deny",
+   "mechanism": "--clearenv + bwrap started with env={}; key stays in broker ChatModel; IPC llm_request carries only messages",
+   "test": "probe:env_secret_self",
+   "note": "",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "host_processes",
+   "access": "deny",
+   "mechanism": "bwrap --unshare-all (pid namespace): only bwrap init + own process visible",
+   "test": "probe:pid_count",
+   "note": "ревизия 10 (broker-side-isolation-evidence)",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "host_process_environ",
+   "access": "deny",
+   "mechanism": "pid namespace + user namespace: no other process environ readable",
+   "test": "probe:proc_environ_scan",
+   "note": "ревизия 10 (broker-side-isolation-evidence)",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "capabilities",
+   "access": "deny",
+   "mechanism": "unprivileged user namespace + --cap-drop ALL: CapEff=0",
+   "test": "probe:cap_eff",
+   "note": "ревизия 10 (broker-side-isolation-evidence)",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "broker_session",
+   "access": "deny",
+   "mechanism": "--new-session: own session id (observed by the broker from the host)",
+   "test": "probe:host_session_id",
+   "note": "ревизия 10 (broker-side-isolation-evidence)",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "host_pid_namespace",
+   "access": "deny",
+   "mechanism": "--unshare-all: nested PID namespace (NSpid observed by the broker)",
+   "test": "probe:host_nspid_nested",
+   "note": "ревизия 10 (broker-side-isolation-evidence)",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "outlive_broker",
+   "access": "deny",
+   "mechanism": "--die-with-parent: process killed when its parent dies (SIGKILL test by the broker)",
+   "test": "probe:host_die_with_parent",
+   "note": "ревизия 10 (broker-side-isolation-evidence)",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "launch_command",
+   "access": "deny",
+   "mechanism": "broker compares /proc/<pid>/cmdline with the argv it built",
+   "test": "probe:host_argv_match",
+   "note": "ревизия 10 (broker-side-isolation-evidence)",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "own_attack_only_input",
+   "access": "allow",
+   "mechanism": "--ro-bind <input dir> /input (brief, own limits, mode)",
+   "test": "probe:read_own_input",
+   "note": "",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "own_tmpfs",
+   "access": "allow",
+   "mechanism": "--tmpfs /tmp",
+   "test": "probe:write_own_tmpfs",
+   "note": "",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "system_interpreter",
+   "access": "allow",
+   "mechanism": "--ro-bind /nix/store (system binaries; no project data)",
+   "test": "probe:read_interpreter",
+   "note": "",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "chat_channel",
+   "access": "allow",
+   "mechanism": "IPC observation/message with closed schema (isolation/ipc.py)",
+   "test": "unittest:tests.test_isolation_sandbox.SandboxRegressionTest.test_mode_d_byte_identical",
+   "note": "",
+   "enforcement": "os"
+  },
+  {
+   "subject": "attacker",
+   "resource": "own_model_via_broker",
+   "access": "allow",
+   "mechanism": "IPC llm_request(messages) -> llm_response(content, finish_reason, usage)",
+   "test": "unittest:tests.test_isolation_audit.PayloadAuditTest.test_audit_has_no_key_canary",
+   "note": "",
+   "enforcement": "os"
+  },
+  {
+   "subject": "defender",
+   "resource": "defender_source",
+   "access": "allow",
+   "mechanism": "same process as broker (parent)",
+   "test": "unittest:tests.test_isolation_sandbox.SandboxRegressionTest.test_mode_d_byte_identical",
+   "note": "",
+   "enforcement": "convention"
+  },
+  {
+   "subject": "defender",
+   "resource": "episode_db",
+   "access": "allow",
+   "mechanism": "executor connection in parent",
+   "test": "unittest:tests.test_isolation_sandbox.SandboxRegressionTest.test_mode_d_byte_identical",
+   "note": "",
+   "enforcement": "convention"
+  },
+  {
+   "subject": "defender",
+   "resource": "event_log_files",
+   "access": "allow",
+   "mechanism": "ComponentWriter of defender components",
+   "test": "unittest:tests.test_isolation_sandbox.SandboxRegressionTest.test_mode_d_byte_identical",
+   "note": "",
+   "enforcement": "convention"
+  },
+  {
+   "subject": "defender",
+   "resource": "attacker_memory",
+   "access": "deny",
+   "mechanism": "convention only: defender runs in the broker process, which holds the attacker's brief, AttemptRecords (tactics) and PayloadAudit (attacker prompts with memory); the attacker's own memory object lives in the attacker process",
+   "test": "unittest:tests.test_rev10_claim_matrix.DefenderSeesAttackerTest.test_defender_gc_probe_finds_attacker_canary",
+   "note": "not OS-enforced for the defender side: defender runs in the broker process (symmetric isolation is the next revision)",
+   "enforcement": "convention",
+   "known_leak": {
+    "probe": "defender_gc_attacker_canary",
+    "expected": "PASS (leak)",
+    "evidence": "artifacts/rev10/defender_gc_probe.json",
+    "note": "known gap: symmetric isolation of the defender is a non-goal of revision 10"
+   }
+  },
+  {
+   "subject": "defender",
+   "resource": "llm_api_key",
+   "access": "deny",
+   "mechanism": "convention: model objects are built by broker-side factories (runner -> agent/factory.make_agent_model; isolation/sandbox for the attacker); agent/guard/executor/tools/evaluator code receives a ChatModel and never reads settings/RESEARCH_LLM_* (static test)",
+   "test": "unittest:tests.test_isolation_matrix.AccessMatrixTest.test_defender_code_does_not_read_key_env",
+   "note": "NOT OS-enforced: defender shares the broker process (gap, next revision)",
+   "enforcement": "convention"
+  },
+  {
+   "subject": "evaluator",
+   "resource": "corpus_ground_truth",
+   "access": "allow",
+   "mechanism": "evaluator in parent reads GT via EpisodeTruth",
+   "test": "unittest:tests.test_isolation_sandbox.SandboxRegressionTest.test_mode_d_byte_identical",
+   "note": "",
+   "enforcement": "convention"
+  },
+  {
+   "subject": "evaluator",
+   "resource": "provenance_registry",
+   "access": "allow",
+   "mechanism": "configs/isolation/provenance_registry.json, read by isolation/provenance.py in the broker",
+   "test": "unittest:tests.test_isolation_provenance.ProvenanceTest.test_legacy_corpora_implementation_informed",
+   "note": "",
+   "enforcement": "convention"
+  },
+  {
+   "subject": "evaluator",
+   "resource": "payload_audit",
+   "access": "allow",
+   "mechanism": "broker PayloadAudit file, separate from the defender EventLog",
+   "test": "unittest:tests.test_isolation_audit.PayloadAuditTest.test_audit_chain_and_separate_file",
+   "note": "",
+   "enforcement": "convention"
+  },
+  {
+   "subject": "evaluator",
+   "resource": "llm_api_key",
+   "access": "deny",
+   "mechanism": "convention: model objects are built by broker-side factories (runner -> agent/factory.make_agent_model; isolation/sandbox for the attacker); agent/guard/executor/tools/evaluator code receives a ChatModel and never reads settings/RESEARCH_LLM_* (static test)",
+   "test": "unittest:tests.test_isolation_matrix.AccessMatrixTest.test_defender_code_does_not_read_key_env",
+   "note": "NOT OS-enforced (same process)",
+   "enforcement": "convention"
+  },
+  {
+   "subject": "broker",
+   "resource": "llm_api_key",
+   "access": "allow",
+   "mechanism": "parent process environment -> llm.settings -> ChatModel",
+   "test": "unittest:tests.test_isolation_audit.PayloadAuditTest.test_audit_has_no_key_canary",
+   "note": " enforcement=os: key only in the broker's environment; attacker process started with env={} + --clearenv (probes env_secret_self, proc_environ_scan)",
+   "enforcement": "os"
+  },
+  {
+   "subject": "broker",
+   "resource": "event_log_files",
+   "access": "allow",
+   "mechanism": "EventLog sink; attacker events written via writer('attacker')",
+   "test": "unittest:tests.test_isolation_sandbox.SandboxRegressionTest.test_mode_d_byte_identical",
+   "note": "",
+   "enforcement": "convention"
+  },
+  {
+   "subject": "broker",
+   "resource": "payload_audit",
+   "access": "allow",
+   "mechanism": "PayloadAudit (canonical messages + sha256, no headers/URL/key)",
+   "test": "unittest:tests.test_isolation_audit.PayloadAuditTest.test_audit_chain_and_separate_file",
+   "note": "",
+   "enforcement": "convention"
+  },
+  {
+   "subject": "broker",
+   "resource": "chat_channel",
+   "access": "allow",
+   "mechanism": "TextChannel in parent; RemoteAttempt is the user endpoint",
+   "test": "unittest:tests.test_isolation_sandbox.SandboxRegressionTest.test_mode_d_byte_identical",
+   "note": "",
+   "enforcement": "convention"
+  }
+ ]
+}

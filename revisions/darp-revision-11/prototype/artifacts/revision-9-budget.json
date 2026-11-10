@@ -1,0 +1,35 @@
+{
+ "pass": "darp-revision-9",
+ "pass_budget": {
+  "requests": 180,
+  "wall_s": 3600
+ },
+ "critic_reserve": {
+  "requests": 60,
+  "wall_s": 900
+ },
+ "per_run_limits": {
+  "requests": 60,
+  "tokens": 150000,
+  "wall_s": 900
+ },
+ "author": {
+  "max_requests": 120,
+  "max_wall_s": 2700,
+  "planned": "0 live requests: all five tasks are offline (stub model and fake transport)",
+  "attempts": [],
+  "used": {
+   "requests": 0,
+   "tokens": 0,
+   "wall_s": 0
+  }
+ },
+ "critic": {
+  "reserve": {
+   "requests": 60,
+   "wall_s": 900
+  },
+  "note": "резерв критика 60 запросов/900 с; автор израсходовал 0 из своих 120/2700. Переносить неизрасходованный бюджет автора критику — решение не автора; run_command прежний (rev8 live legal slice, ≤60 запросов на запуск)."
+ },
+ "history": "бюджет rev8 — artifacts/revision-8-budget.json"
+}

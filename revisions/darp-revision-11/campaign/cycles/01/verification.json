@@ -1,0 +1,430 @@
+{
+  "time": 1794302852.3104658,
+  "ok": true,
+  "checks": [
+    {
+      "name": "build:repro",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_repro.py"
+      ],
+      "ok": true,
+      "exit_code": 0,
+      "error": null,
+      "log": "logs/check-build-repro-1794299515845945968.log",
+      "tail": ""
+    },
+    {
+      "name": "build:state_store",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_state_store.py"
+      ],
+      "ok": true,
+      "exit_code": 0,
+      "error": null,
+      "log": "logs/check-build-state_store-1794299521958181369.log",
+      "tail": ""
+    },
+    {
+      "name": "build:event_log",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_event_log.py"
+      ],
+      "ok": true,
+      "exit_code": 0,
+      "error": null,
+      "log": "logs/check-build-event_log-1794299528413520365.log",
+      "tail": ""
+    },
+    {
+      "name": "build:corpus",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_corpus.py"
+      ],
+      "ok": true,
+      "exit_code": 0,
+      "error": null,
+      "log": "logs/check-build-corpus-1794299533475012814.log",
+      "tail": ""
+    },
+    {
+      "name": "build:executor",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_executor.py"
+      ],
+      "ok": true,
+      "exit_code": 0,
+      "error": null,
+      "log": "logs/check-build-executor-1794299541268710311.log",
+      "tail": ""
+    },
+    {
+      "name": "build:llm",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_llm.py"
+      ],
+      "ok": true,
+      "exit_code": 0,
+      "error": null,
+      "log": "logs/check-build-llm-1794299546896468802.log",
+      "tail": ""
+    },
+    {
+      "name": "build:guard_contract",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_guard_contract.py"
+      ],
+      "ok": true,
+      "exit_code": 0,
+      "error": null,
+      "log": "logs/check-build-guard_contract-1794299552735489022.log",
+      "tail": ""
+    },
+    {
+      "name": "build:manual_queue",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_manual_queue.py"
+      ],
+      "ok": true,
+      "exit_code": 0,
+      "error": null,
+      "log": "logs/check-build-manual_queue-1794299558027771671.log",
+      "tail": ""
+    },
+    {
+      "name": "build:channel",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_channel.py"
+      ],
+      "ok": true,
+      "exit_code": 0,
+      "error": null,
+      "log": "logs/check-build-channel-1794299563831721531.log",
+      "tail": ""
+    },
+    {
+      "name": "build:evaluator",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_evaluator.py"
+      ],
+      "ok": true,
+      "exit_code": 0,
+      "error": null,
+      "log": "logs/check-build-evaluator-1794299568493773384.log",
+      "tail": ""
+    },
+    {
+      "name": "build:tools",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_tools.py"
+      ],
+      "ok": true,
+      "exit_code": 0,
+      "error": null,
+      "log": "logs/check-build-tools-1794299574506686251.log",
+      "tail": ""
+    },
+    {
+      "name": "build:guard_plugins",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_guard_plugins.py"
+      ],
+      "ok": true,
+      "exit_code": 0,
+      "error": null,
+      "log": "logs/check-build-guard_plugins-1794299579639963236.log",
+      "tail": ""
+    },
+    {
+      "name": "build:guard_policy",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_guard_policy.py"
+      ],
+      "ok": true,
+      "exit_code": 0,
+      "error": null,
+      "log": "logs/check-build-guard_policy-1794299585227860965.log",
+      "tail": ""
+    },
+    {
+      "name": "build:attackers",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_attackers.py"
+      ],
+      "ok": true,
+      "exit_code": 0,
+      "error": null,
+      "log": "logs/check-build-attackers-1794299590616833993.log",
+      "tail": ""
+    },
+    {
+      "name": "build:agent",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_agent.py"
+      ],
+      "ok": true,
+      "exit_code": 0,
+      "error": null,
+      "log": "logs/check-build-agent-1794299595755517875.log",
+      "tail": ""
+    },
+    {
+      "name": "build:simple_baseline",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_simple_baseline.py"
+      ],
+      "ok": true,
+      "exit_code": 0,
+      "error": null,
+      "log": "logs/check-build-simple_baseline-1794299603450917194.log",
+      "tail": ""
+    },
+    {
+      "name": "build:configs",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_configs.py"
+      ],
+      "ok": true,
+      "exit_code": 0,
+      "error": null,
+      "log": "logs/check-build-configs-1794299613147668646.log",
+      "tail": ""
+    },
+    {
+      "name": "build:runner",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_runner.py"
+      ],
+      "ok": true,
+      "exit_code": 0,
+      "error": null,
+      "log": "logs/check-build-runner-1794299623535654689.log",
+      "tail": ""
+    },
+    {
+      "name": "build:metrics",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_metrics.py"
+      ],
+      "ok": true,
+      "exit_code": 0,
+      "error": null,
+      "log": "logs/check-build-metrics-1794299634779733851.log",
+      "tail": ""
+    },
+    {
+      "name": "build:report_cli",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        ".",
+        "-p",
+        "test_report_cli.py"
+      ],
+      "ok": true,
+      "exit_code": 0,
+      "error": null,
+      "log": "logs/check-build-report_cli-1794299652359102742.log",
+      "tail": ""
+    },
+    {
+      "name": "verify_command",
+      "argv": [
+        "python3",
+        "scripts/verify_e2e.py",
+        "--out",
+        "runs/verify"
+      ],
+      "ok": true,
+      "exit_code": 0,
+      "error": null,
+      "log": "logs/check-verify_command-1794299675296800070.log",
+      "tail": ""
+    }
+  ],
+  "openai_repair": {
+    "full_verify_repeated": false,
+    "prior_manifest": "before-openai-repair/manifest.json",
+    "targeted_evidence": [
+      "artifacts/openai-fix/green.log",
+      "artifacts/openai-fix/regression.log",
+      "artifacts/openai-fix/broker-vm.log"
+    ],
+    "note": "Previous full verification is retained as historical; payout repair verified by targeted regressions, broker verified in independent Nix VM."
+  }
+}
