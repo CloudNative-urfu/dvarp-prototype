@@ -1,0 +1,29 @@
+name: ci
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  ruff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/ruff-action@v3
+        with:
+          version: "0.16.8"
+          args: check .
+
+  commit-msg:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install commitizen
+        run: pip install "commitizen>=4.19,<5"
+      - name: Check PR title (squash-merge becomes the commit message)
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: cz check --message "$PR_TITLE"
