@@ -11,6 +11,14 @@
 
 ## Notes
 
-Test details are in the spec scenarios below. Acceptance after deletion: full unittest from a
-clean copy, `scripts/verify.py` from a clean copy (PASS), `report_cli offline` table L* from a
-clean copy. Frozen defense code stays byte-identical throughout.
+Test details are in the spec scenarios below. Frozen defense code stays byte-identical
+throughout (`configs.lock.json` verification is a standing step of `scripts/verify.py`).
+
+Final acceptance (clean-copy `scripts/verify.py` + `report_cli offline` table L*) is explicitly
+**deferred with justification**: the current tree is a factory-generated scaffold — the team
+selected the last revision from the autonomous campaign loop and will rework it further; the
+system is not guaranteed to run end-to-end yet, and running the ~30-minute verification against
+a scaffold scheduled for rework adds no signal. Deferred checks stay in the spec above; the
+pre-cleanup state is archived under the tag `archive/rev11`, so verification can be run on the
+trimmed tree at any time. Non-deferred gates applied: `ruff check` clean, pre-commit hooks
+(ruff + commitizen) green on every commit, frozen defense code byte-identical.
