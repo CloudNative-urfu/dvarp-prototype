@@ -19,3 +19,7 @@ node_modules/
 *.zip
 result
 result-*
+venv/
+tmp/
+.runtime/
+runs/
