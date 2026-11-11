@@ -9,7 +9,8 @@
 # Использование: sh scripts/isolated_verify.sh [каталог результатов, по умолчанию runs/verify_isolated]
 set -eu
 OUT=${1:-runs/verify_isolated}
-U=$(id -u); G=$(id -g)
+U=$(id -u)
+G=$(id -g)
 [ "$U" = 0 ] && U=1000
 [ "$G" = 0 ] && G=1000
 cd "$(dirname "$0")/.."
@@ -22,5 +23,5 @@ flags = struct.unpack(\"16sH\", fcntl.ioctl(s, 0x8913, ifr))[1]
 fcntl.ioctl(s, 0x8914, struct.pack(\"16sH\", b\"lo\", flags | 1))"
   exec unshare --user --map-user="$0" --map-group="$1" \
     env -u RESEARCH_LLM_BASE_URL -u RESEARCH_LLM_MODEL -u RESEARCH_LLM_API_KEY \
-    DARP_ISOLATION=netns+lo+uid python3 scripts/verify_e2e.py --out "$2"
+    DARP_ISOLATION=netns+lo+uid python3 scripts/verify.py --out "$2"
 ' "$U" "$G" "$OUT"
