@@ -12,10 +12,10 @@ additions are out of research scope. Without it, adaptation work is unmanaged re
 - New document `docs/traceability.md`: full matrix FR-1.1–1.24 + NFR-2.1–2.14 (38 positions)
   × coverage (component), verification (tests / verify.py steps), status
   (`covered / covered-heavy / gap / factory-extra`), plus the canon rows
-  (5 tools, 3 agent models, 3 reaction policies, ≤8B, one-shot → dialogs).
-- Four gaps from the matrix are filed as issues on the DVARP Board (models ≤8B + live pilot,
-  §4 config matrix re-freeze, case packs from cycle-9 scenario spec, campaign gates
-  G-tau / need-for-LLM / honest accounting), each with a presumed assignee.
+  (5 tools, 3 agent models, 3 reaction policies, ≤16B, one-shot → dialogs).
+- Four gaps from the matrix are filed as issues on the DVARP Board (models ≤16B + live pilot,
+  §4 config matrix re-freeze, case packs from cycle-9 scenario spec, report gates
+  G-tau / honest accounting), each with a presumed assignee.
 - Recorded decisions: operator/payout contour stays (defer, revisit after gaps close);
   attacker isolation stays; factory openspec catalogs stay as history/format samples.
 
