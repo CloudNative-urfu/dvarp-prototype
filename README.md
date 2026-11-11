@@ -19,8 +19,8 @@
 - `openspec/changes/` — каталоги изменений (обязательный процесс, см. ниже).
 - `revisions/` — архив сохранённых ревизий 2–11 с независимой критикой
   (не линтуется, не изменяется).
-- `docs/PROTOTYPE.md` — исходный README снимка ревизии 11 (историческое
-  описание полигона и команд запуска).
+- `docs/` — ТЗ прототипа (`brief.md`), исходный README снимка (`PROTOTYPE.md`),
+  отчёт ревизии 11.
 
 Полные снимки, сырые прогоны и журналы кампании хранятся локально в
 `~/.local/share/research-campaigns/`; экспорт в Git их не заменяет.
@@ -58,8 +58,16 @@
 ruff check .                      # блокирующая проверка
 python3 -m unittest discover -s tests -t .
 python3 -m darp_range.report_cli offline --out runs/e2e --seeds 7,8,9
-python3 scripts/verify_e2e.py --out runs/verify   # полный verify, ~53 мин
+python3 scripts/verify.py --out runs/verify       # полная офлайн-верификация, ~25–35 мин
 ```
+
+`scripts/verify.py` — полная верификация из чистой копии: тесты, заморозка
+конфигураций, корпус, пробы компонентов, мутационный набор, сквозной прогон
+v2r (seeds 7,8,9) и нагрузочный (seed 7), приёмка ключевых требований,
+контур rev11, сжатие сырых файлов. Часть шагов требует bubblewrap (bwrap)
+для песочницы атакующего — без них честный отказ (fail-closed).
+Одноразовые аналитики закрытых ревизий 1–10 и кампанная обвязка удалены;
+исходное состояние — под тегом `archive/rev11` и в `revisions/`.
 
 Замороженный defense-код (`configs`, `guard_contract`, `guard_plugins`,
 `guard_policy`, `simple_baseline`, `executor`, `tools`) защищён хешами

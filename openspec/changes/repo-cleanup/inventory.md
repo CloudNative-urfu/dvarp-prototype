@@ -141,3 +141,14 @@ v2r-маршрутизация) сохраняются независимо от
 - После очистки: `python3 scripts/verify.py` из чистой копии PASS (новая полная
   верификация), `python3 -m darp_range.report_cli offline` из чистой копии строит L*.
 - Исходное состояние: тег `archive/rev11` на `develop` до влития очистки.
+
+## 8. Отклонения, найденные при исполнении (этап 2)
+
+| Позиция | Решение | Причина |
+| --- | --- | --- |
+| `scripts/oss_record_scores.py` | удалён (вместо «оставить») | импортировал `DEBERTA_SPEC`/`detector_alarms` из удалённого `coupling_analysis`; результаты уже заморожены в `corpus/oss_scores` |
+| `scripts/mutate_rev8.py`, группа `live_labels` | удалена | мутанты целились в удалённый `rev8_live_legal_slice.py` и тест `test_revision8_live_slice` |
+| `scripts/mutate_rev8.py`, группа `order_scope` | перепевешена на `tests/test_revision8_routing_neutrality.py` | логика `routed_scope/ScopeRecorder/summarize` инлайнена в тест |
+| `tests/rev11_broker_probe.py` | оставить (подтверждено) | используется `test_rev11_broker_fail_closed` и `shop_slice_mutants` |
+| `artifacts/report-rev11-integrate.md` | перенесён в `docs/` | уникальный итог ревизии 11 (report.md — состояние rev6, report-history.md — ревизии 7→1) |
+| `scripts/isolated_verify.sh`, `scripts/rev11_verify.py`, docstrings | обновлены | ссылки на `verify_e2e`/удалённые скрипты заменены на `verify.py`/архивные упоминания |

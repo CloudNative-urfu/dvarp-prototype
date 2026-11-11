@@ -13,9 +13,20 @@ from darp_range.report_cli.__main__ import main as report_cli
 from darp_range.report_cli.acceptance import RunView, _fr_1_24, _Req
 
 ROOT = Path(__file__).resolve().parents[1]
-SMALL = ["--entries", "atk-01,atk-02,atk-13,atk-21,ctl-01,ctl-02,ctl-13,ctl-21",
-         "--configs", "g0,g_in,g_simple,g_in_detect_only", "--seeds", "7,8,9",
-         "--blocks", "1", "--n-legal", "4", "--replay", "none"]
+SMALL = [
+    "--entries",
+    "atk-01,atk-02,atk-13,atk-21,ctl-01,ctl-02,ctl-13,ctl-21",
+    "--configs",
+    "g0,g_in,g_simple,g_in_detect_only",
+    "--seeds",
+    "7,8,9",
+    "--blocks",
+    "1",
+    "--n-legal",
+    "4",
+    "--replay",
+    "none",
+]
 
 
 def _rule(rv) -> dict:
@@ -27,12 +38,11 @@ def _rule(rv) -> dict:
 class PrimaryFoundationTest(unittest.TestCase):
     def test_verify_primary_is_v2r(self):
         sys.path.insert(0, str(ROOT / "scripts"))
-        import verify_e2e
-        self.assertEqual(verify_e2e.PRIMARY_FOUNDATION, "v2r")
-        src = (ROOT / "scripts/verify_e2e.py").read_text(encoding="utf-8")
+        import verify
+
+        self.assertEqual(verify.PRIMARY_FOUNDATION, "v2r")
+        src = (ROOT / "scripts/verify.py").read_text(encoding="utf-8")
         self.assertIn('"--foundation", PRIMARY_FOUNDATION', src)
-        # legacy-шаг v1 есть и запускается с основой v1 (последовательно или в run_parallel)
-        self.assertRegex(src, r'\("e2e_legacy_v1",\s*\[[^\]]*"--foundation", "v1"\]')
         self.assertIn('"e2e_offline"', src)
 
 
@@ -64,8 +74,13 @@ class StatusRulesTest(unittest.TestCase):
         mp = e2e / "seed-7" / "metrics" / "metrics.json"
         m = json.loads(mp.read_text(encoding="utf-8"))
         ref = m["configs"][m["reference"]]["safety"]["V"]
-        zero = [c for c, x in m["configs"].items() if c != m["reference"]
-                and abs(ref - x["safety"]["V"]) <= 1e-12 and x.get("same_flow_as_reference", True)]
+        zero = [
+            c
+            for c, x in m["configs"].items()
+            if c != m["reference"]
+            and abs(ref - x["safety"]["V"]) <= 1e-12
+            and x.get("same_flow_as_reference", True)
+        ]
         if not zero:
             self.skipTest("нет конфигурации с ΔV=0 на этом срезе")
         bad = copy.deepcopy(m)
@@ -73,8 +88,9 @@ class StatusRulesTest(unittest.TestCase):
         be["bounds"]["base"]["status"] = "threshold"
         be["status"] = "threshold"
         mp.write_text(json.dumps(bad), encoding="utf-8")
-        rule = next(c for n, c in _rule(RunView(e2e)).items()
-                    if n.startswith("break-even status follows"))
+        rule = next(
+            c for n, c in _rule(RunView(e2e)).items() if n.startswith("break-even status follows")
+        )
         self.assertFalse(rule["pass"])
 
 
