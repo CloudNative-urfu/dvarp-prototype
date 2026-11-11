@@ -1,0 +1,21 @@
+# NixOS: pre-commit виртуальные окружения не запускают динамически слинкованные
+# бинарники, поэтому инструменты берутся из системы (ruff, commitizen).
+repos:
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff
+        language: system
+        entry: ruff check --force-exclude
+        types: [python]
+        args: [--fix]
+      - id: ruff-format
+        name: ruff-format
+        language: system
+        entry: ruff format --force-exclude
+        types: [python]
+      - id: commitizen
+        name: commitizen
+        language: system
+        entry: cz check --commit-msg-file
+        stages: [commit-msg]
