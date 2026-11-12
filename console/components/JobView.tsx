@@ -49,14 +49,34 @@ export function JobView({ initial }: { initial: JobMeta }) {
     return all.length > MAX_LINES ? all.slice(-MAX_LINES) : all;
   }, [text]);
 
-  const checks = useMemo(
-    () =>
-      lines
-        .map((l) => /^\s*(PASS|FAIL)\s+(.+)$/.exec(l))
-        .filter((m): m is RegExpExecArray => m !== null)
-        .map((m) => ({ pass: m[1] === "PASS", name: m[2].trim() })),
-    [lines],
-  );
+  const checks = useMemo(() => {
+    const found = lines
+      .map((l) => /^\s*(PASS|FAIL)\s+(.+)$/.exec(l))
+      .filter((m): m is RegExpExecArray => m !== null)
+      .map((m) => ({ pass: m[1] === "PASS", name: m[2].replace(/\s+/g, " ").trim() }));
+    if (found.length || meta.status === "running") return found;
+    // paths that print a summary instead of PASS/FAIL lines
+    const body = lines.filter((l) => !/direnv:/.test(l)).join("\n").trim();
+    if (meta.action === "configs-verify" && /^OK$/m.test(body)) {
+      return [{ pass: true, name: "Хеши конфигураций и защитного кода совпадают с configs.lock.json" }];
+    }
+    const start = body.indexOf("{");
+    if (start >= 0) {
+      try {
+        const d = JSON.parse(body.slice(start)) as { ok?: boolean; problems?: unknown[]; configs?: number; log_files?: number };
+        if (typeof d.ok === "boolean") {
+          const parts = [d.configs !== undefined && `${d.configs} конфигураций`, d.log_files !== undefined && `${d.log_files} журналов`].filter(Boolean);
+          return [
+            { pass: d.ok, name: `Итог перепроверки${parts.length ? `: ${parts.join(", ")}` : ""}` },
+            ...(d.problems ?? []).map((x) => ({ pass: false, name: String(typeof x === "string" ? x : JSON.stringify(x)) })),
+          ];
+        }
+      } catch {
+        /* not a JSON summary */
+      }
+    }
+    return found;
+  }, [lines, meta.status, meta.action]);
 
   useEffect(() => {
     const el = pre.current;
