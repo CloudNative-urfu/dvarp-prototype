@@ -1,0 +1,16 @@
+# NeMo Guardrails config for spike #13: the built-in regex rail only (no LLM, no embeddings).
+# Illustrative patterns for role/override claims and an encoded-instruction request; they are
+# not a tuned detector and are not a result.
+models: []
+rails:
+  config:
+    regex_detection:
+      input:
+        case_insensitive: true
+        patterns:
+          - "^\\s*system\\s*:"
+          - "\\boverride permission\\b"
+          - "\\bdecode the following base64\\b"
+  input:
+    flows:
+      - regex check input
