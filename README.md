@@ -61,6 +61,17 @@ python3 -m darp_range.report_cli offline --out runs/e2e --seeds 7,8,9
 python3 scripts/verify.py --out runs/verify       # полная офлайн-верификация, ~25–35 мин
 ```
 
+### Быстрый smoke
+
+```sh
+python3 scripts/dev_smoke.py      # тесты ядра, ~2 мин, время печатается в конце
+```
+
+Для итеративной разработки вместо полного `unittest discover` (~15–30 мин): явный список
+модулей `test_executor`, `test_channel`, `test_guard_policy`, `test_guard_contract`,
+`test_state_store`, `test_evaluator`, `test_metrics`, `test_tools` (без discover, бюджет ≤5
+мин). Полный набор перед PR по-прежнему запускается через discover.
+
 `scripts/verify.py` — полная верификация из чистой копии: тесты, заморозка
 конфигураций, корпус, пробы компонентов, мутационный набор, сквозной прогон
 v2r (seeds 7,8,9) и нагрузочный (seed 7), приёмка ключевых требований,
