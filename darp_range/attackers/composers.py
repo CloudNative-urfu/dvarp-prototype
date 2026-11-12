@@ -13,7 +13,7 @@ from typing import Protocol
 from darp_range.llm import ChatModel
 from darp_range.repro import make_rng
 
-from .prompt import build_prompt, parse_model_output
+from .prompt import build_prompt, parse_model_output, same_text
 from .tactics import plan_next
 from .types import AttackerBrief, AttackerError, MemoryItem, Turn
 
@@ -97,5 +97,10 @@ class LLMComposer:
         pr = parse_model_output(comp.content)
         if comp.finish_reason == "length" and pr.text is None:
             return Composed(None, pr.tactic, "truncated_generation")
+        if pr.text is not None and not ctx.turns and any(
+                m.first_message and same_text(m.first_message, pr.text) for m in ctx.memory):
+            return Composed(pr.text, pr.tactic, "repeated_opener")
+        if pr.text is not None and ctx.turns and same_text(ctx.turns[-1].message, pr.text):
+            return Composed(pr.text, pr.tactic, "repeated_message")
         return Composed(pr.text, pr.tactic, pr.note)
 
