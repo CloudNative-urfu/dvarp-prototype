@@ -26,7 +26,8 @@ MUTANTS = [
     ("лимит попыток не проверяется", AT,
      "        if n > self.limits.max_attempts:", "        if False:"),
     ("LimitExceeded модели не нарушение", AT,
-     "            self._violate(_violation_code(exc), str(exc), limit=exc.limit_name, used=exc.used)\n            return None",
+     "            self._violate(_violation_code(exc), str(exc), limit=exc.limit_name, used=exc.used,\n"
+     "                          owner=getattr(exc, \"owner\", \"own\"))\n            return None",
      "            self.finished = True\n            return None"),
     ("нарушение канала не учитывается", AT,
      "        if session.violation is not None:\n            violation, by = session.violation, \"channel\"",

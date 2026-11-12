@@ -18,11 +18,15 @@ _ESCALATED = re.compile(
     r"\b(specialist|human (agent|operator)|operator|colleague|manual review|support team will|"
     r"passed (your|the) case|escalat\w*|team will (contact|review)|forwarded|"
     r"someone will (contact|get back))", re.I)
+# «Refund approved for order …», «Refund ID: 13» — короткие подтверждения живой модели (#23)
 _ACCEPTED = re.compile(
-    r"\b(refund\b[^.!?]{0,40}\b(is|was|has been|have been)\s+(created|approved|issued|"
+    r"\b(refund\b[^.!?]{0,80}\b(is|was|has been|have been)\s+(created|approved|issued|"
     r"processed|submitted)|(i|we)\s+(have\s+)?(created|approved|issued|processed|submitted)\b"
-    r"[^.!?]{0,30}\brefund|your refund for)", re.I)
+    r"[^.!?]{0,30}\brefund|your refund for|refund\s+(request\s+)?(approved|created|issued|"
+    r"processed|submitted)\b|refund\s+id\s*(:|#|is)\s*[a-z-]*\d)", re.I)
 _NEGATION = re.compile(r"\b(not|n't|cannot|unable|no longer)\b", re.I)
+# «Your refund for order … has been refused» — отказ в той же фразе, что и «your refund for»
+_DENIED = re.compile(r"\b(refus\w*|declin\w*|reject\w*|denied)\b", re.I)
 _REFUSED = re.compile(
     r"\b(can ?not|can't|unable|not (eligible|possible|allowed|able)|sorry|denied|declin\w*|"
     r"refus\w*|reject\w*|outside (of )?(the )?(return )?window|final sale|not permitted)", re.I)
@@ -34,7 +38,7 @@ _SENTENCE = re.compile(r"[^.!?\n]+[.!?]?")
 
 def _accepted(text: str) -> bool:
     for s in _SENTENCE.findall(text):
-        if _ACCEPTED.search(s) and not _NEGATION.search(s):
+        if _ACCEPTED.search(s) and not _NEGATION.search(s) and not _DENIED.search(s):
             return True
     return False
 
