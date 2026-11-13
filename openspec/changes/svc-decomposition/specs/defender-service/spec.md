@@ -59,15 +59,24 @@ records with episode/turn ids leave the service, and the traffic-class attributi
 ### Requirement: Two isolated launch contours in the orchestrator
 The orchestrator SHALL be structured as a thin pair-scheduling core plus two strictly
 separated launch contours — defender-side (config staging, service spawn, per-episode freeze
-check) and attack-side (corpus brief from corpus v2, sandbox spawn, attempt lifecycle) — with
-no mutual imports and no shared mutable state; the channel SHALL be the only mediator between
-the contours. Import isolation SHALL be enforced by an architecture test (attack-side does
+check) and attack-side (the polygon connection contract: a start-of-attack-cycle signal with
+the episode invite — config, seed, budget — and a completion signal with the raw records of
+the attacking side) — with no mutual imports and no shared mutable state; the channel SHALL
+be the only mediator between the contours. Until the polygon service exists, the current
+attacker (bwrap + JSON-lines IPC) SHALL run in a transitional mode behind the same contour.
+Import isolation SHALL be enforced by an architecture test (attack-side does
 not import defender-side modules and vice versa).
 
 #### Scenario: Contours do not cross-import
 - **WHEN** the architecture test inspects the orchestrator's launch contours
 - **THEN** no module of one contour imports a module of the other; shared access is limited to
   channel types and the port interfaces
+
+#### Scenario: Telemetry stays invisible to the attacking agent
+- **WHEN** a turn completes and per-turn telemetry (guard triggers, on-the-spot diff verdicts,
+  costs) is transferred next to the dialog reply
+- **THEN** the telemetry travels in a separate stream, is not visible to the attacking agent,
+  and is consumed by the metrics service (issue #33), not by the orchestrator's defender side
 
 ### Requirement: Meter scope across the boundary
 The service SHALL receive a scoped meter budget (run/cell/episode ids and limits) at session
