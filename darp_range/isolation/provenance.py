@@ -39,7 +39,7 @@ PROVENANCES = ("public", "implementation-informed", "blind-critic", "research-fe
 NOT_BLIND = ("implementation-informed", "research-feedback")
 CLAIM_LEVELS = ("isolated_black_box_candidate", "isolated_implementation_informed",
                 "research", "in_process_research")
-LEGACY_CORPORA = {"v1": "corpus", "holdout_v2": "corpus/holdout_v2",
+LEGACY_CORPORA = {"v2": "corpus", "holdout_v2": "corpus/holdout_v2",
                   "heldout_v3": "corpus/heldout_v3", "trusted_v7": "corpus/trusted_v7"}
 
 

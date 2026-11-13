@@ -6,30 +6,30 @@
    "manifest_sha256": "00e4e637b8c607cf39095a8ea0164f64459cdba0a149080139b443cca8b8fb84"
   },
   "holdout_v2": {
-   "attacks": 19,
+   "attacks": 15,
    "dir": "corpus/holdout_v2",
-   "manifest_sha256": "c7d31e69f2572a0d8ab8b83d80eda3ea18b5296087f0d190964b996e60da1b22"
+   "manifest_sha256": "32f757336e4940e64c7c66f64c5e8b1139a71f1a2f1f3e7f635fedef7274ca4b"
   },
   "trusted_v7": {
    "attacks": 4,
    "dir": "corpus/trusted_v7",
    "manifest_sha256": "76cc8f5fa1fcd573f32333f16a3ad554c2e711e5957f9d5f67c9d312cbb9b4ae"
   },
-  "v1": {
-   "attacks": 24,
+  "v2": {
+   "attacks": 20,
    "dir": "corpus",
-   "manifest_sha256": "11ed8153505f1df60bb5552fb0c4d1d74a158bb4a08221e721aa41ca24fba6fa"
+   "manifest_sha256": "b182aa8822c72dc08017053309222f2a51c7dc285f42790452110f2e6fe91e90"
   }
  },
  "entries": {
   "015eb624594892b5e9e0acc1c6f4e0815d89266747bd38d6a5720d74f699dde2": {
-   "corpus": "v1",
+   "corpus": "v2",
    "entry_id": "atk-01",
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
   },
   "030400d38d29a44d5d10a60824375b04dad1365f1ff0ce702874e8ed67fc0d1f": {
-   "corpus": "v1",
+   "corpus": "v2",
    "entry_id": "atk-09",
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
@@ -37,12 +37,6 @@
   "03d21b11999661048cbfc717f41131be3cd2cd44dd31caa24f50d5d5919b2c28": {
    "corpus": "holdout_v2",
    "entry_id": "atk-04",
-   "provenance": "implementation-informed",
-   "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
-  },
-  "0883efc00866298354ddcd2571834a3b49f5f379f09ec7264a69c8a65385abb5": {
-   "corpus": "holdout_v2",
-   "entry_id": "atk-23",
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
   },
@@ -65,7 +59,7 @@
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
   },
   "1c3fcccb5378f9b9105d25d0789db626bf6a557da04d5563fe6469655163bfc8": {
-   "corpus": "v1",
+   "corpus": "v2",
    "entry_id": "atk-07",
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
@@ -76,14 +70,8 @@
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
   },
-  "28411f9600056bd3f9cb18ebd0117d6afa62aa3be605956a8c16e387fc3ffd85": {
-   "corpus": "v1",
-   "entry_id": "atk-23",
-   "provenance": "implementation-informed",
-   "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
-  },
   "29036cf25a1937b7aea49ce43d1ce5c9600b27bfe876dddda8ba2e21e4f5b73f": {
-   "corpus": "v1",
+   "corpus": "v2",
    "entry_id": "atk-05",
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
@@ -101,19 +89,13 @@
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
   },
   "312a8af7334c702fb98fee61b91bfa61c05fdf6bdf1f3fefcd1b277d34b2bd20": {
-   "corpus": "v1",
+   "corpus": "v2",
    "entry_id": "atk-04",
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
   },
-  "385198578ddfde002ce972b9d284eeea234bc9b7d32fb4a9211d1f915e352bbb": {
-   "corpus": "holdout_v2",
-   "entry_id": "atk-22",
-   "provenance": "implementation-informed",
-   "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
-  },
   "3d057382f7c1aa62c769c0b3d22809ed24c48620a8cd3a2989aaa6f49c1a895b": {
-   "corpus": "v1",
+   "corpus": "v2",
    "entry_id": "atk-15",
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
@@ -160,20 +142,8 @@
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
   },
-  "567ceed322f34cd919b7cbe36443ea8567bff8d7ae61f0fdccc5df4cd5368fe7": {
-   "corpus": "holdout_v2",
-   "entry_id": "atk-21",
-   "provenance": "implementation-informed",
-   "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
-  },
-  "58cdb6a099e1ad1aff380ffa4eb042614630ddc0014abb84b2144b5edd004fc6": {
-   "corpus": "v1",
-   "entry_id": "atk-24",
-   "provenance": "implementation-informed",
-   "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
-  },
   "6609e50a364dbcf2540fbd6473870107faf91194120298d83a679cb0acfa46eb": {
-   "corpus": "v1",
+   "corpus": "v2",
    "entry_id": "atk-20",
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
@@ -190,26 +160,14 @@
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
   },
-  "730f388cf81b6807cf770571f9a1b11fac73bd50ed84247295ede75fc99f25cc": {
-   "corpus": "holdout_v2",
-   "entry_id": "atk-24",
-   "provenance": "implementation-informed",
-   "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
-  },
-  "73f2d4b7a8d6bd255fed9d74a8f97328373a65af7fe635303c2ae05668a0c6a6": {
-   "corpus": "v1",
-   "entry_id": "atk-22",
-   "provenance": "implementation-informed",
-   "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
-  },
   "7668b1d4277a9cc59b88bfac93e9f33829ee32865888bf2d538bcf975bcf9471": {
-   "corpus": "v1",
+   "corpus": "v2",
    "entry_id": "atk-18",
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
   },
   "7f1483fda51cdf2d12a9c19f3855752f2bb4308a1e0d9a218fcbba1f21b99bdf": {
-   "corpus": "v1",
+   "corpus": "v2",
    "entry_id": "atk-06",
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
@@ -221,13 +179,13 @@
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
   },
   "88fbf31dd01b8a9cc23e135d4cfe9fba59ccffc3291fccf93635426993552bf0": {
-   "corpus": "v1",
+   "corpus": "v2",
    "entry_id": "atk-13",
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
   },
   "98c1bdb1315eabf8e2f73093a20f73d5e19f1cd9af653fe569854eee6d650ef5": {
-   "corpus": "v1",
+   "corpus": "v2",
    "entry_id": "atk-11",
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
@@ -239,13 +197,13 @@
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
   },
   "b1a858b5182172220cab3d43e43fd5f8b8b90a1978c05e8d65695dd619bc94dc": {
-   "corpus": "v1",
+   "corpus": "v2",
    "entry_id": "atk-10",
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
   },
   "b1cef7e44371958ac7cff3ca9c1823498dbdf57bd4986d662363e112bea4011d": {
-   "corpus": "v1",
+   "corpus": "v2",
    "entry_id": "atk-03",
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
@@ -257,13 +215,13 @@
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
   },
   "b7de3c53f2e4df232f1ff80ec14291717173b57b8fc6ae764a4048683684625b": {
-   "corpus": "v1",
+   "corpus": "v2",
    "entry_id": "atk-14",
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
   },
   "bb85d059a7d4be2dcc395657bee17db563245f95ec18fe15d5560605183be13c": {
-   "corpus": "v1",
+   "corpus": "v2",
    "entry_id": "atk-08",
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
@@ -293,7 +251,7 @@
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
   },
   "d266002b6c3594aa2f79dc3899ba49e2e6978b7294d8133f851c2bd3318f6cbd": {
-   "corpus": "v1",
+   "corpus": "v2",
    "entry_id": "atk-12",
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
@@ -329,7 +287,7 @@
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
   },
   "e17e0f617fa1816352f804893ff948a091054a217b3bc8848b46dd68eddbaf24": {
-   "corpus": "v1",
+   "corpus": "v2",
    "entry_id": "atk-16",
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
@@ -340,14 +298,8 @@
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
   },
-  "ec44c822fafac80e45a8ff0f818da17afd2e1078f74d21ed0abff6bc8dd268d7": {
-   "corpus": "v1",
-   "entry_id": "atk-21",
-   "provenance": "implementation-informed",
-   "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
-  },
   "f18c76a372444c0df90fbf1734b5b97e7f23734b73ef814c1de9ca4002ea6b8d": {
-   "corpus": "v1",
+   "corpus": "v2",
    "entry_id": "atk-19",
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
@@ -359,7 +311,7 @@
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
   },
   "f56bfcdcf3394922b21cc95c08f7b11ded278143b7b3fc92321e923f02d07187": {
-   "corpus": "v1",
+   "corpus": "v2",
    "entry_id": "atk-02",
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
@@ -377,7 +329,7 @@
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"
   },
   "fd9bedf64753c632fab67b8bfd7d99a8ff00fd4c837678d4deb6b5088818ef76": {
-   "corpus": "v1",
+   "corpus": "v2",
    "entry_id": "atk-17",
    "provenance": "implementation-informed",
    "reason": "legacy corpus written by the author with knowledge of the defence code (rev1-rev7); not blind"

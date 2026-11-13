@@ -17,6 +17,7 @@
   "goal": {
    "break": 4,
    "burn": 0,
+   "shift": 0,
    "slow": 0
   },
   "mechanism": {
