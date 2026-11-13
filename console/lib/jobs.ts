@@ -5,7 +5,7 @@ import { randomBytes } from "node:crypto";
 import { ACTIONS, NAME_RE, SEEDS_RE, actionById, type ActionId } from "./actions";
 import { JOBS_DIR, PYTHON, REPO, RUNS, runDir } from "./paths";
 import { listConfigNames } from "./configs";
-import { modelEnv, readSettings } from "./settings";
+import { LOOPBACK_ERROR, isLoopback, modelEnv, readSettings } from "./settings";
 
 export type JobStatus = "running" | "ok" | "failed" | "stopped";
 
@@ -144,6 +144,8 @@ export async function startJob(actionId: string, params: Record<string, string>)
   if (built.usesModel) {
     const s = await readSettings();
     if (!s.baseUrl || !s.model) throw new JobError("Укажите адрес и имя модели в настройках", "model");
+    // settings.json may predate the loopback check or be edited by hand
+    if (!isLoopback(s.baseUrl)) throw new JobError(`Адрес модели в настройках: ${LOOPBACK_ERROR}`, "model");
     Object.assign(env, modelEnv(s));
   } else {
     delete env.RESEARCH_LLM_API_KEY;

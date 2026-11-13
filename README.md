@@ -85,6 +85,22 @@ v2r (seeds 7,8,9) и нагрузочный (seed 7), приёмка ключе�
 перезаморозки эти файлы не редактируются. Набор конфигураций — исследовательская матрица
 dvarp design.md §4 (`docs/configs.md`); очередь — аналитическая от доли эскалаций (dvarp#18).
 
+## Живая модель
+
+Живые пути (`agent_demo live`, `attackers demo --model live`, `report_cli live`) читают модель из
+окружения: `RESEARCH_LLM_BASE_URL` (OpenAI-совместимый endpoint локального контура, NFR-2.5),
+`RESEARCH_LLM_MODEL`, `RESEARCH_LLM_PARAMS_B` (без него — отказ, NFR-2.6), при необходимости
+`RESEARCH_LLM_API_KEY` и `RESEARCH_LLM_EXTRA_BODY` (JSON-объект, добавляется к каждому запросу).
+
+Для локальной llama.cpp с thinking-моделью рассуждения нужно выключить через шаблон чата — иначе
+модель тратит бюджет `max_tokens` на рассуждение и возвращает пустой ответ:
+
+```sh
+export RESEARCH_LLM_BASE_URL=http://127.0.0.1:8080/v1 RESEARCH_LLM_MODEL=<имя из /models> RESEARCH_LLM_PARAMS_B=<млрд>
+export RESEARCH_LLM_EXTRA_BODY='{"chat_template_kwargs":{"enable_thinking":false}}'
+python3 -m darp_range.report_cli live --out runs/<name> --attack-mode A --max-requests 20
+```
+
 ## Веб-консоль
 
 `console/` — локальная консоль на Next.js: запуск всех путей полигона кнопками, живой вывод

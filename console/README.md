@@ -25,7 +25,18 @@ selects the interpreter (default `python3`).
 Section "Модель" stores the OpenAI-compatible endpoint, model name, size and extra body in
 `console/.data/settings.json` (gitignored) and passes them to live jobs as `RESEARCH_LLM_*`.
 The API key is never stored: set `RESEARCH_LLM_API_KEY` in the console server's environment
-if the endpoint needs one. Offline jobs run with all `RESEARCH_LLM_*` removed.
+if the endpoint needs one. Offline jobs run with all `RESEARCH_LLM_*` removed. Other
+`RESEARCH_LLM_*` variables of the server environment are ignored: live jobs get them only from
+the settings.
+
+Local llama.cpp with a thinking model: put `{"chat_template_kwargs":{"enable_thinking":false}}`
+into "Extra body" (it becomes `RESEARCH_LLM_EXTRA_BODY`), otherwise the model spends the token
+budget on reasoning and returns empty answers.
+
+Model requests are loopback-only (NFR-2.5): the address must be in 127.0.0.0/8, `[::1]` or
+`localhost`. A non-loopback address is rejected when saving the settings; if `settings.json`
+already holds one, "Проверить связь" and the health panel do not contact it, and live jobs are
+refused by the server with a validation error before any process starts.
 
 ## Paths
 
