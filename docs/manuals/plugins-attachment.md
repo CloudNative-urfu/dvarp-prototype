@@ -4,12 +4,9 @@
 > **Устареет при** распиле на сервисы (#19) и metrics-svc (#33): переписывание логики меняет пути и потоки — после их мержа актуализировать по новым путям (см. правило в `AGENTS.md`, «Трейс для полигона»).
 > Это документ-инструкция для будущего агента авторазметки процессов в полигоне: образец того, как описывается механика системы. Внутренний документ репозитория, в полигон переезжает как образец.
 
-# Плагины гвардрейлов и релевантность бизнес-процессу (данные)
-
-Источник: код `origin/develop` после #29/#32 (git show по ref, file:line). Дата: 2026-11-13.
-Атаки/содержимое правил-паттернов сознательно не анализировались (демо-набор, будет
-дополняться в другой репе) — фокус: механика интеграции, бизнес-поверхности, происхождение
-параметров, соответствие модели процесса реальному.
+Как гвардрейлы-плагины встраиваются в процесс: контракт, точки подключения, параметры,
+заморозка и соответствие модели реальному бизнес-процессу. Атаки/содержимое правил-паттернов
+сознательно не анализировались (демо-набор) — фокус: механика интеграции.
 
 ## 1. Матрица 24 конфигураций
 
@@ -49,22 +46,25 @@ policy.py:212-227) в матрице не используются.
   ProposedCall (обязателен на tool), candidate_output (на output).
 - Сигнал `GuardSignal` (allow/flag/block/score + reasons/labels/targets); поля-решения
   запрещены (`FORBIDDEN_SIGNAL_KEYS` types.py:39-46 — action/refund/rewrite/sanitized_text…).
-- Пассивность (FR-1.8): БД только на чтение (`open_readonly` plugin.py:51-56, авторизатор
-  только SELECT/READ + ro-PRAGMA :43-49); хост сверяет `PRAGMA data_version` до/после вызова
-  (host.py:149, 199-201) — запись в БД = `GuardContractViolation`, прогон не засчитывается;
+- Пассивность (FR-1.8): БД только на чтение (`open_readonly` guard_contract/plugin.py:51-56,
+  авторизатор только SELECT/READ + ro-PRAGMA :43-49); хост сверяет `PRAGMA data_version`
+  до/после вызова (guard_contract/host.py:149, 199-201) — запись в БД = `GuardContractViolation`,
+  прогон не засчитывается;
   текстовые ответы/переписывание запрещены (изоляцию текста делает конвейер, плагин лишь
   targets). Самолатентации нет: у плагина нет ни писателя журнала, ни исполнителя, ни
   инструментов.
-- Затраты: latency/cpu меряет хост (host.py:182-185); плагин начисляет только токены/запросы/
-  GPU (`rt.charge` plugin.py:79-87, `rt.complete` :102-110, replay — `charge_replayed`).
-- Сборка: `GuardRegistry` (registry.py:24-68, дубликаты запрещены; disabled-плагины — только
-  из `MEASURED_ADAPTERS`, configs/spec.py:45-53) → `GuardSet.from_spec` (:116-138, порядок
-  значим, fingerprint :97-100,153). Точки: check_input (pipeline.py:316-341), after_read
-  Toolbox = context (:369-393), before_call = tool (:343-367), check_output (:414-431).
-- Обёртка агента: `GuardedDefender.respond` (defender.py:32-75): input → clarify/escalate/
-  terminate не доходят до агента; иначе агент → output. Clarify сверх max_clarifications=2
-  превращается в escalate (pipeline.py:236-238); уточнение исполняется ролью policy через
-  request_info.
+- Затраты: latency/cpu меряет хост (guard_contract/host.py:182-185); плагин начисляет
+  только токены/запросы/GPU (`rt.charge` guard_contract/plugin.py:79-87, `rt.complete`
+  :102-110, replay — `charge_replayed`).
+- Сборка: `GuardRegistry` (guard_contract/registry.py:24-68, дубликаты запрещены;
+  disabled-плагины — только из `MEASURED_ADAPTERS`, configs/spec.py:45-53) →
+  `GuardSet.from_spec` (:116-138, порядок значим, fingerprint :97-100,153). Точки:
+  check_input (guard_policy/pipeline.py:314-341), before_call = tool (:342-368),
+  after_read Toolbox = context (:369-405), check_output (:406-424).
+- Обёртка агента: `GuardedDefender.respond` (guard_policy/defender.py:32-75): input →
+  clarify/escalate/terminate не доходят до агента; иначе агент → output. Clarify сверх
+  max_clarifications=2 превращается в escalate (pipeline.py:236-238); уточнение
+  исполняется ролью policy через request_info.
 
 ## 3. Что каждый builtin-плагин проверяет в бизнес-потоке
 
@@ -107,16 +107,18 @@ INTERNAL_MARKERS :385-394) при check_internal=true.
 
 ## 4. Происхождение параметров и заморозка
 
-- Единственный источник значений — `default_params` класса плагина (plugin.py:140);
-  неизвестные параметры запрещены (:145-147); экземпляр заморожен (:158-166).
+- Единственный источник значений — `default_params` класса плагина
+  (guard_contract/plugin.py:140); неизвестные параметры запрещены (:145-147);
+  экземпляр заморожен (:158-166).
 - Конфиги передают params:{} → умолчания; эффективные значения фиксируются в
   `ConfigSpec.resolved()` (configs/spec.py:189-205).
 - Изменение любого умолчания/правила/пресета меняет defense_code-хеш дерева guard_plugins в
-  lock + отпечатки всех конфигураций (spec.py:262-268 отклоняет расхождение вычисляемых
-  полей; freeze.py:116-158 ловит дрейф; FreezeGuard прерывает прогон freeze.py:216-232).
-  Единственный путь — перезаморозка `freeze --replace` (история в configs/history/, 8 записей).
+  lock + отпечатки всех конфигураций (configs/spec.py:262-268 отклоняет расхождение
+  вычисляемых полей; configs/freeze.py:116-158 ловит дрейф; FreezeGuard прерывает прогон
+  freeze.py:216-232). Единственный путь — перезаморозка `freeze --replace` (история в
+  configs/history/, 8 записей).
 - Все 4 builtin-плагина + deberta-адаптер + пресеты политики + контракт + registry +
-  boundary + tools — полностью заморожены (DEFENSE_CODE freeze.py:37).
+  boundary + tools — полностью заморожены (DEFENSE_CODE configs/freeze.py:37).
 
 ## 5. Бизнес-процесс как он смоделирован
 

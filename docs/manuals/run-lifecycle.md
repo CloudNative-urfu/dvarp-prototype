@@ -4,10 +4,8 @@
 > **Устареет при** распиле на сервисы (#19) и metrics-svc (#33): переписывание логики меняет пути и потоки — после их мержа актуализировать по новым путям (см. правило в `AGENTS.md`, «Трейс для полигона»).
 > Это документ-инструкция для будущего агента авторазметки процессов в полигоне: образец того, как описывается механика системы. Внутренний документ репозитория, в полигон переезжает как образец.
 
-# Внутренняя карта замера полигона (данные для runbook)
-
-Источник: код `origin/develop` после #29/#32 (данные собраны git show по ref, file:line по `nl -ba`).
-Дата: 2026-11-13. Атаки/корпус сознательно не анализировались — фокус: как происходит замер.
+Внутренняя карта замера: как устроен прогон — от конфигурации до верификации.
+Атаки/корпус сознательно не анализировались — фокус: как происходит замер.
 
 ## 1. Конфигурация прогона
 
@@ -100,16 +98,17 @@
   `info_requests`. Разделение: extract.py:372-399 — `esc_l`, `esc_fp` = эскалация легального
   эпизода со статусом `unneeded_escalation`, `esc_a`; `E_L`, `E_A`, `E_L_natural`/`E_L_fp`,
   `E_L_base_flow` из base-потока.
-- **C_guard**: хост меряет latency/cpu вокруг `inspect` (host.py:173-185), плагин начисляет
-  токены через `rt.charge` (plugin.py:79-87; `rt.complete` :102-110); replay —
-  `charge_replayed` (:89-100); сбойный вызов тоже стоит (guard_error с cost, host.py:202-204);
+- **C_guard**: хост меряет latency/cpu вокруг `inspect`   (guard_contract/host.py:173-185), плагин начисляет
+  токены через `rt.charge` (guard_contract/plugin.py:79-87; `rt.complete` :102-110); replay —
+  `charge_replayed` (:89-100); сбойный вызов тоже стоит (guard_error с cost,
+  guard_contract/host.py:202-204);
   события `guard_signal`/`guard_error` от `guard:<id>`; сведение — `defender_bucket`
-  (costs.py:76-78), per-эпизод (costs.py:110, 123-131); метрики C_ep/C_guard
-  (extract.py:449-501); деньги — `Rates`/`RATE_PRESETS` (costs.py:28-52).
-- **Токены**: `ChatModel.complete` (client.py:54-88): `meter.admit` ДО отправки (:59),
+  (event_log/costs.py:76-78), per-эпизод (event_log/costs.py:110, 123-131); метрики C_ep/C_guard
+  (extract.py:449-501); деньги — `Rates`/`RATE_PRESETS` (event_log/costs.py:28-52).
+- **Токены**: `ChatModel.complete` (llm/client.py:54-88): `meter.admit` ДО отправки (:59),
   prompt_sha/reply_sha — хеши, не тексты (:64, :80), сбои расходуют лимит (:69-75); для
   guard-компонентов llm_call не пишется — затраты в сигнал гвардрейла. Лимиты
-  `Limits` (limits.py:17-34: 12 запросов/эпизод, 200/прогон), `UsageMeter` (:59-80).
+  `Limits` (llm/limits.py:18-34: 12 запросов/эпизод, 200/прогон), `UsageMeter` (:49-80).
   Live: `RunMeter` + `LiveBudget` (report_cli/live.py:43-107), env RESEARCH_LLM_*.
 
 ## 5. Дельты, L*, формулы (breakeven.py)
@@ -137,7 +136,8 @@
   mean_gap=3.0 мин, w_A=0.2, service 4/8/15 мин, операторы 1/2, SLA 60 мин (arrivals.py:17-19,
   model.py:38-42).
 - DES **вне измерительного пути** — сохранена как проверка формулы (analytic.py:20-23,
-  model.py:1-8, extract.py:15, flow.py:32); acceptance вызывает self_check (acceptance.py:590-596).
+  model.py:1-8, extract.py:15, flow.py:32); acceptance вызывает self_check
+  (report_cli/acceptance.py:590-596).
 
 ## 7. Сборка отчёта
 
@@ -151,12 +151,12 @@
   (:312-443: контур, таблица L*, queue_section, Pareto, разброс seed, самопроверки).
 - Файлы метрик (metrics/report.py:573-588): metrics.json, report.md, CSV —
   metrics_table/lstar_table/pareto/leave_one_out/queue_lstar/temporal/dominance/inefficient.
-- **Приёмка** (acceptance.py): KEY_REQUIREMENTS :31-49 = FR-1.2,1.3,1.5,1.6,1.7,1.8,1.9,1.13,
+- **Приёмка** (report_cli/acceptance.py): KEY_REQUIREMENTS :31-49 = FR-1.2,1.3,1.5,1.6,1.7,1.8,1.9,1.13,
   1.14,1.15,1.16,1.17,1.18,1.19,1.24, NFR-2.8, NFR-2.9; FR-1.24 — независимый пересчёт L*
   (recompute_lstar :223-241); статистическая честность (:875-933); `_statistics` (:936).
 - **Honest accounting**: стороны — реестр компонентов (event_log/schema.py:25-42:
   defender/attacker/harness; guard:* → defender); строго раздельно defender_borne /
-  self_limited / harness (costs.py:113-131); в ΔNet — только defender_borne,
+  self_limited / harness (event_log/costs.py:113-131); в ΔNet — только defender_borne,
   self_limited — отдельной строкой (breakeven.py:38, analysis.py:147-148).
 - `verify_output` (pipeline.py:708-740): индекс, журналы, пересчёт метрик байт-в-байт,
   неизменность хеша кода.
@@ -177,7 +177,7 @@
 8. `scripts/rev11_verify.py --skip-rev10` (shop/pay/payout, брокер fail-closed).
 9. Приёмка acceptance.check(e2e, stress, probes) → key_requirements.json; verify.json/md.
 
-## 9. Хвосты после #29 (найденные агентом, для сведения)
+## 9. Известные хвосты на срезе 2fd02e3 (для сведения)
 
 - `simple_baseline` как роль живёт в интерфейсах: executor/boundary.py:31,35,46,59,66;
   tools/toolbox.py:19,44 (`TOOL_ROLES`), tools/specs.py:5; mutate_tools.py:65; тесты
