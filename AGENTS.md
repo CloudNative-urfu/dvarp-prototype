@@ -167,7 +167,7 @@ Conventional Commits, английский. Формат `<type>(<scope>): <desc
 ## Специфика прототипа
 
 - Замороженный defense-код (`darp_range/{configs,guard_contract,
-  guard_plugins,guard_policy,simple_baseline,executor,tools}/`) защищён
+  guard_plugins,guard_policy,executor,tools}/`) защищён
   хешами `configs.lock.json` (NFR-2.10). Эти файлы не редактируются без
   процедуры перезаморозки; перезаморозка согласуется с владельцем.
 - Каталог `revisions/` — архив: не линтуется, не изменяется.

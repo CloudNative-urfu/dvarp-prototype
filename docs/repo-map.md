@@ -28,8 +28,8 @@ report_cli ──► runner ──► channel ◄──► agent + tools ──�
 | `agent` + `tools` | `RefundAgent.respond(text)`: цикл «модель → инструменты → ответ», о гвардрейлах не знает (FR-1.9). Ровно 5 инструментов: `read_order`, `read_ticket`, `get_refund_policy`, `ask_customer`, `finalize_case` (assert в `tools/specs.py`). `Toolbox.call` — разбор → перехват конвейером (`ToolInterceptor`) → исполнитель. | `tests/test_agent.py`, `tests/test_tools.py` | `darp_range/agent/__init__.py`, `darp_range/tools/__init__.py` |
 | `executor` | Граница безопасности `g0`: роли, права, принадлежность заказа, разовые операции, транзакции с откатом. Декларации границы `boundary_spec` (v1), `boundary_spec_v2`, `boundary_spec_v2r` в `boundary.py`; основа выбирается флагом `--foundation v1|v2|v2r`. | `tests/test_executor.py`; v2r — `tests/test_rev10_v2r.py`, `tests/test_review_routing_v2r.py` | `darp_range/executor/__init__.py`, `boundary.py` |
 | `state_store` | Синтетическая БД магазина (SQLite), детерминированный генератор, снимок `take_snapshot` и полное восстановление `restore_snapshot`, `diff_states`. | `tests/test_state_store.py` | `darp_range/state_store/__init__.py`, `store.py` |
-| `evaluator` | Независимый оценщик: сверка итогового состояния БД с ground truth без чтения текста агента (FR-1.18), исходы атаки `executed`/`refused`/`ignored` (FR-1.19), `finalize_pair` (slow/burn). | `tests/test_evaluator.py` | `darp_range/evaluator/__init__.py` |
-| `metrics` | Метрики безопасности, полезности, непрерывности, детекции и экономики (`extract.py`); ΔNet и порог L* (`breakeven.py`), Pareto и leave-one-out (`frontier.py`), сборка отчёта (`analysis.py`). | `tests/test_metrics.py` | `darp_range/metrics/__init__.py`, `breakeven.py` |
+| `evaluator` | Независимый оценщик: сверка итогового состояния БД с ground truth без чтения текста агента (FR-1.18), исходы атаки `executed`/`refused`/`ignored` (FR-1.19), `finalize_pair` (slow/burn); эскалация — нейтральный исход, не успех атаки (цель `shift` исключена, FR-1.21). | `tests/test_evaluator.py` | `darp_range/evaluator/__init__.py` |
+| `metrics` | Метрики безопасности, полезности, непрерывности, детекции и экономики (`extract.py`): доля эскалаций по классам трафика `E_L`/`E_A` и аналитический блок очереди λ_Q → W_q/Q_L → SLA; ΔNet и порог L* с членами `C_queue`/`C_sla` и статусом `queue_unstable` (`breakeven.py`), Pareto и leave-one-out (`frontier.py`), сборка отчёта (`analysis.py`). | `tests/test_metrics.py` | `darp_range/metrics/__init__.py`, `breakeven.py` |
 | `report_cli` | CLI `offline` / `live` / `verify`: runner → metrics → L* → индекс артефактов NFR-2.14 → сводная таблица; аудит контура (запрет сети, только stdlib). | `tests/test_report_cli.py` | `darp_range/report_cli/__init__.py`, `__main__.py` (все флаги) |
 
 Вспомогательные модули, через которые идёт этот путь:
@@ -37,10 +37,9 @@ report_cli ──► runner ──► channel ◄──► agent + tools ──�
 | Модуль | Роль | Тест |
 | --- | --- | --- |
 | `event_log` | Единый журнал событий и затрат с раздельным учётом сторон (FR-1.17, NFR-2.9), хеш-цепочка. | `tests/test_event_log.py` |
-| `manual_queue` | Дискретно-событийная модель очереди операторов; влияние эскалаций на легальный поток. | `tests/test_manual_queue.py` |
+| `manual_queue` | Аналитическая очередь операторов (ревизия канона dvarp#18): `analytic.py` — M/M/1 при K=1, M/M/c (Эрланг C) при K>1 от `E_L`/`E_A`, SLA-вероятность, сетка K×S, `self_check`; `arrivals.py` — расписание прибытий потока; `model.py` (DES) — только проверка формулы, в измерительный путь не входит. | `tests/test_manual_queue.py` |
 | `llm` | Клиент OpenAI-совместимой модели (`RESEARCH_LLM_*`) и детерминированная заглушка, лимиты токенов. | `tests/test_llm.py` |
 | `repro` | Seed, манифест прогона, хеши корпуса и конфигураций. | `tests/test_repro.py` |
-| `simple_baseline` | `g_simple`: форма и правила R1–R7 без LLM-агента, те же 5 инструментов. | `tests/test_simple_baseline.py` |
 | `agent_demo` | Мини-эпизод агента с гвардрейлами для demo/live (вынесен, чтобы агент не ссылался на гвардрейлы). | через `tests/test_agent.py` |
 | `shop_svc`, `pay_emu`, `svckit` | Контур ревизии 11: сервис магазина, платёжный эмулятор, payout-worker на 127.0.0.1. | `tests/test_rev11_*.py`, `scripts/rev11_verify.py` |
 
@@ -56,14 +55,15 @@ report_cli ──► runner ──► channel ◄──► agent + tools ──�
   (`matrix.py` + `configs/isolation/access_matrix.json`), происхождение заданий и
   `claim_level` прогона (`provenance.py` + `configs/isolation/provenance_registry.json`).
   Тесты: `tests/test_isolation_sandbox.py`, `_audit`, `_matrix`, `_probes`, `_provenance`.
-- `darp_range/corpus/` + `corpus/` — размеченные атаки по трём осям FR-1.21 (механизм, цель,
-  доставка) и сопоставимые чистые контроли FR-1.22 с ground truth. `corpus/darp_corpus_v1.jsonl`
-  (24 атаки + 24 контроля), срезы `holdout_v2/`, `heldout_v3/`, `trusted_v7/`, хеши —
-  `corpus/MANIFEST.json`. Вручную не редактируется: источник — `darp_range/corpus/entries.py`,
+- `darp_range/corpus/` + `corpus/` — размеченные атаки по трём осям FR-1.21 (механизм, цель
+  `break`/`slow`/`burn`, доставка) и сопоставимые чистые контроли FR-1.22 с ground truth.
+  `corpus/darp_corpus_v2.jsonl` (20 атак + 20 контролей; корпус v2 без цели `shift`, #29),
+  срезы `holdout_v2/`, `heldout_v3/`, `trusted_v7/`, хеши — `corpus/MANIFEST.json`. Вручную не редактируется: источник — `darp_range/corpus/entries.py`,
   проверка — `python3 -m darp_range.corpus verify`. Тест: `tests/test_corpus.py`.
 - `artifacts/attack-cards.json` — паспорта атак и контролей (версия `attack-cards-2 (rev7)`):
   цель, точка входа, граница доверия, нарушаемый инвариант, оракул, критерий успеха, статус
-  включения. Генерация — `scripts/make_attack_cards.py`, проверка —
+  включения. Генерация — `scripts/make_attack_cards.py --out artifacts/attack-cards.json
+  --live-from <прежний файл>` (живые трассы режима A в Git не входят), проверка —
   `scripts/validate_attack_cards.py`.
 
 ## 3. Гвардрейлы
@@ -90,8 +90,9 @@ report_cli ──► runner ──► channel ◄──► agent + tools ──�
 ## 4. Конфигурации
 
 - `configs/*.json` — данные, а не код: набор гвардрейлов и точки, политика реакции, правила
-  процесса, защищаемая сторона. Подробная карта всех конфигураций — issue #11
-  (`docs/configs.md`). Схема и проверки полей — `darp_range/configs/spec.py` (`ConfigSpec`),
+  процесса, защищаемая сторона. Набор — исследовательская матрица §4 (#29): `g0`, `g_proc`,
+  позиционная матрица × политики `canon_isolate`/`canon_escalate`/`canon_terminate`, `g_in_oss`,
+  контроли, leave-one-out; подробная карта — `docs/configs.md`. Схема и проверки полей — `darp_range/configs/spec.py` (`ConfigSpec`),
   предзарегистрированный набор — `registry.py` (`preregistered`).
 - `configs/configs.lock.json` — заморозка (NFR-2.10): sha256 каждого файла, отпечаток набора,
   хеши каталогов кода защиты. Прежние lock — `configs/history/`.
@@ -111,7 +112,6 @@ darp_range/configs/
 darp_range/guard_contract/
 darp_range/guard_plugins/
 darp_range/guard_policy/
-darp_range/simple_baseline/
 darp_range/executor/
 darp_range/tools/
 ```
