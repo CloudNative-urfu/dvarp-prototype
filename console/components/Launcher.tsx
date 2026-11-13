@@ -159,7 +159,7 @@ export function Launcher({ configs, runs, initial, modelReady }: { configs: stri
             <div className="notice" role="status">
               <TriangleAlert size={16} aria-hidden />
               <span>
-                Нужна модель: укажите адрес и имя в разделе <Link href="/settings" style={{ textDecoration: "underline" }}>Модель</Link>.
+                Нужна модель: укажите локальный адрес и имя в разделе <Link href="/settings" style={{ textDecoration: "underline" }}>Модель</Link>.
               </span>
             </div>
           )}

@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { PYTHON, REPO } from "./paths";
-import { isLoopback, readSettings } from "./settings";
+import { LOOPBACK_ERROR, isLoopback, readSettings } from "./settings";
 
 function run(cmd: string, args: string[], timeout = 15000): Promise<{ ok: boolean; out: string }> {
   return new Promise((resolve) => {
@@ -57,6 +57,7 @@ export async function health(): Promise<Health> {
 
 export async function probeModel(baseUrl: string): Promise<{ reachable: boolean; models: string[]; error?: string }> {
   if (!baseUrl) return { reachable: false, models: [] };
+  if (!isLoopback(baseUrl)) return { reachable: false, models: [], error: LOOPBACK_ERROR };
   try {
     const headers: Record<string, string> = {};
     if (process.env.RESEARCH_LLM_API_KEY) headers.Authorization = `Bearer ${process.env.RESEARCH_LLM_API_KEY}`;
