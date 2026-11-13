@@ -88,8 +88,8 @@ def demo(work: Path) -> tuple[dict, list[tuple[str, bool]]]:
         ("FR-1.23: pure detector sees the same detections as g_in (TP/FP)",
          (c["g_in_detect_only"]["detection"]["TP"], c["g_in_detect_only"]["detection"]["FP"])
          == (gin["detection"]["TP"], gin["detection"]["FP"])),
-        ("FR-1.24: L* given for base, bounds and 16 corners",
-         all(len(x["break_even"]["corners"]) == 16 and set(x["break_even"]["bounds"]) == {"low", "base", "high"}
+        ("FR-1.24: L* given for base, bounds and 32 corners",
+         all(len(x["break_even"]["corners"]) == 32 and set(x["break_even"]["bounds"]) == {"low", "base", "high"}
              for x in c.values())),
         ("§9.4: Pareto front is non-empty and excludes controls/loo",
          bool(rep["pareto"]["front"]) and not any(c[n]["role"] in ("control", "loo")
