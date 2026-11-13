@@ -22,9 +22,9 @@ function rows(h: Health): Row[] {
     {
       icon: Cpu,
       title: "Модель",
-      detail: !m.configured ? "адрес и имя не заданы" : m.reachable ? `${m.name} на ${m.baseUrl}${m.loopback ? "" : ", адрес не локальный (NFR-2.5)"}` : `${m.baseUrl} не отвечает${m.error ? `: ${m.error}` : ""}`,
-      tone: !m.configured ? "warn" : m.reachable ? (m.loopback ? "ok" : "warn") : "bad",
-      state: !m.configured ? "не задана" : m.reachable ? "отвечает" : "недоступна",
+      detail: !m.configured ? "адрес и имя не заданы" : !m.loopback ? `${m.baseUrl}: адрес не локальный, запросы заблокированы (NFR-2.5)` : m.reachable ? `${m.name} на ${m.baseUrl}` : `${m.baseUrl} не отвечает${m.error ? `: ${m.error}` : ""}`,
+      tone: !m.configured ? "warn" : m.reachable ? "ok" : "bad",
+      state: !m.configured ? "не задана" : !m.loopback ? "заблокирована" : m.reachable ? "отвечает" : "недоступна",
     },
     { icon: SquareTerminal, title: "Python", detail: h.python.version, tone: h.python.ok ? "ok" : "bad", state: h.python.ok ? "есть" : "нет" },
   ];

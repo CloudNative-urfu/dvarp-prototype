@@ -1,6 +1,6 @@
 import { listConfigNames } from "@/lib/configs";
 import { listRuns } from "@/lib/runs";
-import { readSettings } from "@/lib/settings";
+import { isLoopback, readSettings } from "@/lib/settings";
 import { Launcher } from "@/components/Launcher";
 import { Reveal } from "@/components/Reveal";
 
@@ -22,7 +22,7 @@ export default async function Paths({ searchParams }: { searchParams: Promise<{ 
         </header>
       </Reveal>
       <Reveal i={1}>
-        <Launcher configs={configs} runs={finished} initial={action} modelReady={Boolean(s.baseUrl && s.model)} />
+        <Launcher configs={configs} runs={finished} initial={action} modelReady={Boolean(s.baseUrl && s.model) && isLoopback(s.baseUrl)} />
       </Reveal>
     </div>
   );

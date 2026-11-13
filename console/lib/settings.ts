@@ -36,6 +36,7 @@ export function validateSettings(s: ModelSettings): Partial<Record<keyof ModelSe
     try {
       const u = new URL(s.baseUrl);
       if (u.protocol !== "http:" && u.protocol !== "https:") errors.baseUrl = "Нужен http:// или https://";
+      else if (!isLoopback(s.baseUrl)) errors.baseUrl = LOOPBACK_ERROR;
     } catch {
       errors.baseUrl = "Это не URL";
     }
@@ -58,10 +59,13 @@ export async function writeSettings(s: ModelSettings): Promise<void> {
   await fs.writeFile(FILE, JSON.stringify(pick(s as unknown as Record<string, unknown>), null, 1));
 }
 
+export const LOOPBACK_ERROR = "Только локальный адрес: 127.0.0.0/8, ::1 или localhost (NFR-2.5)";
+
+/** Loopback = 127.0.0.0/8, ::1, localhost. URL() already canonicalises IPv4 forms like 127.1 or 0x7f.1. */
 export function isLoopback(baseUrl: string): boolean {
   try {
     const h = new URL(baseUrl).hostname;
-    return h === "127.0.0.1" || h === "localhost" || h === "[::1]" || h === "::1";
+    return h === "localhost" || h === "[::1]" || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h);
   } catch {
     return false;
   }

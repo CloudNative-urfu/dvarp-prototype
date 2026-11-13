@@ -8,10 +8,10 @@ import type { ModelSettings } from "@/lib/settings";
 type Field = { key: keyof ModelSettings; label: string; hint: string; placeholder: string; area?: boolean };
 
 const FIELDS: Field[] = [
-  { key: "baseUrl", label: "Адрес API", hint: "OpenAI-совместимый endpoint, NFR-2.5 требует локальный адрес", placeholder: "http://127.0.0.1:8000/v1" },
+  { key: "baseUrl", label: "Адрес API", hint: "OpenAI-совместимый endpoint; только локальный адрес: 127.0.0.0/8, ::1 или localhost (NFR-2.5)", placeholder: "http://127.0.0.1:8000/v1" },
   { key: "model", label: "Имя модели", hint: "как его отдаёт /models", placeholder: "model-name" },
   { key: "paramsB", label: "Размер, млрд параметров", hint: "для учёта затрат в отчёте", placeholder: "8" },
-  { key: "extraBody", label: "Extra body, JSON", hint: "добавляется к каждому запросу, например параметры шаблона чата", placeholder: '{"chat_template_kwargs": {}}', area: true },
+  { key: "extraBody", label: "Extra body, JSON", hint: 'уходит в RESEARCH_LLM_EXTRA_BODY и добавляется к каждому запросу. Для llama.cpp с thinking-моделью: {"chat_template_kwargs":{"enable_thinking":false}}, иначе модель тратит бюджет на рассуждения и отвечает пустотой', placeholder: '{"chat_template_kwargs":{"enable_thinking":false}}', area: true },
 ];
 
 type Probe = { reachable: boolean; models: string[]; error?: string };
