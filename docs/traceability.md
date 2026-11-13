@@ -2,7 +2,9 @@
 
 Соответствие между требованиями полигона (`dvarp/docs/guardrails_requirements.md`,
 `guardrails-research-design.md`) и текущим каркасом (`dvarp-prototype`, снимок
-ревизии 11 после чистки issue #2). Статусы:
+ревизии 11 после чистки issue #2; строки обновлены по смерженным PR #17, #25, #26).
+Навигация по модулям, тестам и CLI — `docs/repo-map.md`; состав и отличия замороженных
+конфигураций — `docs/configs.md`. Статусы:
 
 - **covered** — реализовано и проверяется тестом/шагом `verify.py`;
 - **covered-heavy** — реализовано, но каркас избыточен для этой строки (упрощение возможно);
@@ -10,6 +12,10 @@
 - **factory-extra** — фабричная обвязка за пределами рамки; решение зафиксировано.
 
 Проверка — ссылка на тесты, probes или шаги `scripts/verify.py` (если шаг есть).
+Тесты ядра `test_executor`, `test_channel`, `test_guard_policy`, `test_guard_contract`,
+`test_state_store`, `test_evaluator`, `test_metrics`, `test_tools` при итеративной работе
+запускаются быстрым набором `python3 scripts/dev_smoke.py` (~2 мин, PR #17); полный набор —
+`unittest discover` и `scripts/verify.py`.
 
 ## FR-1.1–1.4. Архитектура и канал
 
@@ -48,13 +54,13 @@
 | FR-1.16 Эскалации в общую очередь → задержка легального потока | парные прогоны, нагрузочный шаг в verify, ΔQ/L* | probe `queue_impact`, стресс-шаг `e2e_stress_*`, acceptance FR-1.16 | covered |
 | FR-1.17 Единый журнал с затратами по компонентам | `event_log` (агент, гвардрейлы, исполнитель, решения) | `test_event_log`, acceptance | covered |
 | FR-1.18 Независимый оценщик по состоянию БД | `evaluator` (дифф состояний, без текста агента) | `test_evaluator`, probe `evaluator` | covered |
-| FR-1.19 Исходы executed / refused / ignored | классификация исходов в журнале оценщика | `test_evaluator` | covered |
+| FR-1.19 Исходы executed / refused / ignored | классификация исходов в журнале оценщика; восприятие атакующего (`attackers/perception.py`) отдельно от оценщика засчитывает короткие подтверждения «Refund approved/created/issued …» и «Refund ID: …», фразы с отказом — нет (PR #25, `openspec/changes/attacker-live-adaptation/`) | `test_evaluator` (`dev_smoke`), `test_attackers`, `scripts/mutate_attackers.py` (21/21) | covered |
 
 ## FR-1.20–1.22. Атаки и корпус
 
 | Требование | Покрытие | Проверка | Статус |
 | --- | --- | --- | --- |
-| FR-1.20 Режимы D и A | D — корпус, A — LLM-агент с лимитом попыток (bwrap-песочница) | `test_attackers`, `test_rev10_broker_*` | covered |
+| FR-1.20 Режимы D и A | D — корпус, A — LLM-агент с лимитом попыток (bwrap-песочница); в режиме A после неудачной попытки — открытие другой тактикой, повторы помечаются `repeated_opener` / `repeated_message` (PR #25) | `test_attackers`, `test_rev10_broker_*`, `scripts/mutate_attackers.py` | covered |
 | FR-1.21 Оси таксономии (механизм/цель/доставка) | разметка корпуса + паспорта `attack-cards.json` | `test_corpus`, `validate_attack_cards` | covered |
 | FR-1.22 Чистые контроли для каждой атаки | `ctl-*` записи корпуса, сопоставимые по объёму | `test_corpus`, acceptance (FP-метрики) | covered |
 
@@ -99,9 +105,10 @@
 | Компонент | Статус | Решение |
 | --- | --- | --- |
 | Оператор → выплата → статус (`shop_svc`, `pay_emu`, `svckit`, payout) | factory-extra | **оставить/деферить**: реализм завершения кейса; не в scope рамки; пересмотр после заполнения гэпов |
-| 17 замороженных конфигураций фабрики | factory-extra | перезаморозка под исследовательскую матрицу §4 — issue |
+| 19 замороженных конфигураций фабрики (карта — `docs/configs.md`) | factory-extra | перезаморозка под исследовательскую матрицу §4 — issue |
 | openspec change-каталоги фабрики (rev9–11) | factory-extra | оставить как историю/образец формата |
 | Изоляция атакующего (broker, bwrap) | covered-heavy | нужна для честности атаки (критик rev9–11); не упрощать |
+| Веб-консоль `console/` (Next.js, PR #26, `openspec/changes/web-console/`) | factory-extra | **консоль — обёртка над CLI из белого списка, монолит не трогаем**: запуск путей полигона, чтение `runs/` и `configs/`; слушает только 127.0.0.1, запросы к модели — только на loopback (NFR-2.5); проверка — `npm run lint`, `npm run typecheck`, `npm run build` |
 
 ## Гэпы → следующие issue
 
