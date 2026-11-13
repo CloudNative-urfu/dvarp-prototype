@@ -5,8 +5,7 @@
 - `g0`: агент из фабрики над `Toolbox` без перехватчика; граница — исполнитель эпизода;
 - `guarded`: конвейер `guard_policy` (перехватчик `Toolbox` + обёртка `GuardedDefender`);
 - `g_proc` (и `guarded` с правилами процесса): `ProcessGate` перед конвейером в `Toolbox`,
-  обёртка `ProcessDefender` снаружи; поток (`ProcessLedger`) общий для прогона;
-- `g_simple`: `SimpleBaseline` над `Toolbox(role="simple_baseline")`, модель не нужна.
+  обёртка `ProcessDefender` снаружи; поток (`ProcessLedger`) общий для прогона.
 
 Исполнитель всегда один и тот же объект эпизода с одной и той же границей — конфигурация
 его не выбирает и не настраивает (FR-1.14). Агент собирается фабрикой `agent.make_agent`
@@ -26,7 +25,6 @@ from darp_range.guard_policy import GuardedDefender, GuardPipeline, assemble_pip
 from darp_range.guard_policy import task_for_session
 from darp_range.llm import ChatModel
 from darp_range.repro import derive_seed
-from darp_range.simple_baseline import make_simple_baseline
 from darp_range.tools import Toolbox
 
 from .process import ProcessDefender, ProcessGate, ProcessLedger
@@ -54,7 +52,6 @@ class DefenderBundle:
     pipeline: GuardPipeline | None = None
     gate: ProcessGate | None = None
     agent: Any = None
-    simple: Any = None
     _closed: bool = field(default=False, repr=False)
 
     def runtime_fingerprints(self) -> dict[str, Any]:
@@ -65,7 +62,7 @@ class DefenderBundle:
             "policy": None if p is None else p.policy.fingerprint(),
             "process": None if self.gate is None else self.gate.spec.fingerprint(),
             "executor_boundary": BOUNDARY_FINGERPRINT,
-            "defender": "simple" if self.simple is not None else "agent",
+            "defender": "agent",
         }
 
     def close(self) -> None:
@@ -84,10 +81,6 @@ def assemble_defender(cfg: ConfigSpec, *, log: EventLog, executor: Executor,
         raise ConfigError("нужен ConfigSpec")
     if not isinstance(executor, Executor):
         raise ConfigError("нужен Executor эпизода")
-    if cfg.defender == "simple":
-        tb = Toolbox(executor, log.writer("tools"), role="simple_baseline", episode_id=episode_id)
-        sb = make_simple_baseline(tb, log, episode_id=episode_id, clock=clock)
-        return DefenderBundle(cfg, sb, tb, simple=sb)
     if model is None:
         raise ConfigError(f"{cfg.name}: агентной конфигурации нужна модель агента")
     pipeline = None

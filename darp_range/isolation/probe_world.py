@@ -111,7 +111,7 @@ class ProbeWorld:
             "cassettes": [str(self.dir / "cassettes/cassette.json"),
                           *sorted(str(p) for p in (r / "runs").glob("*/*/cassette*.json*"))[:2]],
             "corpus_gt": [str(self.dir / "gt/ground_truth.json"),
-                          str(r / "corpus/darp_corpus_v1.jsonl")],
+                          str(r / "corpus/darp_corpus_v2.jsonl")],
             "provenance_registry": [str(self.dir / "registry/provenance_registry.json"),
                                     str(r / "configs/isolation/provenance_registry.json")],
             "case_docs": [str(r / "case/case.json"),

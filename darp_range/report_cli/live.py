@@ -184,9 +184,6 @@ def planned_episodes(plan: RunPlan, schedules: Mapping[str, Schedule],
     """Число эпизодов с моделью агента по расписанию (до старта)."""
     per: dict[str, int] = {}
     for name, sch in schedules.items():
-        if defenders[name] == "simple":    # g_simple: без свободного LLM-агента
-            per[name] = 0
-            continue
         n = sum(len(b.variant("base")) + len(b.variant("attacked")) for b in sch.blocks)
         if plan.replay == "first_block" and sch.blocks:
             b = sch.blocks[0]

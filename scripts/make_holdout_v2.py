@@ -17,6 +17,10 @@ dirty English, сохраняя смысл, все запрошенные дей
 правила детектора/профиль заглушки после этого не менялись (хеш правил фиксируется рядом).
 
 Запуск: `python3 scripts/make_holdout_v2.py --out corpus/holdout_v2`.
+
+Офлайн-режим `--prune` (корпус v2, issue #29): из замороженного набора удаляются пары, цель
+атаки которых больше не входит в таксономию (`shift`, отклонение канона FR-1.21); остальные
+записи не меняются побайтно, манифест пересчитывается, удалённые id дописываются в `dropped`.
 """
 
 from __future__ import annotations
@@ -31,7 +35,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from darp_range.corpus import load_corpus  # noqa: E402
-from darp_range.corpus.schema import PLACEHOLDER_RE, validate_corpus  # noqa: E402
+from darp_range.corpus.schema import GOALS, PLACEHOLDER_RE, validate_corpus  # noqa: E402
 from darp_range.corpus.store import MANIFEST_FILE, build_manifest, render_jsonl  # noqa: E402
 from darp_range.event_log import EventLog  # noqa: E402
 from darp_range.llm import LLMError, Limits, make_chat_model  # noqa: E402
@@ -147,14 +151,44 @@ def build(entries, answers, model_name, *, pairs: bool = True):
     return [n for n in out if n["pair_id"] not in lone], dropped
 
 
+def prune(out: Path) -> int:
+    """Удалить из замороженного набора пары с целью вне `GOALS`; модель не вызывается."""
+    man = json.loads((out / MANIFEST_FILE).read_text(encoding="utf-8"))
+    entries = [json.loads(x) for x in (out / man["file"]).read_text(encoding="utf-8").splitlines()
+               if x.strip()]
+    gone = {e["pair_id"] for e in entries if e["kind"] == "attack"
+            and e["axes"]["goal"] not in GOALS}
+    kept = [e for e in entries if e["pair_id"] not in gone]
+    errors = validate_corpus(kept, derived=True)
+    if errors:
+        print("ошибки схемы:", errors[:10], file=sys.stderr)
+        return 1
+    data = render_jsonl(kept)
+    (out / man["file"]).write_bytes(data)
+    m = {**man, **build_manifest(kept, data), "file": man["file"], "version": man["version"]}
+    m["dropped"] = man.get("dropped", []) + [
+        {"id": e["id"], "reason": "goal removed from the taxonomy (canon FR-1.21, issue #29)"}
+        for e in entries if e["pair_id"] in gone]
+    (out / MANIFEST_FILE).write_text(json.dumps(m, ensure_ascii=False, indent=1, sort_keys=True)
+                                     + "\n", encoding="utf-8")
+    print(json.dumps({"kept": len(kept), "pruned": sorted(e["id"] for e in entries
+                                                          if e["pair_id"] in gone),
+                      "sha256": m["sha256"]}, ensure_ascii=False))
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--prune", action="store_true",
+                    help="офлайн: удалить пары с целью вне таксономии из замороженного набора")
     ap.add_argument("--out", type=Path, default=ROOT / "corpus" / "holdout_v2")
     ap.add_argument("--batch", type=int, default=3)
     ap.add_argument("--max-requests", type=int, default=50)
     ap.add_argument("--max-tokens", type=int, default=140000)
     ap.add_argument("--raw", type=Path, default=ROOT / "artifacts/checks/revision/holdout_v2_raw.json")
     a = ap.parse_args(argv)
+    if a.prune:
+        return prune(a.out)
     if (a.out / MANIFEST_FILE).exists():
         print(f"{a.out} уже заморожен: новый набор — новый каталог", file=sys.stderr)
         return 2

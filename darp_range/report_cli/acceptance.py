@@ -82,13 +82,12 @@ DEFENDER_PACKAGES = (
     "manual_queue",
     "evaluator",
     "state_store",
-    "simple_baseline",
     "configs",
     "runner",
     "metrics",
 )
 GUARD_PACKAGES = ("guard_contract", "guard_plugins", "guard_policy", "configs", "attackers")
-NO_GUARD_FAMILIES = ("g0", "proc", "simple")
+NO_GUARD_FAMILIES = ("g0", "proc")
 
 
 class AcceptanceError(RuntimeError):
@@ -224,14 +223,17 @@ def package_imports(pkg_dir: Path, *, skip: Iterable[str] = ("__main__.py",)) ->
 def recompute_lstar(
     cfg: Mapping[str, Any], ref: Mapping[str, Any], prices: Mapping[str, float], w_a: float
 ) -> float | None:
-    """L* по §9.2 из составляющих metrics.json (база цен); None при V(g0) − V(g) ≤ 0."""
+    """L* по §9.2 из составляющих metrics.json (база цен); None при V(g0) − V(g) ≤ 0 или
+    нестабильной очереди (аналитическая Q не определена)."""
     w_l = 1.0 - w_a
     dv = ref["safety"]["V"] - cfg["safety"]["V"]
-    if dv <= 0:
+    qc, qr = cfg["continuity"], ref["continuity"]
+    if dv <= 0 or qc["Q"] is None or qr["Q"] is None:
         return None
     num = (
         w_l * (cfg["utility"]["R"] - ref["utility"]["R"]) * prices["C_refuse"]
-        + w_l * (cfg["continuity"]["Q"] - ref["continuity"]["Q"]) * prices["C_queue"]
+        + w_l * (qc["Q"] - qr["Q"]) * prices["C_queue"]
+        + w_l * (qc["P_sla_L"] - qr["P_sla_L"]) * prices.get("C_sla", 0.0)
         + (cfg["economics"]["C_ep"] - ref["economics"]["C_ep"]) * w_a
         + cfg["economics"]["C_guard"]
         + (cfg["continuity"]["E"] - ref["continuity"]["E"]) * prices["C_manual"]
@@ -351,7 +353,7 @@ def _fr_1_5(rv: RunView, r: _Req, probes) -> None:
     fam = {c: rv.family(c) for c in rv.configs}
     noguard = [c for c, f in fam.items() if f in NO_GUARD_FAMILIES]
     r.check(
-        "baselines g0 / g_proc / g_simple run with no plugin",
+        "baselines g0 / g_proc run with no plugin",
         bool(noguard) and all(not rows[c]["seen"] for c in noguard),
         noguard,
     )
@@ -550,27 +552,50 @@ def _fr_1_14(rv: RunView, r: _Req) -> None:
 
 
 def _fr_1_15(rv: RunView, stress: RunView, r: _Req, probes) -> None:
-    plan = rv.run["plan"]
-    svc = Counter()
-    ops = set()
-    for _, _, e in rv.all_events():
-        if e["kind"] == "enqueue":
-            svc[e["data"]["service_minutes"]] += 1
-            ops.add(e["data"]["operators"])
-    r.check(
-        "escalations enter a queue with explicit service time and finite operators",
-        bool(svc) and ops == {plan["operators"]},
-        {"service_minutes": dict(svc), "operators": sorted(ops)},
+    # Ревизия канона dvarp#18: E(g) — первичная величина парных прогонов, Q(g) — аналитическая.
+    from darp_range.manual_queue import self_check
+
+    cont = {c: rv.metrics["configs"][c]["continuity"] for c in rv.configs}
+    split_ok = all(
+        {"E_L", "E_A", "E_L_natural", "E_L_fp", "E_L_base_flow"} <= set(q)
+        and abs(q["E_L_natural"] + q["E_L_fp"] - q["E_L"]) < 1e-12
+        for q in cont.values()
     )
-    sens = rv.metrics["configs"]["g0"]["continuity"]["queue_sensitivity"]
     r.check(
-        "queue checked in several sensitivity modes (service time × operators)",
-        len(sens) >= 4,
-        sorted(sens),
+        "escalation share E(g) is measured in paired runs and split by traffic class "
+        "(E_L legal = natural + FP, E_A attack); escalation is a neutral outcome",
+        split_ok,
+        {c: {"E_L": q["E_L"], "E_A": q["E_A"]} for c, q in sorted(cont.items())},
     )
-    s_svc = {
-        e["data"]["service_minutes"] for _, _, e in stress.all_events() if e["kind"] == "enqueue"
-    }
+    a = cont["g0"]["queue_assumptions"]
+    models_ok = all(
+        cell["model"] == ("M/M/1" if cell["operators"] == 1 else "M/M/c (Erlang C)")
+        for q in cont.values() for cell in q["queue_sensitivity"].values()
+    )
+    r.check(
+        "queue delay is analytic with explicit assumptions: M/M/1 at K=1, M/M/c (Erlang C) "
+        "at K>1 (intensity, service time, operators, SLA)",
+        models_ok and all(k in a for k in ("lambda_total_per_min", "service_minutes",
+                                           "operators", "sla_minutes")),
+        {k: a[k] for k in ("lambda_total_per_min", "service_minutes", "operators", "sla_minutes")},
+    )
+    grid = cont["g0"]["queue_sensitivity"]
+    r.check(
+        "sensitivity grid K×S: service time 4/8/15 min × 1/2 operators at fixed intensity",
+        {(c["service_minutes"], c["operators"]) for c in grid.values()}
+        >= {(s, k) for s in (4.0, 8.0, 15.0) for k in (1, 2)}
+        and len({c["lambda_Q_per_min"] for c in grid.values()}) == 1,
+        sorted(grid),
+    )
+    try:
+        self_check()
+        ok = True
+    except AssertionError:
+        ok = False
+    r.check("analytic formulas self-check (M/M/c with c=1 equals M/M/1; Erlang C textbook "
+            "values)", ok)
+    s_svc = {stress.metrics["configs"][c]["continuity"]["queue_assumptions"]["service_minutes"]
+             for c in stress.configs}
     r.check("stress run uses its own explicit service time", s_svc == {15.0}, sorted(s_svc))
     if "manual_queue" in probes:
         r.check("manual_queue demo passes", probes["manual_queue"]["ok"])
@@ -590,58 +615,54 @@ def _fr_1_16(rv: RunView, stress: RunView, r: _Req, probes) -> None:
                         kinds[e["data"]["case_traffic"]] += 1
             if kinds["attack"] and kinds["legal"]:
                 mixed += 1
+    r.info("stress run: flows where attack and legal escalations share one queue (empirical)",
+           {"flows_with_both": mixed})
+    bad = []
+    for c in rv.configs:
+        q = rv.metrics["configs"][c]["continuity"]
+        a = q["queue_assumptions"]
+        lam = a["lambda_L_per_min"] * q["E_L"] + a["lambda_A_per_min"] * q["E_A"]
+        if abs(lam - q["lambda_Q_per_min"]) > 1e-12:
+            bad.append(f"{c}: lambda_Q")
+        if q["queue_stable"] and abs(q["Q"] - q["E_L"] * q["W_q"]) > 1e-9:
+            bad.append(f"{c}: Q_L")
     r.check(
-        "attack and legal escalations share one queue in the same flow",
-        mixed > 0,
-        {"flows_with_both": mixed},
+        "attack and false-positive escalations reach the legal flow through λ_Q = λ_L·E_L + "
+        "λ_A·E_A; Q_L = P(esc|legal)·W_q enters C_Q, conditional W_q published alongside",
+        not bad,
+        bad,
     )
-    cont = {c: stress.metrics["configs"][c]["continuity"] for c in stress.configs}
-    dq = {c: round(k["dQ_attack_induced"], 4) for c, k in cont.items()}
-    delayed = {c: k["legal_cases_delayed_by_attacks"] for c, k in cont.items()}
-    # Ревизия 2 (K2.8): исход нагрузочного прогона — наблюдение, а не гейт; механизм
-    # проверяется на контролируемой фикстуре с аналитически известным ответом.
-    r.info(
-        "stress run: attack-induced legal delay (empirical, not gated)",
-        {"dQ_attack_induced": dq, "legal_cases_delayed": delayed},
-    )
-    esc = {c: stress.results[c]["summary"]["attack_escalated"] for c in stress.configs}
-    r.info("stress run: attack escalations per config (empirical)", esc)
-    from darp_range.manual_queue import queue_mechanism_check
-
-    mech = queue_mechanism_check()
-    r.check(
-        "controlled fixture: attack escalations in the shared queue delay a legal case by "
-        "the hand-computed amount (+6 / +14 min), monotone in injected escalations",
-        mech["ok"] and mech["monotone_in_injected_escalations"],
-        {k: v["dQ_legal_total"] for k, v in mech["cases"].items()},
-    )
-    r.check(
-        "controlled fixture: no escalation or spare operators -> no legal delay (ΔQ = 0)",
-        mech["cases"]["no_escalation"]["ok"] and mech["cases"]["ample_capacity"]["ok"],
-    )
+    ref = rv.metrics["configs"]["g0"]["continuity"]
+    dq_bad = [
+        c for c in rv.configs
+        if c != "g0"
+        and rv.metrics["configs"][c]["break_even"]["status"] != "queue_unstable"
+        and ref["Q"] is not None
+        and abs(rv.metrics["configs"][c]["break_even"]["terms"]["dQ"]
+                - (rv.metrics["configs"][c]["continuity"]["Q"] - ref["Q"])) > 1e-9
+    ]
+    r.check("ΔQ in L* is the analytic estimate Q_L(g) − Q_L(g0)", not dq_bad, dq_bad)
+    esc = {c: stress.metrics["configs"][c]["continuity"]["escalations_by_traffic"]
+           for c in stress.configs}
+    r.info("stress run: escalations per config and traffic class (empirical)", esc)
     if "fp_escalation" in probes:
         r.check(
-            "a false-positive escalation of a legal case delays other legal cases "
-            "in the shared queue (guard_policy probe)",
+            "a false-positive escalation of a legal case enters the shared manual queue "
+            "(guard_policy probe)",
             probes["fp_escalation"]["ok"],
         )
         r.ev(probes["fp_escalation"]["log"])
     if "queue_impact" in probes:
         r.check(
-            "runner probe: attack escalations delay the legal flow in a pair",
+            "runner probe: paired-run escalation shares by traffic class drive the analytic "
+            "legal delay",
             probes["queue_impact"]["ok"],
         )
         r.ev(probes["queue_impact"]["log"])
-    q_main = rv.metrics["configs"]["g0"]["continuity"]
-    r.check(
-        "base load reports ΔQ explicitly (zero when the queue is not saturated)",
-        "dQ_attack_induced" in q_main,
-        q_main["dQ_attack_induced"],
-    )
     lst = {c: stress.metrics["configs"][c]["queue_sensitivity_L_star"] for c in stress.configs}
     r.check(
-        "queue impact reaches L* (queue_sensitivity_L_star per mode)",
-        all(len(v) >= 4 for v in lst.values()),
+        "queue impact reaches L* (queue_sensitivity_L_star per K×S cell)",
+        all(len(v) >= 6 for v in lst.values()),
     )
     r.ev(stress.out / "summary.json", stress.seed_dir / "metrics" / "metrics.json")
 
@@ -653,16 +674,16 @@ def _fr_1_17(rv: RunView, r: _Req) -> None:
         if e.get("cost"):
             comps[e["component"].split(":", 1)[0]] += 1
             fields.update(k for k, v in e["cost"].items() if v)
-    need = {"agent", "guard", "executor", "policy", "tools", "manual_queue", "attacker"}
+    # ревизия dvarp#18: очередь аналитическая, минуты оператора не симулируются и не журналируются
+    need = {"agent", "guard", "executor", "policy", "tools", "attacker"}
     r.check(
-        "costs are journaled per component (agent, guards, executor, policy, tools, queue, "
-        "attacker)",
+        "costs are journaled per component (agent, guards, executor, policy, tools, attacker)",
         need <= set(comps),
         dict(comps),
     )
     r.check(
-        "tokens, CPU time, latency and operator minutes are recorded",
-        {"tokens_in", "cpu_ms", "latency_ms", "manual_minutes"} <= set(fields),
+        "tokens, CPU time and latency are recorded",
+        {"tokens_in", "cpu_ms", "latency_ms"} <= set(fields),
         dict(fields),
     )
     kinds = Counter(e["kind"] for _, _, e in rv.all_events())
@@ -773,7 +794,12 @@ def _fr_1_24(rv: RunView, r: _Req) -> None:
         final = cfg["break_even"]["status"]
         rows[c] = {"recomputed": mine, "reported": got, "status": status, "final": final}
         dv = ref["safety"]["V"] - cfg["safety"]["V"]
-        if dv <= 0:
+        # ревизия dvarp#18: при ρ ≥ 1 очередь нестабильна — недопустима при любом L_viol
+        unstable = cfg["continuity"]["Q"] is None or ref["continuity"]["Q"] is None
+        if unstable:
+            if got is not None or status != "queue_unstable":
+                bad.append(c)
+        elif dv <= 0:
             if got is not None or status not in ("no_safety_gain", "more_violations"):
                 bad.append(c)
         elif got is None or not math.isclose(mine, got, rel_tol=1e-6, abs_tol=1e-9):
@@ -781,7 +807,9 @@ def _fr_1_24(rv: RunView, r: _Req) -> None:
         # ревизия 10 (v2r-primary-table): статус следует правилам §9.2, знак эффекта не важен:
         # ΔV=0 → no_safety_gain; ΔV<0 → more_violations; ΔV>0 → threshold/pays_at_any_price;
         # итог может быть unresolved только с причинами (ДИ ΔV содержит 0 / шум seed)
-        if abs(dv) <= _EPS:
+        if unstable:
+            want = ("queue_unstable",)
+        elif abs(dv) <= _EPS:
             want = ("no_safety_gain",)
         elif dv < 0:
             want = ("more_violations",)
@@ -812,7 +840,8 @@ def _fr_1_24(rv: RunView, r: _Req) -> None:
         and s["status"] in ("threshold", "pays_at_any_price")
         and (s["L_star_low_prices"] is None or s["L_star_high_prices"] is None)
     ]
-    r.check("L* reported at the low/high bounds of C_refuse, C_queue, C_manual", not nob, nob)
+    r.check("L* reported at the low/high bounds of C_refuse, C_queue, C_sla, C_manual", not nob,
+            nob)
     # Ревизия 2 (K2.10): статус формулы §9.2 при ΔV ≤ 0 — no_safety_gain/more_violations;
     # итоговый статус при малой выборке может быть unresolved.
     statuses = Counter(s.get("formula_status", s["status"]) for s in srows.values())
@@ -952,15 +981,6 @@ def _statistics(rv: RunView, r: _Req) -> None:
         "observed ΔQ != 0 in queue sensitivity modes (empirical, not gated)",
         {k: v[:6] for k, v in nz.items()},
     )
-    from darp_range.manual_queue import queue_mechanism_check
-
-    mech = queue_mechanism_check()
-    r.check(
-        "queue causal mechanism on a controlled fixture: injected escalations raise legal "
-        "delay by the hand-computed amount; no escalation / spare capacity -> ΔQ = 0",
-        mech["ok"],
-        {k: v["dQ_legal_total"] for k, v in mech["cases"].items()},
-    )
     r.ev(*(p / "metrics" / "lstar_table.csv" for p in rv.seed_dirs))
     if (rv.out / "seed_spread.csv").exists():
         r.ev(rv.out / "seed_spread.csv")
@@ -970,8 +990,6 @@ def _nfr_2_8(rv: RunView, r: _Req, probes) -> None:
     errs, hashes = [], set()
     for c in rv.configs:
         for p in rv.results[c]["pairs"]:
-            if p.get("pair_error"):
-                errs.append((c, p["block"]))
             a, b = p["attacked"], p["base"]
             hashes.add(
                 a["baseline_hash"] == b["baseline_hash"] and a["flow_seed"] == b["flow_seed"]

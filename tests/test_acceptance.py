@@ -15,7 +15,7 @@ from darp_range.report_cli.pipeline import run_offline
 from darp_range.runner.plan import RunPlan
 
 ROOT = Path(__file__).resolve().parents[1]
-CONFIGS = ["g0", "g_in", "g_layered", "g_in_detect_only", "g_simple"]
+CONFIGS = ["g0", "g_in", "g_layered", "g_in_detect_only", "g_proc"]
 
 
 class AcceptanceTest(unittest.TestCase):
@@ -147,17 +147,26 @@ class AcceptanceTest(unittest.TestCase):
         self.assertIn("FR-1.24", self._failed(main, stress))
 
     def test_zero_empirical_queue_impact_does_not_break_fr_1_16(self):
-        """Ревизия 2 (K2.8): нулевой эмпирический ΔQ нагрузочного прогона — допустимый исход;
-        FR-1.16 гейтится механизмом на контролируемой фикстуре (см. test_revision2_queue_acceptance),
-        а прежняя версия этого теста требовала падения приёмки при ΔQ = 0."""
+        """Ревизия 2 (K2.8): нулевой эмпирический эффект нагрузочного прогона — допустимый исход
+        (ревизия dvarp#18: эскалаций нет — аналитическая ΔQ = 0); FR-1.16 гейтится формулой
+        λ_Q → Q_L, а не знаком эффекта."""
         main, stress = self._copy()
         p = stress / "seed-7/metrics/metrics.json"
         m = json.loads(p.read_text())
         for c in m["configs"].values():
-            c["continuity"]["dQ_attack_induced"] = 0.0
-            c["continuity"]["legal_cases_delayed_by_attacks"] = 0
+            c["continuity"]["escalations_by_traffic"] = {"legal": 0, "legal_fp": 0, "attack": 0}
         p.write_text(json.dumps(m))
         self.assertNotIn("FR-1.16", self._failed(main, stress))
+
+    def test_broken_lambda_q_breaks_fr_1_16(self):
+        """λ_Q без вклада атак (сломанная общая очередь) — FR-1.16 падает."""
+        main, stress = self._copy()
+        p = main / "seed-7/metrics/metrics.json"
+        m = json.loads(p.read_text())
+        q = m["configs"]["g_in"]["continuity"]
+        q["lambda_Q_per_min"] = q["queue_assumptions"]["lambda_L_per_min"] * q["E_L"] + 1.0
+        p.write_text(json.dumps(m))
+        self.assertIn("FR-1.16", self._failed(main, stress))
 
     def test_pair_with_different_snapshot_breaks_nfr_2_8(self):
         main, stress = self._copy()

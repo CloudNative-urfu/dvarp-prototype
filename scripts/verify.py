@@ -47,7 +47,7 @@ MAIN_SEED = "7"
 MAIN_SEEDS = "7,8,9"
 # Основа главного прогона: v2r (серверные R1/R2/R5 + маршрутизация в ручную очередь).
 PRIMARY_FOUNDATION = "v2r"
-STRESS_CONFIGS = "g0,g_in,g_proc,g_layered,g_simple"
+STRESS_CONFIGS = "g0,g_in,g_proc,g_layered,g_layered_term"
 STRESS_ARGS = [
     "--mean-gap",
     "1.0",
@@ -70,7 +70,6 @@ PROBES = {
     "tools": ["-m", "darp_range.tools", "demo"],
     "attackers": ["-m", "darp_range.attackers", "demo"],
     "agent": ["-m", "darp_range.agent_demo", "demo"],
-    "simple_baseline": ["-m", "darp_range.simple_baseline", "demo"],
     "configs": ["-m", "darp_range.configs", "demo"],
     "runner": ["-m", "darp_range.runner", "demo"],
     "metrics": ["-m", "darp_range.metrics", "demo"],

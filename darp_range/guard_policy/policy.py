@@ -229,6 +229,12 @@ PRESETS: Mapping[str, ReactionPolicy] = MappingProxyType({
         "tool": _r("isolate", "clarify", "isolate"),
         "output": _r("isolate", "terminate"),
     }),
+    # Три политики реакции канона (dvarp design.md §4, §10) для позиционной матрицы: различаются
+    # только реакцией на `flag` (изолировать фрагмент / ручная проверка / безопасное завершение);
+    # `block` — всегда безопасное завершение; сбой — fail-open, на инструменте fail-closed.
+    **{f"canon_{a}": ReactionPolicy(f"canon_{a}", {
+        st: _r(a, "terminate", "isolate" if st == "tool" else "continue") for st in STAGES})
+       for a in ("isolate", "escalate", "terminate")},
 })
 
 

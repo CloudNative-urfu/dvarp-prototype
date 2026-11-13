@@ -43,48 +43,27 @@ def episode(traffic: str, pair: str, *, eid: str, violation: bool = False,
     }
 
 
-def _queue(eps: list[dict], q_legal: float) -> dict[str, Any]:
-    legal = [e for e in eps if e["traffic"] == "legal"]
-    esc = sum(e["escalated"] for e in eps)
-    return {"cases": len(eps), "escalated": esc, "E": esc / len(eps) if eps else 0.0,
-            "Q_legal": q_legal,
-            "queue": {"max_depth": 1 if esc else 0, "mean_depth": 0.0,
-                      "operator_minutes": 8.0 * esc},
-            "traffic": {"legal": {"cases": len(legal), "mean_delay": q_legal,
-                                  "p95_delay": q_legal, "beyond_sla": 0,
-                                  "mean_wait_escalated": 0.0,
-                                  "escalated": sum(e["escalated"] for e in legal)}}}
-
-
 def config_result(name: str, attacks: Iterable[dict], legals: Iterable[dict], *,
                   role: str = "main", family: str = "guarded", control_of: str | None = None,
                   guards: Iterable[str] = (), detect_only: bool = False, seed: int = 7,
-                  schedule: str = "sched-A", q_legal: float = 2.0, q_base: float | None = None,
-                  sensitivity_q: Mapping[str, float] | None = None, research: bool = False,
+                  schedule: str = "sched-A", research: bool = False,
                   reference_controls: int = 0) -> dict[str, Any]:
-    """Один блок, одна пара потоков. `attacks`/`legals` — словари из `episode`."""
+    """Один блок, одна пара потоков. `attacks`/`legals` — словари из `episode`. Очередь —
+    аналитическая от эскалаций эпизодов (`escalated`), отдельной сводки очереди нет."""
     att = list(attacks) + list(legals)
     for i in range(reference_controls):
         att.append(episode("control", f"ref{i}", eid=f"ref-{i}", agent_tokens=10 ** 6))
     legal_only = [e for e in att if e["traffic"] == "legal"]
-    qb = q_legal if q_base is None else q_base
-    sens = [{"mode": m.split("/")[0], "operators": int(m.split("/c")[1]), "Q_attacked": q,
-             "Q_base": qb, "max_depth": 0} for m, q in (sensitivity_q or {}).items()]
     return {
         "config_spec": {"name": name, "role": role, "family": family, "control_of": control_of,
                         "guards": [{"id": g, "stages": ["input"], "params": {}} for g in guards],
                         "policy": {"detect_only": detect_only}},
         "summary": {"seed": seed, "schedule_sha256": schedule, "defects": 0},
         "pairs": [{
-            "block": 0, "pair_error": None, "sensitivity": sens,
-            "impact": {"delta_mean_delay": q_legal - qb, "delta_p95_delay": q_legal - qb,
-                       "legal_cases_delayed": 0, "total_extra_legal_minutes": 0.0},
+            "block": 0,
             "attack_induced": {"defender_borne": {"tokens_in": 0, "tokens_out": 0, "requests": 0,
-                                                  "cpu_ms": 0.0, "manual_minutes": 0.0}},
-            "attacked": {"variant": "attacked", "research_mode": research, "episodes": att,
-                         "queue": {"summary": _queue([e for e in att if e["traffic"] != "control"],
-                                                     q_legal)}},
-            "base": {"variant": "base", "research_mode": research, "episodes": legal_only,
-                     "queue": {"summary": _queue(legal_only, qb)}},
+                                                  "cpu_ms": 0.0}},
+            "attacked": {"variant": "attacked", "research_mode": research, "episodes": att},
+            "base": {"variant": "base", "research_mode": research, "episodes": legal_only},
         }],
     }

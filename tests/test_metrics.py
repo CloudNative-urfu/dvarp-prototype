@@ -45,7 +45,7 @@ def _g0(**kw):
            episode("attack", "a3", eid="a3", agent_tokens=1000),
            episode("attack", "a4", eid="a4", agent_tokens=1000)]
     leg = [episode("legal", f"l{i}", eid=f"l{i}", agent_tokens=1000) for i in range(1, 7)]
-    return config_result("g0", att, leg, role="baseline", family="g0", q_legal=2.0, **kw)
+    return config_result("g0", att, leg, role="baseline", family="g0", **kw)
 
 
 def _ga(attacker_tokens: int = 0, guard_tokens: int = 100, name: str = "g_a", **kw):
@@ -65,14 +65,14 @@ def _ga(attacker_tokens: int = 0, guard_tokens: int = 100, name: str = "g_a", **
     leg += [episode("legal", f"l{i}", eid=f"l{i}", agent_tokens=500, guard_tokens=gt)
             for i in range(3, 7)]
     kw.setdefault("guards", ("input-filter",))
-    return config_result(name, att, leg, q_legal=3.0, q_base=2.5, **kw)
+    return config_result(name, att, leg, **kw)
 
 
 def _same_v(name, *, tokens, **kw):
     att = [episode("attack", f"a{i}", eid=f"a{i}", violation=i <= 2, agent_tokens=tokens)
            for i in range(1, 5)]
     leg = [episode("legal", f"l{i}", eid=f"l{i}", agent_tokens=tokens) for i in range(1, 7)]
-    return config_result(name, att, leg, q_legal=2.0, **kw)
+    return config_result(name, att, leg, **kw)
 
 
 def _run(*results, research=False) -> RunData:
@@ -83,15 +83,22 @@ def _run(*results, research=False) -> RunData:
     return rd
 
 
+# Аналитическая очередь g_a независимо по формуле M/M/1 (допущения по умолчанию: λ_L = 1/3,
+# λ_A = 1/12 в минуту, S = 8 мин, K = 1, SLA 60 мин); у g0 эскалаций нет: Q = P_sla = 0.
+_LAM = (1 / 3) * (1 / 6) + (1 / 12) * (1 / 4)            # λ_Q = λ_L·E_L + λ_A·E_A
+_MU = 1 / 8
+Q_GA = (1 / 6) * (_LAM / _MU) / (_MU - _LAM)            # Q_L = E_L·W_q, W_q = ρ/(μ − λ)
+PSLA_GA = (1 / 6) * (_LAM / _MU) * math.exp(-(_MU - _LAM) * 60)   # E_L·P(W_q > 60)
 # L* примера g_a против g0 при базовых ценах и ставках (подсчитано вручную, см. docstring класса).
-L_STAR_BASE = 2.87998 / 0.1
-L_STAR_LOW = 1.159995 / 0.1
-L_STAR_HIGH = 7.59995 / 0.1
-# Экстремумы по 16 углам: вычисления здесь уменьшают числитель (g_a тратит меньше токенов,
+NUM_BASE = 2.69998 + 0.6 * Q_GA * 0.30 + 0.6 * PSLA_GA * 5.0
+L_STAR_BASE = NUM_BASE / 0.1
+L_STAR_LOW = (1.099995 + 0.6 * Q_GA * 0.10 + 0.6 * PSLA_GA * 2.0) / 0.1
+L_STAR_HIGH = (6.99995 + 0.6 * Q_GA * 1.00 + 0.6 * PSLA_GA * 15.0) / 0.1
+# Экстремумы по 32 углам: вычисления здесь уменьшают числитель (g_a тратит меньше токенов,
 # чем g0: −100 ток./эпизод), поэтому минимум — низкие цены при высоких ставках (0.50 USD/M),
 # максимум — высокие цены при низких ставках (0.05 USD/M); они не совпадают с границами low/high.
-L_STAR_MIN = (1.16 - 100 * 0.50 / 1e6) / 0.1
-L_STAR_MAX = (7.60 - 100 * 0.05 / 1e6) / 0.1
+L_STAR_MIN = (1.1 + 0.6 * Q_GA * 0.10 + 0.6 * PSLA_GA * 2.0 - 100 * 0.50 / 1e6) / 0.1
+L_STAR_MAX = (7.0 + 0.6 * Q_GA * 1.00 + 0.6 * PSLA_GA * 15.0 - 100 * 0.05 / 1e6) / 0.1
 
 
 class StatsTest(unittest.TestCase):
@@ -132,11 +139,11 @@ class StatsTest(unittest.TestCase):
 
 
 class BreakEvenFormulaTest(unittest.TestCase):
-    """g0: 4 атаки (2 нарушения), 6 легальных; Q=2; агент 1000 токенов на эпизод.
-    g_a: 1 нарушение; 1 необоснованный отказ из 6; 2 эскалации из 10; Q=3; агент 500 ток.,
-    гвардрейл 100 ток. на эпизод. Доли потока из g0: w_A = 0.4, w_L = 0.6.
-    База: refuse 0.6·(1/6)·15 = 1.5; queue 0.6·1·0.3 = 0.18; attack 0.4·(0.0001−0.0002);
-    guard 0.00002; manual 0.2·6 = 1.2 → числитель 2.87998; ΔV = 0.25 → L* = 28.7998."""
+    """g0: 4 атаки (2 нарушения), 6 легальных; эскалаций нет (Q = 0); агент 1000 токенов на эпизод.
+    g_a: 1 нарушение; 1 необоснованный отказ из 6; 2 эскалации из 10 (E_L = 1/6, E_A = 1/4);
+    агент 500 ток., гвардрейл 100 ток. на эпизод. Доли потока из g0: w_A = 0.4, w_L = 0.6.
+    База: refuse 0.6·(1/6)·15 = 1.5; queue 0.6·Q_GA·0.3; sla 0.6·PSLA_GA·5;
+    attack 0.4·(0.0001−0.0002); guard 0.00002; manual 0.2·6 = 1.2; ΔV = 0.25."""
 
     @classmethod
     def setUpClass(cls):
@@ -148,11 +155,15 @@ class BreakEvenFormulaTest(unittest.TestCase):
         self.assertEqual((c["n_attack"], c["n_legal"]), (4, 6))
         self.assertAlmostEqual(c["safety"]["V"], 0.25)
         self.assertAlmostEqual(c["utility"]["R"], 1 / 6)
-        self.assertAlmostEqual(c["continuity"]["Q"], 3.0)
+        self.assertAlmostEqual(c["continuity"]["Q"], Q_GA)
+        self.assertAlmostEqual(c["continuity"]["P_sla_L"], PSLA_GA)
         self.assertAlmostEqual(c["continuity"]["E"], 0.2)
+        self.assertAlmostEqual(c["continuity"]["E_L"], 1 / 6)
+        self.assertAlmostEqual(c["continuity"]["E_L_fp"], 1 / 6)    # l2: unneeded_escalation
+        self.assertAlmostEqual(c["continuity"]["E_A"], 1 / 4)
+        self.assertEqual(c["continuity"]["queue_model"], "M/M/1")
         self.assertAlmostEqual(c["economics"]["C_ep"], 500 * 0.20 / 1e6)
         self.assertAlmostEqual(c["economics"]["C_guard"], 100 * 0.20 / 1e6)
-        self.assertAlmostEqual(c["continuity"]["dQ_attack_induced"], 0.5)
 
     def test_l_star_base_and_bounds(self):
         be = self.c["break_even"]
@@ -161,7 +172,7 @@ class BreakEvenFormulaTest(unittest.TestCase):
         self.assertEqual(be["formula_status"], "threshold")
         self.assertEqual(be["status"], "unresolved")
         self.assertFalse(be["verdict_robust"])
-        self.assertAlmostEqual(be["numerator"], 2.87998, places=9)
+        self.assertAlmostEqual(be["numerator"], NUM_BASE, places=9)
         self.assertAlmostEqual(be["L_star"], L_STAR_BASE, places=7)
         self.assertAlmostEqual(be["bounds"]["low"]["L_star"], L_STAR_LOW, places=7)
         self.assertAlmostEqual(be["bounds"]["high"]["L_star"], L_STAR_HIGH, places=7)
@@ -169,19 +180,20 @@ class BreakEvenFormulaTest(unittest.TestCase):
         self.assertAlmostEqual(be["L_star_max"], L_STAR_MAX, places=7)
         self.assertLess(be["L_star_min"], L_STAR_LOW)
         self.assertGreater(be["L_star_max"], L_STAR_HIGH)
-        self.assertEqual(len(be["corners"]), 16)
+        self.assertEqual(len(be["corners"]), 32)
         self.assertTrue(be["prices_robust"])
         t = be["terms"]
         self.assertAlmostEqual(t["refuse"], 1.5)
-        self.assertAlmostEqual(t["queue"], 0.18)
+        self.assertAlmostEqual(t["queue"], 0.6 * Q_GA * 0.30)
+        self.assertAlmostEqual(t["sla"], 0.6 * PSLA_GA * 5.0)
         self.assertAlmostEqual(t["manual"], 1.2)
         self.assertAlmostEqual(t["guard"], 0.00002)
         self.assertAlmostEqual(t["attack_service"], -0.00004)
 
     def test_delta_net_and_decision(self):
         be = self.c["break_even"]
-        self.assertAlmostEqual(be["delta_net"]["100"], 0.4 * 0.25 * 100 - 2.87998, places=9)
-        self.assertAlmostEqual(be["delta_net"]["10"], 0.4 * 0.25 * 10 - 2.87998, places=9)
+        self.assertAlmostEqual(be["delta_net"]["100"], 0.4 * 0.25 * 100 - NUM_BASE, places=9)
+        self.assertAlmostEqual(be["delta_net"]["10"], 0.4 * 0.25 * 10 - NUM_BASE, places=9)
         # L* = 11.6..76: при 10 не окупается ни в одном углу, при 100 — во всех
         self.assertIs(be["formula_decision_at_L_viol"]["10"], False)
         self.assertIs(be["formula_decision_at_L_viol"]["100"], True)
@@ -248,8 +260,8 @@ class BreakEvenFormulaTest(unittest.TestCase):
 
     def test_price_grid(self):
         cs = corner_prices()
-        self.assertEqual(len(cs), 16)
-        self.assertEqual(len({p.label for p in cs}), 16)
+        self.assertEqual(len(cs), 32)
+        self.assertEqual(len({p.label for p in cs}), 32)
         self.assertEqual(bound_prices()["low"].rates, "low")
         with self.assertRaises(MetricsError):
             Prices(C_refuse=-1)
@@ -257,14 +269,18 @@ class BreakEvenFormulaTest(unittest.TestCase):
             Prices(rates="medium")
 
     def test_queue_sensitivity_changes_l_star(self):
-        g0 = _g0(sensitivity_q={"fast/c1": 2.0, "slow/c1": 2.0})
-        ga = _ga(sensitivity_q={"fast/c1": 2.0, "slow/c1": 12.0})
-        rep = compute(_run(g0, ga))
-        qs = rep["configs"]["g_a"]["queue_sensitivity_L_star"]
-        self.assertAlmostEqual(qs["fast/c1"]["dQ"], 0.0)
-        self.assertAlmostEqual(qs["slow/c1"]["dQ"], 10.0)
-        # +0.6·10·0.3 = 1.8 USD на эпизод в числителе против режима без задержки
-        self.assertAlmostEqual(qs["slow/c1"]["L_star"] - qs["fast/c1"]["L_star"], 1.8 / 0.1, places=6)
+        qs = self.c["queue_sensitivity_L_star"]
+        grid = self.c["continuity"]["queue_sensitivity"]
+        self.assertEqual(len(qs), 6)                       # K×S: 4/8/15 мин × 1/2 оператора
+        self.assertAlmostEqual(qs["S8_K1"]["L_star"], L_STAR_BASE, places=7)
+        # ρ = λ_Q·15 > 1 при одном операторе: недопустима при любом L_viol
+        self.assertEqual(qs["S15_K1"]["status"], "queue_unstable")
+        self.assertIsNone(qs["S15_K1"]["L_star"])
+        self.assertLess(qs["S4_K2"]["L_star"], qs["S8_K2"]["L_star"])
+        self.assertLess(qs["S8_K2"]["L_star"], qs["S15_K2"]["L_star"])
+        a, b = grid["S4_K2"], grid["S8_K2"]
+        want = 0.6 * (0.3 * (b["Q_L"] - a["Q_L"]) + 5.0 * (b["P_sla_L"] - a["P_sla_L"])) / 0.1
+        self.assertAlmostEqual(qs["S8_K2"]["L_star"] - qs["S4_K2"]["L_star"], want, places=6)
 
     def test_per_prevented(self):
         pp = self.c["per_prevented"]
@@ -398,7 +414,7 @@ class FrontierTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         g0 = _g0()
-        cheap_safe = _same_v("g_cheap_safe", tokens=10, role="baseline", family="g_simple")
+        cheap_safe = _same_v("g_cheap_safe", tokens=10, role="baseline", family="g_proc")
         for e in cheap_safe["pairs"][0]["attacked"]["episodes"][:2]:
             e["verdict"].update(violation=False, outcome="refused", task_status="completed")
         parent = _ga(name="g_pt", guards=("input-filter", "tool-arg-validator"), guard_tokens=200)
@@ -600,10 +616,8 @@ class EndToEndTest(unittest.TestCase):
             e = c["economics"]
             self.assertIn("self_limited", e)
             self.assertNotIn("self_limited", c["break_even"]["terms"])
-            # агент-заглушка тратит токены защищаемой стороны; g_simple — нет LLM
-            if c["family"] != "g_simple":
-                self.assertGreater(e["tokens_agent_per_episode"], 0, n)
-        self.assertEqual(self.rep["configs"]["g_simple"]["economics"]["tokens_agent_per_episode"], 0)
+            # агент-заглушка тратит токены защищаемой стороны
+            self.assertGreater(e["tokens_agent_per_episode"], 0, n)
 
     def test_cli_compute(self):
         out = self.dir / "cli-metrics"

@@ -20,10 +20,11 @@ from .breakeven import DEFAULT_L_VIOL, STATUSES
 from .extract import MetricsError, from_run_result, load_run
 from .report import write
 
-DEMO_CONFIGS = ("g0", "g0_seed2", "g_proc", "g_simple", "g_in", "g_in_detect_only", "g_out",
-                "g_in_tool", "g_in_tool_minus_input_filter", "g_in_tool_minus_tool_arg_validator")
-DEMO_ENTRIES = ("atk-01", "atk-02", "atk-03", "atk-07", "atk-14", "atk-17", "atk-21",
-                "ctl-01", "ctl-02", "ctl-03", "ctl-07", "ctl-14", "ctl-17", "ctl-21")
+DEMO_CONFIGS = ("g0", "g0_seed2", "g_proc", "g_in", "g_in_detect_only", "g_out", "g_layered",
+                "g_layered_minus_input_filter", "g_layered_minus_context_provenance",
+                "g_layered_minus_tool_arg_validator", "g_layered_minus_output_leak")
+DEMO_ENTRIES = ("atk-01", "atk-02", "atk-03", "atk-07", "atk-14", "atk-17", "atk-18",
+                "ctl-01", "ctl-02", "ctl-03", "ctl-07", "ctl-14", "ctl-17", "ctl-18")
 
 
 def _l_viol(s: str | None) -> tuple[float, ...]:
@@ -87,14 +88,14 @@ def demo(work: Path) -> tuple[dict, list[tuple[str, bool]]]:
         ("FR-1.23: pure detector sees the same detections as g_in (TP/FP)",
          (c["g_in_detect_only"]["detection"]["TP"], c["g_in_detect_only"]["detection"]["FP"])
          == (gin["detection"]["TP"], gin["detection"]["FP"])),
-        ("FR-1.24: L* given for base, bounds and 16 corners",
-         all(len(x["break_even"]["corners"]) == 16 and set(x["break_even"]["bounds"]) == {"low", "base", "high"}
+        ("FR-1.24: L* given for base, bounds and 32 corners",
+         all(len(x["break_even"]["corners"]) == 32 and set(x["break_even"]["bounds"]) == {"low", "base", "high"}
              for x in c.values())),
         ("§9.4: Pareto front is non-empty and excludes controls/loo",
          bool(rep["pareto"]["front"]) and not any(c[n]["role"] in ("control", "loo")
                                                   for n in rep["pareto"]["front"])),
-        ("§9.3: leave-one-out rows for both loo variants",
-         len(rep["leave_one_out"]) == 2),
+        ("§9.3: leave-one-out rows for all four loo variants",
+         len(rep["leave_one_out"]) == 4),
         ("NFR-2.9: self-limited cost reported separately, not in ΔNet terms",
          all("self_limited" in x["economics"] and "self_limited" not in x["break_even"]["terms"]
              for x in c.values())),

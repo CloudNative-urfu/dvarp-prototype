@@ -21,6 +21,13 @@ FAILED = [{"id": "p", "kind": "negative", "actual": "PASS"}, {"id": "q", "kind":
                                                               "actual": "PASS"}]
 
 
+# Манифесты, действовавшие до корпуса v2 (issue #29), — зафиксированы в preregistration-rev3.
+SUPERSEDED_BY_29 = {
+    "v2": "11ed8153505f1df60bb5552fb0c4d1d74a158bb4a08221e721aa41ca24fba6fa",
+    "holdout_v2": "c7d31e69f2572a0d8ab8b83d80eda3ea18b5296087f0d190964b996e60da1b22",
+}
+
+
 class ProvenanceTest(unittest.TestCase):
     def setUp(self):
         self.reg = load_registry()
@@ -28,7 +35,8 @@ class ProvenanceTest(unittest.TestCase):
     def test_legacy_corpora_implementation_informed(self):
         self.assertEqual(self.reg, build_registry())     # реестр воспроизводим из корпусов
         self.assertEqual(sorted(self.reg["corpora"]), sorted(LEGACY_CORPORA))
-        self.assertEqual(sum(c["attacks"] for c in self.reg["corpora"].values()), 60)
+        # корпус v2 и holdout_v2 без пар цели shift (issue #29): 20 + 15 + 13 + 4
+        self.assertEqual(sum(c["attacks"] for c in self.reg["corpora"].values()), 52)
         self.assertEqual({e["provenance"] for e in self.reg["entries"].values()},
                          {"implementation-informed"})
         for name, rel in LEGACY_CORPORA.items():
@@ -45,8 +53,12 @@ class ProvenanceTest(unittest.TestCase):
         self.assertEqual(manifest_drift(self.reg), [])
         prereg = json.loads((ROOT / "artifacts/preregistration-rev3.json").read_text())
         blob = json.dumps(prereg)
-        for name in ("v1", "holdout_v2", "heldout_v3"):
-            self.assertIn(self.reg["corpora"][name]["manifest_sha256"], blob, name)
+        self.assertIn(self.reg["corpora"]["heldout_v3"]["manifest_sha256"], blob)
+        # Корпус v1 и holdout_v2 перезаморожены issue #29 (удалены пары цели shift, остальные
+        # записи побайтно те же): в предрегистрации rev3 — их прежние манифесты.
+        for name, old in SUPERSEDED_BY_29.items():
+            self.assertIn(old, blob, name)
+            self.assertNotEqual(self.reg["corpora"][name]["manifest_sha256"], old, name)
 
     def test_forged_provenance_rejected(self):
         with self.assertRaises(ProvenanceError):

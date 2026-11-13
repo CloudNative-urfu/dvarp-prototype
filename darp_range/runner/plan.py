@@ -18,7 +18,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
 
 from darp_range.attackers import MODE_STRATEGIES
-from darp_range.manual_queue import SERVICE_MODES, QueueConfig, attack_count, build_flow
+from darp_range.manual_queue import SERVICE_MODES, attack_count, build_flow
 from darp_range.repro import check_seed, derive_seed, hash_obj, make_rng
 
 SPLITS = (None, "dev", "holdout")
@@ -62,6 +62,8 @@ class RunPlan:
     attack_max_attempts: int = 3          # только режим A
     agent_mode: str = "stub"
     minutes_per_round: float = 1.0        # модельное время автоматической обработки раунда
+    # Допущения аналитической очереди (`manual_queue.assumptions`): базовая ячейка K×S и SLA;
+    # интенсивность — `mean_gap` и `w_a`. Очередь не симулируется (dvarp#18).
     operators: int = 1
     service_mode: str = "base"
     sla_minutes: float = 60.0
@@ -189,11 +191,6 @@ class RunPlan:
         from darp_range.corpus.store import DEFAULT_DIR, ROOT as CORPUS_ROOT
         return load_corpus(DEFAULT_DIR if self.corpus_dir is None
                            else CORPUS_ROOT / self.corpus_dir)
-
-    def queue_config(self, discipline: str) -> QueueConfig:
-        """Очередь прогона: дисциплина — из конфигурации (g_proc — fair_share), остальное — план."""
-        return QueueConfig.for_mode(self.service_mode, operators=self.operators,
-                                    discipline=discipline, sla_minutes=self.sla_minutes)
 
 
 @dataclass(frozen=True)

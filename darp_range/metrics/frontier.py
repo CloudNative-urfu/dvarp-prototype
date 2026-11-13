@@ -2,7 +2,7 @@
 
 Pareto: оси «снижение нарушений» V(g0) − V(g) (больше — лучше) и «стоимость на эпизод»
 (меньше — лучше). Стоимость на эпизод — ожидаемые расходы защищаемой стороны при базовых
-ценах: w_L·R·C_refuse + w_L·Q·C_queue + E·C_manual + вычисления защищаемой стороны на эпизод
+ценах: w_L·R·C_refuse + w_L·(Q·C_queue + P_sla·C_sla) + E·C_manual + вычисления защищаемой стороны на эпизод
 (агент, инструменты, исполнитель, гвардрейлы, правила процесса — весь поток). Конфигурация
 доминируется, если другая не хуже по обеим осям и строго лучше хотя бы по одной; доминируемые
 в сравнении не участвуют. Во фронт берутся только роли `baseline` и `main`: контроли, `loo`
@@ -34,18 +34,24 @@ FRONT_ROLES = ("baseline", "main")
 COST_EPS_USD = 1e-6
 
 
-def cost_per_episode(agg: Mapping[str, Any], p: Prices | None = None) -> float:
+def cost_per_episode(agg: Mapping[str, Any], p: Prices | None = None) -> float | None:
+    """Ожидаемая стоимость эпизода; None — очередь нестабильна (стоимость не определена)."""
     p = p or base_prices()
+    q = agg["continuity"]
+    if q["Q"] is None:
+        return None
     return (agg["w_L"] * agg["utility"]["R"] * p.C_refuse
-            + agg["w_L"] * agg["continuity"]["Q"] * p.C_queue
-            + agg["continuity"]["E"] * p.C_manual
+            + agg["w_L"] * (q["Q"] * p.C_queue + q["P_sla_L"] * p.C_sla)
+            + q["E"] * p.C_manual
             + agg["economics"]["defender_usd_per_episode"])
 
 
 def pareto(aggs: Mapping[str, Mapping[str, Any]], v_ref: float,
            roles: tuple[str, ...] = FRONT_ROLES) -> dict[str, Any]:
+    # нестабильная очередь — недопустимая конфигурация: во фронт не входит
     pts = {n: {"config": n, "role": a["role"], "reduction": v_ref - a["safety"]["V"],
-               "cost": cost_per_episode(a)} for n, a in aggs.items() if a["role"] in roles}
+               "cost": cost_per_episode(a)} for n, a in aggs.items()
+           if a["role"] in roles and a["continuity"]["Q"] is not None}
     for n, p in pts.items():
         dom_by = [m for m, q in pts.items() if m != n
                   and q["reduction"] >= p["reduction"] - EPS and q["cost"] <= p["cost"] + COST_EPS_USD
@@ -85,8 +91,9 @@ def leave_one_out(aggs: Mapping[str, Mapping[str, Any]], inputs: Mapping[str, In
                     or pe["tokens_guard_per_episode"] > ae["tokens_guard_per_episode"] + EPS)
         no_gain = abs(t["dV"]) <= EPS
         pure = no_gain and r_with >= r_without - EPS and guard_up
-        process_up = t["refuse"] + t["queue"] + t["manual"] > EPS
-        expense = no_gain and res["numerator"] > EPS and (process_up or guard_up)
+        process_up = t["refuse"] + (t["queue"] or 0.0) + (t["sla"] or 0.0) + t["manual"] > EPS
+        expense = (no_gain and res["numerator"] is not None and res["numerator"] > EPS
+                   and (process_up or guard_up))
         rows.append({
             "config": n, "parent": parent, "removed_guard": removed,
             "V_with": v_with, "V_without": v_without, "R_with": r_with, "R_without": r_without,

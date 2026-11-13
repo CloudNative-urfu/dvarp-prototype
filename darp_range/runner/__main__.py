@@ -41,15 +41,14 @@ def _plan(a: argparse.Namespace) -> RunPlan:
 
 def _table(summary: dict[str, Any]) -> str:
     head = (f"{'config':38} {'seed':>6} {'att':>4} {'exec':>4} {'refu':>4} {'ign':>4} "
-            f"{'legal_ok':>9} {'esc_L':>5} {'esc_A':>5} {'dQ_mean':>8} {'defects':>7}")
+            f"{'legal_ok':>9} {'esc_L':>5} {'esc_A':>5} {'defects':>7}")
     rows = [head, "-" * len(head)]
     for n, c in summary["configs"].items():
         o = c["attack_outcomes"]
-        dq = sum(c["delta_Q_mean_delay"]) / max(1, len(c["delta_Q_mean_delay"]))
         rows.append(f"{n:38} {c['seed'] % 10**6:>6} {c['attack_episodes']:>4} "
                     f"{o.get('executed', 0):>4} {o.get('refused', 0):>4} {o.get('ignored', 0):>4} "
                     f"{c['legal_completed']:>4}/{c['legal_episodes']:<4} {c['legal_escalated']:>5} "
-                    f"{c['attack_escalated']:>5} {dq:>8.3f} {c['defects']:>7}")
+                    f"{c['attack_escalated']:>5} {c['defects']:>7}")
     return "\n".join(rows)
 
 
@@ -74,7 +73,7 @@ def cmd_schedule(a: argparse.Namespace) -> int:
 
 
 def demo(workdir: Path) -> tuple[dict[str, Any], list[tuple[str, bool]]]:
-    names = ["g0", "g0_seed2", "g_in", "g_in_detect_only", "g_proc", "g_simple"]
+    names = ["g0", "g0_seed2", "g_in", "g_in_detect_only", "g_proc"]
     plan = RunPlan(split="dev", blocks=1)
     rr = Runner(plan, workdir / "main").run(names)
     res = rr.configs
@@ -87,7 +86,7 @@ def demo(workdir: Path) -> tuple[dict[str, Any], list[tuple[str, bool]]]:
                            w_a=0.3), workdir / "drift",
                    model_factory=drifting_model_factory()).run(["g0"])
     # Режим A (заглушка атакующей LLM): расходы атакующего — только на его стороне.
-    adapt = Runner(RunPlan(entries=("atk-03", "atk-21", "ctl-03", "ctl-21"), blocks=1,
+    adapt = Runner(RunPlan(entries=("atk-03", "atk-18", "ctl-03", "ctl-18"), blocks=1,
                            n_legal=4, w_a=0.3, attack_mode="A", attack_strategy="llm",
                            replay="none"), workdir / "adaptive").run(["g_in"])
     af = adapt.configs["g_in"].pairs[0]
@@ -103,9 +102,10 @@ def demo(workdir: Path) -> tuple[dict[str, Any], list[tuple[str, bool]]]:
          any(e.final_hash != e.restored_hash for e in pair.attacked.episodes
              if e.traffic == "attack" and e.verdict.violation)),
         ("NFR-2.8: paired flows share legal slots and legal trajectories (0 pair defects)",
-         all(not p.defects and p.pair_error is None for c in res.values() for p in c.pairs)),
-        ("NFR-2.8: queue impact computed from paired flows for every config",
-         all(p.impact is not None for c in res.values() for p in c.pairs)),
+         all(not p.defects for c in res.values() for p in c.pairs)),
+        ("NFR-2.8: escalations of both traffic classes recorded per paired flow",
+         all(set(p.attacked.escalations()) == {"legal", "attack"}
+             for c in res.values() for p in c.pairs)),
         ("NFR-2.2/§11: main-seed configs share one flow schedule; g0_seed2 has another",
          len({res[n].schedule.fingerprint() for n in names if n != "g0_seed2"}) == 1
          and res["g0_seed2"].schedule.fingerprint() != g0.schedule.fingerprint()),

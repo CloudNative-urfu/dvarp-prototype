@@ -30,8 +30,10 @@ from darp_range.agent import (
 from darp_range.agent import factory as agent_factory
 from darp_range.agent.__main__ import main as agent_cli
 from darp_range.agent_demo import new_shop, run_corpus, run_entry, summarize_runs
+from darp_range.agent_demo.__main__ import CONTROL_MISSES
 from darp_range.agent_demo.__main__ import main as demo_cli
 from darp_range.channel import DefenderEndpoint
+from darp_range.corpus import load_corpus
 from darp_range.llm import Limits, StubReply, make_chat_model
 from darp_range.state_store import connect
 from darp_range.tools import TOOL_NAMES, Gate, Toolbox
@@ -76,6 +78,11 @@ def _refunds(db) -> list[tuple]:
         conn.close()
 
 
+def _order_of(ep) -> str:
+    """Номер заказа из привязанных реплик эпизода (зависит от seed и позиции записи в корпусе)."""
+    return re.search(r"O-\d+", " ".join(ep.bound.turns)).group(0)
+
+
 class _EpisodeMixin:
     """Эпизод корпуса на свежем снимке + агент со скриптовой моделью и реальным Toolbox."""
 
@@ -100,13 +107,14 @@ class _EpisodeMixin:
 
 class AgentLoopTest(_EpisodeMixin, unittest.TestCase):
     def test_tool_results_go_back_to_model_and_reply_returned(self):
-        order = "O-50025"
-        a = self.episode(replies=[
+        a = self.episode()
+        order = _order_of(self.ep)
+        self.resp.replies += [
             StubReply("", (("read_ticket", {}), ("get_refund_policy", {}))),
             StubReply("", (("read_order", {"order_id": order}),)),
             StubReply("I checked your order."),
-        ])
-        turn = a.respond("my boots from order O-50025 dont fit")
+        ]
+        turn = a.respond(f"my boots from order {order} dont fit")
         self.assertEqual(turn.reply, "I checked your order.")
         self.assertFalse(turn.closed)
         self.assertEqual(a.turn_ends, ["reply"])
@@ -159,10 +167,12 @@ class AgentLoopTest(_EpisodeMixin, unittest.TestCase):
             return StubReply("", (("finalize_case", {
                 "decision": "create_refund", "order_item_id": item["order_item_id"],
                 "amount_cents": item["price_cents"], "reason_code": "does_not_fit"}),))
-        a = self.episode(replies=[StubReply("", (("read_order", {"order_id": "O-50025"}),)), fin,
-                                  StubReply("Your refund is created.")])
+        a = self.episode()
+        order = _order_of(self.ep)
+        self.resp.replies += [StubReply("", (("read_order", {"order_id": order}),)), fin,
+                              StubReply("Your refund is created.")]
         before = len(_refunds(self.ep.db))
-        turn = a.respond("boots O-50025 dont fit")
+        turn = a.respond(f"boots {order} dont fit")
         self.assertTrue(self.tb.finalized)
         self.assertTrue(turn.closed)
         self.assertEqual(a.turn_ends, ["finalized"])
@@ -326,8 +336,9 @@ class CorpusBehaviourTest(unittest.TestCase):
     def test_controls_completed_by_db_state(self):
         for name in ("g0", "hard"):
             s = summarize_runs(self.runs[name][2])
-            self.assertEqual(s["controls"], 24)
-            self.assertGreaterEqual(s["controls_completed"], 22, name)
+            n = sum(e["kind"] == "control" for e in load_corpus()[0])
+            self.assertEqual(s["controls"], n)                 # корпус v2: 20 контролей
+            self.assertGreaterEqual(s["controls_completed"], n - CONTROL_MISSES, name)
             self.assertEqual(s["control_violations"], [], name)
 
     def test_default_profile_is_vulnerable_hardened_is_not(self):
@@ -418,15 +429,17 @@ class LiveBackendTest(_EpisodeMixin, unittest.TestCase):
         return make_agent(model, self.tb, log, episode_id=self.ep.episode_id)
 
     def test_live_tool_loop(self):
-        srv = _FakeServer([
+        srv = _FakeServer([])
+        a = self.live_agent(srv)
+        order = _order_of(self.ep)
+        srv.replies += [
             {"role": "assistant", "content": None,
              "tool_calls": [_call(1, "read_ticket", {}), _call(2, "get_refund_policy", {})]},
             {"role": "assistant", "content": "",
-             "tool_calls": [_call(3, "read_order", {"order_id": "O-50025"})]},
+             "tool_calls": [_call(3, "read_order", {"order_id": order})]},
             {"role": "assistant", "content": "Which item do you want to return?"},
-        ])
-        a = self.live_agent(srv)
-        turn = a.respond("boots O-50025 dont fit")
+        ]
+        turn = a.respond(f"boots {order} dont fit")
         self.assertEqual(turn.reply, "Which item do you want to return?")
         self.assertEqual(len(srv.bodies), 3)
         b = srv.bodies[2]

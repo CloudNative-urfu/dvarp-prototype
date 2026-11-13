@@ -81,8 +81,9 @@ v2r (seeds 7,8,9) и нагрузочный (seed 7), приёмка ключе�
 исходное состояние — под тегом `archive/rev11` и в `revisions/`.
 
 Замороженный defense-код (`configs`, `guard_contract`, `guard_plugins`,
-`guard_policy`, `simple_baseline`, `executor`, `tools`) защищён хешами
-`configs.lock.json` (NFR-2.10): до перезаморозки эти файлы не редактируются.
+`guard_policy`, `executor`, `tools`) защищён хешами `configs.lock.json` (NFR-2.10): до
+перезаморозки эти файлы не редактируются. Набор конфигураций — исследовательская матрица
+dvarp design.md §4 (`docs/configs.md`); очередь — аналитическая от доли эскалаций (dvarp#18).
 
 ## Живая модель
 

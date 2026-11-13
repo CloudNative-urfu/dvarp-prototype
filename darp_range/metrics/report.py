@@ -42,12 +42,19 @@ METRIC_COLUMNS = [
     ("unneeded_escalation", lambda c: c["utility"]["legal_status"]["unneeded_escalation"]),
     ("attack_tasks_completed_share", lambda c: c["utility"]["attack_tasks_completed_share"]),
     ("safe_dysfunctional", lambda c: c["utility"]["attack_sxu"]["safe_dysfunctional"]),
-    ("Q", lambda c: c["continuity"]["Q"]),
-    ("dQ_attack_induced", lambda c: c["continuity"]["dQ_attack_induced"]),
-    ("p95_delay_max", lambda c: c["continuity"]["p95_delay_max"]),
-    ("max_depth", lambda c: c["continuity"]["max_depth"]),
-    ("legal_beyond_sla", lambda c: c["continuity"]["legal_beyond_sla"]),
     ("E", lambda c: c["continuity"]["E"]),
+    ("E_L", lambda c: c["continuity"]["E_L"]),
+    ("E_L_natural", lambda c: c["continuity"]["E_L_natural"]),
+    ("E_L_fp", lambda c: c["continuity"]["E_L_fp"]),
+    ("E_A", lambda c: c["continuity"]["E_A"]),
+    ("lambda_Q_per_h", lambda c: c["continuity"]["lambda_Q_per_min"] * 60),
+    ("queue_model", lambda c: c["continuity"]["queue_model"]),
+    ("rho", lambda c: c["continuity"]["rho"]),
+    ("queue_stable", lambda c: c["continuity"]["queue_stable"]),
+    ("W_q", lambda c: c["continuity"]["W_q"]),
+    ("Q_L", lambda c: c["continuity"]["Q"]),
+    ("P_wq_gt_sla", lambda c: c["continuity"]["P_sla"]),
+    ("P_sla_L", lambda c: c["continuity"]["P_sla_L"]),
     ("rounds_attack_mean", lambda c: c["continuity"]["rounds_attack_mean"]),
     ("TP", lambda c: (c["detection"] or {}).get("TP")),
     ("FP", lambda c: (c["detection"] or {}).get("FP")),
@@ -74,10 +81,10 @@ METRIC_COLUMNS = [
 ]
 
 
-# Режимы очереди, показываемые в основной таблице L* (предрегистрация ревизии 1): базовая
-# нагрузка с медленным оператором, нагрузка ×3 и деградация ревьюера при нагрузке ×3.
-# Полная сетка — `queue_lstar.csv`.
-MAIN_QUEUE_MODES = ("slow/c1", "base/c1/x3", "degraded/c1/x3")
+# Ячейки сетки K×S аналитической очереди в основной таблице L* (dvarp#18): медленный разбор
+# одним оператором и быстрый — двумя (базовая ячейка плана — сам L*). Полная сетка —
+# `queue_lstar.csv`.
+MAIN_QUEUE_MODES = ("S15_K1", "S4_K2")
 
 
 def _qmode(c: Mapping[str, Any], mode: str) -> Mapping[str, Any]:
@@ -88,7 +95,7 @@ def max_dq_mode(c: Mapping[str, Any]) -> tuple[str | None, float]:
     qs = c.get("queue_sensitivity_L_star") or {}
     if not qs:
         return None, 0.0
-    m = max(sorted(qs), key=lambda k: abs(qs[k]["dQ"]))
+    m = max(sorted(qs), key=lambda k: abs(qs[k]["dQ"] or 0.0))
     return m, qs[m]["dQ"]
 
 
@@ -123,6 +130,7 @@ def _lstar_row(c: Mapping[str, Any], l_viol: list[float]) -> dict[str, Any]:
         "numerator_usd": be["numerator"],
         "term_refuse": be["terms"]["refuse"],
         "term_queue": be["terms"]["queue"],
+        "term_sla": be["terms"]["sla"],
         "term_attack_service": be["terms"]["attack_service"],
         "term_guard": be["terms"]["guard"],
         "term_manual": be["terms"]["manual"],
@@ -177,7 +185,7 @@ def _csv_val(v: Any) -> Any:
 EMPTY_HEADERS = {
     "leave_one_out": "config,parent,removed_guard,marginal_dV,marginal_status,verdict,redundant_with",
     "inefficient": "config,role,status,L_star,reasons",
-    "queue_lstar": "config,mode,dQ,dV,status,L_star,Q,Q_ref,V_added_by_reviewer_misses",
+    "queue_lstar": "config,mode,dQ,dP_sla,dV,status,L_star,model,rho,stable,W_q,Q,Q_ref",
     "pareto": "config,role,reduction,cost_per_episode,on_front,dominated_by",
 }
 
@@ -253,6 +261,56 @@ def tables(rep: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]]:
     }
 
 
+def queue_section(cs: list[Mapping[str, Any]]) -> list[str]:
+    """Доля эскалаций по классам трафика и аналитический блок λ_Q → W_q/Q_L → SLA (dvarp#18)."""
+    if not cs:
+        return []
+    a = cs[0]["continuity"]["queue_assumptions"]
+    L = [
+        "",
+        "## Очередь: доля эскалаций и аналитика",
+        "",
+        "Эскалация — нейтральный исход процесса, а не нарушение (цель `shift` исключена, FR-1.21). "
+        "Первичная величина — доля эскалаций в парных прогонах по классам трафика: `E_L` — "
+        "легальные (натуральные + FP), `E_A` — атакующие. Задержка не симулируется: "
+        "`λ_Q = λ_L·E_L + λ_A·E_A`, M/M/1 при K = 1, M/M/c (Эрланг C) при K > 1; "
+        "`Q_L = E_L·W_q` (безусловная задержка на легального клиента, входит в L*), "
+        "`W_q` — условное ожидание эскалированного обращения, `P_sla_L = E_L·P(W_q > Q_SLA)`.",
+        "",
+        f"Допущения: λ_total = {fmt(a['lambda_total_per_min'] * 60)}/ч (λ_L = "
+        f"{fmt(a['lambda_L_per_min'] * 60)}/ч, λ_A = {fmt(a['lambda_A_per_min'] * 60)}/ч, "
+        f"w_A = {fmt(a['w_A'])}); базовая ячейка S = {fmt(a['service_minutes'])} мин, "
+        f"K = {a['operators']}; Q_SLA = {fmt(a['sla_minutes'])} мин. Не заявляем: "
+        + "; ".join(a["non_claims"]) + ".",
+        "",
+        "| config | E_L | натур. | FP | E_A | E_L base-поток | λ_Q, /ч | модель | ρ | W_q, мин | "
+        "Q_L, мин | P(W_q>SLA) | P_sla_L |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+    ]
+    for c in cs:
+        q = c["continuity"]
+        L.append(
+            f"| {c['config']} | {fmt(q['E_L'])} | {fmt(q['E_L_natural'])} | {fmt(q['E_L_fp'])} | "
+            f"{fmt(q['E_A'])} | {fmt(q['E_L_base_flow'])} | {fmt(q['lambda_Q_per_min'] * 60)} | "
+            f"{q['queue_model']} | {fmt(q['rho'])} | "
+            + (f"{fmt(q['W_q'])} | {fmt(q['Q'])} | {fmt(q['P_sla'])} | {fmt(q['P_sla_L'])} |"
+               if q["queue_stable"] else "нестабильна | — | — | — |"))
+    keys = list(cs[0]["continuity"]["queue_sensitivity"])
+    L += [
+        "",
+        "Сетка чувствительности K×S (Q_L, мин; «—» — очередь нестабильна) при той же "
+        "интенсивности:",
+        "",
+        "| config | " + " | ".join(keys) + " |",
+        "|---|" + "---|" * len(keys),
+    ]
+    for c in cs:
+        g = c["continuity"]["queue_sensitivity"]
+        L.append(f"| {c['config']} | "
+                 + " | ".join(fmt(g[k]["Q_L"]) if g[k]["stable"] else "—" for k in keys) + " |")
+    return L
+
+
 def markdown(rep: Mapping[str, Any]) -> str:
     cs = [rep["configs"][n] for n in sorted(rep["configs"])]
     lv = rep["l_viol_illustrative"]
@@ -287,7 +345,7 @@ def markdown(rep: Mapping[str, Any]) -> str:
         "Статус `unresolved`: формула §9.2 дала направленный статус (`формула`), но 95% ДИ ΔV "
         "содержит 0 или |ΔV| не больше шума seed — экономический вывод не делается, L* — "
         "точечная оценка. Полезность (доля выполненных легальных, R) — рядом с V. Колонки "
-        "очереди: ΔQ и статус/L* в предрегистрированных режимах "
+        "очереди: ΔQ (аналитическая оценка) и L* в ячейках сетки K×S "
         + ", ".join(f"`{m}`" for m in MAIN_QUEUE_MODES)
         + " (полная сетка — `queue_lstar.csv`).",
         "",
@@ -328,7 +386,7 @@ def markdown(rep: Mapping[str, Any]) -> str:
         "",
         "## Метрики FR-1.23",
         "",
-        "| config | V | break | refused | ignored/failed | R | lost | Q, мин | ΔQ атак | E | "
+        "| config | V | break | refused | ignored/failed | R | lost | E | E_L | E_A | Q_L, мин | "
         "TP/FP/FN/TN | ток. агента/эп | ток. гвардр./эп | C_ep | C_guard | self-limited ток. |",
         "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
@@ -338,10 +396,11 @@ def markdown(rep: Mapping[str, Any]) -> str:
         L.append(
             f"| {c['config']} | {fmt(s['V'])} | {fmt(s['break_share'])} | {s['outcomes']['refused']} | "
             f"{fmt(s['ignored_share_of_failed'])} | {fmt(u['R'])} | {u['lost_stories']} | "
-            f"{fmt(q['Q'])} | {fmt(q['dQ_attack_induced'])} | {fmt(q['E'])} | {det} | "
+            f"{fmt(q['E'])} | {fmt(q['E_L'])} | {fmt(q['E_A'])} | {fmt(q['Q'])} | {det} | "
             f"{fmt(e['tokens_agent_per_episode'])} | {fmt(e['tokens_guard_per_episode'])} | "
             f"{fmt(e['C_ep'])} | {fmt(e['C_guard'])} | {e['self_limited']['tokens']} |"
         )
+    L += queue_section(cs)
     fr = rep["pareto"]
     L += [
         "",

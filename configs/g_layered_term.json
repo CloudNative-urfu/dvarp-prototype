@@ -1,0 +1,200 @@
+{
+  "control_of": null,
+  "defender": "agent",
+  "executor_boundary": "955561c084ad57a95d4b6b01e04aa38126105db4d311347046205bea08b09fee",
+  "family": "guarded",
+  "fingerprint": "ee85587ebc4b18bf38329ddee00bffce3705c334b5016753c0dd2d9b887e020b",
+  "guards": [
+    {
+      "id": "input-filter",
+      "params": {},
+      "stages": [
+        "input"
+      ]
+    },
+    {
+      "id": "context-provenance",
+      "params": {},
+      "stages": [
+        "context"
+      ]
+    },
+    {
+      "id": "tool-arg-validator",
+      "params": {},
+      "stages": [
+        "tool"
+      ]
+    },
+    {
+      "id": "output-leak",
+      "params": {},
+      "stages": [
+        "output"
+      ]
+    }
+  ],
+  "name": "g_layered_term",
+  "notes": "Positional matrix: input-filter + context-provenance + tool-arg-validator + output-leak at input/context/tool/output, reaction policy canon_terminate.",
+  "operational_definition": [
+    "input: [input-filter] allow->continue, flag->terminate, block->terminate, error->continue",
+    "context: [context-provenance] allow->continue, flag->terminate, block->terminate, error->continue",
+    "tool: [tool-arg-validator] allow->continue, flag->terminate, block->terminate, error->isolate",
+    "output: [output-leak] allow->continue, flag->terminate, block->terminate, error->continue",
+    "clarifications per episode: 2"
+  ],
+  "policy": {
+    "detect_only": false,
+    "max_clarifications": 2,
+    "name": "g_layered_term",
+    "stages": {
+      "context": {
+        "on": {
+          "allow": "continue",
+          "block": "terminate",
+          "error": "continue",
+          "flag": "terminate"
+        },
+        "score_block": null,
+        "score_flag": null
+      },
+      "input": {
+        "on": {
+          "allow": "continue",
+          "block": "terminate",
+          "error": "continue",
+          "flag": "terminate"
+        },
+        "score_block": null,
+        "score_flag": null
+      },
+      "output": {
+        "on": {
+          "allow": "continue",
+          "block": "terminate",
+          "error": "continue",
+          "flag": "terminate"
+        },
+        "score_block": null,
+        "score_flag": null
+      },
+      "tool": {
+        "on": {
+          "allow": "continue",
+          "block": "terminate",
+          "error": "isolate",
+          "flag": "terminate"
+        },
+        "score_block": null,
+        "score_flag": null
+      }
+    },
+    "version": "guard-policy-1"
+  },
+  "process": null,
+  "queue_discipline": "fifo",
+  "resolved": {
+    "guard_set_fingerprint": "219a8a34e7ad3f4241f584833346f5f89483ec9fe85f0d8cd449d859c17935cf",
+    "guards": [
+      {
+        "plugin": {
+          "deployment": "builtin",
+          "enabled_by_default": true,
+          "license": "",
+          "mechanism": "rules",
+          "origin": "own rules; patterns of InjecAgent, AgentDojo, garak encoding probes (see rules.py)",
+          "params": {
+            "block_at": 0.85,
+            "flag_at": 0.5,
+            "min_b64_len": 16,
+            "quote_discount": 0.4
+          },
+          "plugin_id": "input-filter",
+          "stages": [
+            "input",
+            "context"
+          ],
+          "version": "1.0"
+        },
+        "stages": [
+          "input"
+        ]
+      },
+      {
+        "plugin": {
+          "deployment": "builtin",
+          "enabled_by_default": true,
+          "license": "",
+          "mechanism": "rules",
+          "origin": "own; trusted/untrusted separation per section 3.2 (provenance check)",
+          "params": {
+            "block_at": 0.85,
+            "flag_at": 0.5,
+            "quote_discount": 0.4,
+            "taint_score": 0.6,
+            "unknown_rule_weight": 0.6
+          },
+          "plugin_id": "context-provenance",
+          "stages": [
+            "input",
+            "context",
+            "tool"
+          ],
+          "version": "1.0"
+        },
+        "stages": [
+          "context"
+        ]
+      },
+      {
+        "plugin": {
+          "deployment": "builtin",
+          "enabled_by_default": true,
+          "license": "",
+          "mechanism": "rules",
+          "origin": "own; argument-validator idea from arXiv 2610.09906; rules R1-R7 from trusted policy table",
+          "params": {
+            "check_refusals": true,
+            "flag_score": 0.6
+          },
+          "plugin_id": "tool-arg-validator",
+          "stages": [
+            "tool"
+          ],
+          "version": "1.0"
+        },
+        "stages": [
+          "tool"
+        ]
+      },
+      {
+        "plugin": {
+          "deployment": "builtin",
+          "enabled_by_default": true,
+          "license": "",
+          "mechanism": "rules",
+          "origin": "own; recognizer classes after Presidio (catalog #19), without NLP model",
+          "params": {
+            "check_internal": true,
+            "flag_score": 0.6
+          },
+          "plugin_id": "output-leak",
+          "stages": [
+            "output"
+          ],
+          "version": "1.0"
+        },
+        "stages": [
+          "output"
+        ]
+      }
+    ],
+    "policy_fingerprint": "89ffb5f5858caf783c92ea170b789fd583f9831cefc2daefc2b384a0807b8491",
+    "policy_version": "guard-policy-1",
+    "process_fingerprint": null,
+    "process_version": null
+  },
+  "role": "main",
+  "schema": "darp-config-1",
+  "seed_label": "main"
+}

@@ -6,7 +6,7 @@
 
 Стороны:
 - `defender` — защищаемая сторона: агент, гвардрейлы, политика, исполнитель, инструменты,
-  ручная очередь, простая обработка g_simple. Её расходы — `defender-borne` (§7.2) и входят
+  ручная очередь, правила процесса g_proc. Её расходы — `defender-borne` (§7.2) и входят
   в экономику break-even.
 - `attacker` — атакующая сторона: её расходы `self-limited`, в ΔNet не входят и выводятся
   отдельной строкой отчёта.
@@ -32,7 +32,6 @@ COMPONENT_SIDES: dict[str, str] = {
     "executor": "defender",
     "policy": "defender",
     "manual_queue": "defender",
-    "simple_baseline": "defender",
     "process": "defender",          # правила процесса g_proc (компонент configs)
     "attacker": "attacker",
     "runner": "harness",
@@ -50,7 +49,6 @@ KINDS: dict[str, frozenset[str]] = {
     "executor": frozenset({"exec_request", "exec_result"}),
     "policy": frozenset({"decision"}),
     "manual_queue": frozenset({"enqueue", "service_start", "service_end"}),
-    "simple_baseline": frozenset({"form_parse", "decision"}),
     "process": frozenset({"admission", "decision"}),
     "guard": frozenset({"guard_signal", "guard_error"}),
     "attacker": frozenset({"llm_call", "attempt", "message_composed", "protocol_violation"}),

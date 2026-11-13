@@ -1,10 +1,18 @@
 """Break-even: ΔNet и порог окупаемости L* (`case/docs/guardrails-break-even.md`, FR-1.24).
 
     ΔNet(g) =  w_A·(V(g0) − V(g))·L_viol
-             − w_L·ΔR·C_refuse − w_L·ΔQ·C_queue − w_A·ΔC_ep − ΔC_guard − ΔE·C_manual
+             − w_L·ΔR·C_refuse − w_L·(ΔQ·C_queue + ΔP_sla·C_sla) − w_A·ΔC_ep − ΔC_guard
+             − ΔE·C_manual
 
-    L* = [w_L·ΔR·C_refuse + w_L·ΔQ·C_queue + w_A·ΔC_ep + ΔC_guard + ΔE·C_manual]
-         / (w_A·(V(g0) − V(g)))
+    L* = [w_L·ΔR·C_refuse + w_L·(ΔQ·C_queue + ΔP_sla·C_sla) + w_A·ΔC_ep + ΔC_guard
+          + ΔE·C_manual] / (w_A·(V(g0) − V(g)))
+
+Очередь (ревизия канона dvarp#18): `C_Q = c_w·Q_L + c_sla·P(W_q > Q_SLA)`, где `Q` — безусловная
+задержка на легального клиента `E_L·W_q` и `P_sla` — безусловная вероятность легальному
+клиенту ждать дольше SLA `E_L·P(W_q > Q_SLA)`; обе — аналитические (`manual_queue.analytic`)
+от измеренных `E_L`, `E_A` (ΔQ в L* — аналитическая оценка). Член `P_abandon` исключён: уход
+клиентов не моделируется. Нестабильная очередь (ρ ≥ 1, `Q = None`) — статус `queue_unstable`:
+конфигурация недопустима при любом L_viol.
 
 ΔX = X(g) − X(ref); ref — базовая линия `g0` (для leave-one-out — родительская
 конфигурация). У `g0` гвардрейлов нет, поэтому ΔC_guard = C_guard(g), как в §9.1.
@@ -17,13 +25,14 @@
 - ΔV = 0 — не окупается ни при каком L_viol (`no_safety_gain`); L* не определён. Если при этом
   числитель < 0 (конфигурация дешевле), это отмечается флагом `cost_saving_without_safety_gain`:
   экономия — не выигрыш в безопасности, вердикт §9.2 не меняется;
-- ΔV < 0 — конфигурация увеличивает нарушения и недопустима при любом L_viol (`more_violations`).
+- ΔV < 0 — конфигурация увеличивает нарушения и недопустима при любом L_viol (`more_violations`);
+- очередь нестабильна у конфигурации или у ref — `queue_unstable`, L* не определён.
 - статистика (ревизия 1): если направленный статус (порог, окупается при любой цене, больше
   нарушений) опирается на ΔV, чей 95% интервал содержит 0 или который не превышает разброс
   seed, итоговый статус — `unresolved`; статус формулы сохраняется в `formula_status`, L* —
   как точечная оценка, но вывод «окупается/не окупается» не делается.
 
-Цены `C_refuse`, `C_queue`, `C_manual` и ставки вычислений — диапазоны (допущения
+Цены `C_refuse`, `C_queue`, `C_sla`, `C_manual` и ставки вычислений — диапазоны (допущения
 decomposition «Цены для break-even», «Перевод вычислений в деньги»); L* приводится для базы
 и всех углов диапазона (§9.4): вывод «устойчив», если статус одинаков во всех углах.
 Нагрузка `self-limited` в формулу не входит.
@@ -33,7 +42,7 @@ from __future__ import annotations
 
 import itertools
 import math
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from typing import Any, Iterable, Mapping
 
 from .extract import MetricsError
@@ -42,6 +51,7 @@ from .extract import MetricsError
 PRICE_RANGES: dict[str, tuple[float, float, float]] = {
     "C_refuse": (5.0, 15.0, 40.0),     # USD за необоснованный отказ
     "C_queue": (0.10, 0.30, 1.00),     # USD за минуту задержки легального обращения
+    "C_sla": (2.0, 5.0, 15.0),         # USD за нарушение SLA легального обращения (допущение)
     "C_manual": (3.0, 6.0, 15.0),      # USD за ручной разбор
 }
 RATE_LEVELS = ("low", "base", "high")   # event_log.RATE_PRESETS
@@ -50,7 +60,7 @@ RATE_LEVELS = ("low", "base", "high")   # event_log.RATE_PRESETS
 DEFAULT_L_VIOL = (50.0, 500.0, 5000.0)
 
 STATUSES = ("reference", "threshold", "pays_at_any_price", "no_safety_gain", "more_violations",
-            "unresolved")
+            "unresolved", "queue_unstable")
 # Статусы §9.2, которые утверждают направление эффекта по ΔV (выигрыш или проигрыш в
 # безопасности). Если ΔV статистически не разрешён, такой статус заменяется на `unresolved`
 # (ревизия 1, замечание критика №3): экономический вывод не делается.
@@ -64,9 +74,10 @@ class Prices:
     C_queue: float = PRICE_RANGES["C_queue"][1]
     C_manual: float = PRICE_RANGES["C_manual"][1]
     rates: str = "base"
+    C_sla: float = PRICE_RANGES["C_sla"][1]
 
     def __post_init__(self):
-        for k in ("C_refuse", "C_queue", "C_manual"):
+        for k in ("C_refuse", "C_queue", "C_sla", "C_manual"):
             v = getattr(self, k)
             if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v < 0:
                 raise MetricsError(f"цена {k} должна быть конечной неотрицательной: {v!r}")
@@ -78,8 +89,8 @@ class Prices:
 
     @property
     def label(self) -> str:
-        return (f"refuse={self.C_refuse:g}/queue={self.C_queue:g}/manual={self.C_manual:g}"
-                f"/rates={self.rates}")
+        return (f"refuse={self.C_refuse:g}/queue={self.C_queue:g}/sla={self.C_sla:g}"
+                f"/manual={self.C_manual:g}/rates={self.rates}")
 
 
 def base_prices() -> Prices:
@@ -87,10 +98,11 @@ def base_prices() -> Prices:
 
 
 def corner_prices() -> list[Prices]:
-    """Все углы диапазона: 2³ цены × ставки вычислений low/high = 16 сочетаний."""
+    """Все углы диапазона: 2⁴ цены × ставки вычислений low/high = 32 сочетания."""
     lo_hi = lambda k: (PRICE_RANGES[k][0], PRICE_RANGES[k][2])  # noqa: E731
-    return [Prices(r, q, m, rt) for r, q, m, rt in itertools.product(
-        lo_hi("C_refuse"), lo_hi("C_queue"), lo_hi("C_manual"), ("low", "high"))]
+    return [Prices(r, q, m, rt, s) for r, q, m, rt, s in itertools.product(
+        lo_hi("C_refuse"), lo_hi("C_queue"), lo_hi("C_manual"), ("low", "high"),
+        lo_hi("C_sla"))]
 
 
 def bound_prices() -> dict[str, Prices]:
@@ -110,29 +122,40 @@ class Inputs:
     V_k: int
     V_n: int
     R: float
-    Q: float
+    Q: float | None          # None — очередь нестабильна (ρ ≥ 1)
     E: float
     C_ep: float
     C_guard: float
+    P_sla: float | None = 0.0
 
     @classmethod
-    def from_agg(cls, agg: Mapping[str, Any], *, Q: float | None = None) -> "Inputs":
+    def from_agg(cls, agg: Mapping[str, Any], *, cell: str | None = None) -> "Inputs":
+        """`cell` — ячейка сетки K×S аналитической очереди; по умолчанию базовая ячейка плана."""
+        q = agg["continuity"]
+        c = q if cell is None else {"Q": q["queue_sensitivity"][cell]["Q_L"],
+                                    "P_sla_L": q["queue_sensitivity"][cell]["P_sla_L"]}
         return cls(config=agg["config"], w_A=agg["w_A"], w_L=agg["w_L"],
                    V=agg["safety"]["V"], V_k=agg["safety"]["V_k"], V_n=agg["safety"]["V_n"],
-                   R=agg["utility"]["R"], Q=agg["continuity"]["Q"] if Q is None else Q,
-                   E=agg["continuity"]["E"], C_ep=agg["economics"]["C_ep"],
-                   C_guard=agg["economics"]["C_guard"])
+                   R=agg["utility"]["R"], Q=c["Q"], P_sla=c["P_sla_L"],
+                   E=q["E"], C_ep=agg["economics"]["C_ep"], C_guard=agg["economics"]["C_guard"])
 
 
-def terms(g: Inputs, ref: Inputs, p: Prices) -> dict[str, float]:
-    """Члены формулы ΔNet в USD на эпизод. Доли потока — из ref (общий поток сравнения)."""
+def _d(a: float | None, b: float | None) -> float | None:
+    return None if a is None or b is None else a - b
+
+
+def terms(g: Inputs, ref: Inputs, p: Prices) -> dict[str, float | None]:
+    """Члены формулы ΔNet в USD на эпизод. Доли потока — из ref (общий поток сравнения).
+    При нестабильной очереди (Q = None) у g или ref члены очереди — None."""
     w_a, w_l = ref.w_A, ref.w_L
+    dq, ds = _d(g.Q, ref.Q), _d(g.P_sla, ref.P_sla)
     return {
         "dV": ref.V - g.V,
-        "dR": g.R - ref.R, "dQ": g.Q - ref.Q, "dE": g.E - ref.E,
+        "dR": g.R - ref.R, "dQ": dq, "dP_sla": ds, "dE": g.E - ref.E,
         "dC_ep": g.C_ep - ref.C_ep, "dC_guard": g.C_guard - ref.C_guard,
         "refuse": w_l * (g.R - ref.R) * p.C_refuse,
-        "queue": w_l * (g.Q - ref.Q) * p.C_queue,
+        "queue": None if dq is None else w_l * dq * p.C_queue,
+        "sla": None if ds is None else w_l * ds * p.C_sla,
         "attack_service": w_a * (g.C_ep - ref.C_ep),
         "guard": g.C_guard - ref.C_guard,
         "manual": (g.E - ref.E) * p.C_manual,
@@ -140,17 +163,20 @@ def terms(g: Inputs, ref: Inputs, p: Prices) -> dict[str, float]:
     }
 
 
-def numerator(t: Mapping[str, float]) -> float:
-    return math.fsum((t["refuse"], t["queue"], t["attack_service"], t["guard"], t["manual"]))
+def numerator(t: Mapping[str, float | None]) -> float | None:
+    """Числитель L*; None — очередь нестабильна (C_Q не определён, конфигурация недопустима)."""
+    parts = (t["refuse"], t["queue"], t["sla"], t["attack_service"], t["guard"], t["manual"])
+    return None if any(x is None for x in parts) else math.fsum(parts)
 
 
-def delta_net(g: Inputs, ref: Inputs, p: Prices, l_viol: float) -> float:
-    """ΔNet(g) на эпизод при цене нарушения `l_viol`."""
+def delta_net(g: Inputs, ref: Inputs, p: Prices, l_viol: float) -> float | None:
+    """ΔNet(g) на эпизод при цене нарушения `l_viol`; None при нестабильной очереди."""
     if isinstance(l_viol, bool) or not isinstance(l_viol, (int, float)) or not math.isfinite(l_viol) \
             or l_viol < 0:
         raise MetricsError(f"L_viol должна быть конечной неотрицательной: {l_viol!r}")
     t = terms(g, ref, p)
-    return t["w_A"] * t["dV"] * l_viol - numerator(t)
+    num = numerator(t)
+    return None if num is None else t["w_A"] * t["dV"] * l_viol - num
 
 
 def l_star(g: Inputs, ref: Inputs, p: Prices) -> dict[str, Any]:
@@ -161,6 +187,8 @@ def l_star(g: Inputs, ref: Inputs, p: Prices) -> dict[str, Any]:
     res: dict[str, Any] = {"numerator": num, "dV": dv, "terms": t}
     if g.config == ref.config:
         res.update(status="reference", L_star=None, pays=None)
+    elif num is None:
+        res.update(status="queue_unstable", L_star=None, pays=False)
     elif abs(dv) <= EPS:
         res.update(status="no_safety_gain", L_star=None, pays=False,
                    cost_saving_without_safety_gain=num < -EPS)
@@ -176,7 +204,7 @@ def l_star(g: Inputs, ref: Inputs, p: Prices) -> dict[str, Any]:
 def pays_at(res: Mapping[str, Any], l_viol: float) -> bool:
     """Окупается ли конфигурация при цене нарушения `l_viol` (по результату `l_star`)."""
     st = res["status"]
-    if st in ("no_safety_gain", "more_violations", "reference"):
+    if st in ("no_safety_gain", "more_violations", "reference", "queue_unstable"):
         return False
     return l_viol > res["L_star"]
 
@@ -261,6 +289,7 @@ def analyse(g_by_rates: Mapping[str, Inputs], ref_by_rates: Mapping[str, Inputs]
         "verdict_robust": len(sts) == 1 and status != "unresolved",
         "delta_net": {f"{L:g}": (delta_net(gb, rb, base_prices(), L)
                                  if base["status"] != "reference" else 0.0) for L in lv},
+        "queue_unstable": base["status"] == "queue_unstable",
         "decision_at_L_viol": decisions,
         "formula_decision_at_L_viol": formula_decisions,
         "dV_ci95": ci,
@@ -272,24 +301,21 @@ def analyse(g_by_rates: Mapping[str, Inputs], ref_by_rates: Mapping[str, Inputs]
 
 def queue_sensitivity(g_agg: Mapping[str, Any], ref_agg: Mapping[str, Any],
                       g_inp: Inputs, ref_inp: Inputs) -> dict[str, Any]:
-    """L* при базовых ценах в каждом режиме очереди (нагрузка × время обслуживания ×
-    операторы, деградация ревьюера; §11 п. 5): Q обеих конфигураций берётся из сетки
-    чувствительности парных прогонов. В режиме деградации пропущенные ревьюером эскалированные
-    атаки добавляются к V как ожидаемые нарушения (V + E[пропуски]/атак)."""
+    """L* при базовых ценах в каждой ячейке сетки K×S аналитической очереди (время
+    обслуживания 4/8/15 мин × 1/2 оператора при фиксированной интенсивности, dvarp#18): Q и
+    P_sla обеих конфигураций — аналитические от их измеренных E_L, E_A."""
     gs = g_agg["continuity"]["queue_sensitivity"]
     rs = ref_agg["continuity"]["queue_sensitivity"]
     out = {}
-    for mode in sorted(set(gs) & set(rs)):
-        def adj(inp: Inputs, row: Mapping[str, Any]) -> Inputs:
-            add = (row.get("expected_missed_attacks", 0.0) / row["attack_cases"]
-                   if row.get("attack_cases") else 0.0)
-            return Inputs(**{**asdict(inp), "Q": row["Q"], "V": inp.V + add})
-        g, r = adj(g_inp, gs[mode]), adj(ref_inp, rs[mode])
+    for cell in sorted(set(gs) & set(rs)):
+        g = replace(g_inp, Q=gs[cell]["Q_L"], P_sla=gs[cell]["P_sla_L"])
+        r = replace(ref_inp, Q=rs[cell]["Q_L"], P_sla=rs[cell]["P_sla_L"])
         res = l_star(g, r, base_prices())
-        out[mode] = {"dQ": res["terms"]["dQ"], "dV": res["terms"]["dV"],
-                     "status": res["status"], "L_star": res["L_star"],
-                     "Q": gs[mode]["Q"], "Q_ref": rs[mode]["Q"],
-                     "V_added_by_reviewer_misses": g.V - g_inp.V}
+        out[cell] = {"dQ": res["terms"]["dQ"], "dP_sla": res["terms"]["dP_sla"],
+                     "dV": res["terms"]["dV"], "status": res["status"], "L_star": res["L_star"],
+                     "model": gs[cell]["model"], "rho": gs[cell]["rho"],
+                     "stable": gs[cell]["stable"], "W_q": gs[cell]["W_q"],
+                     "Q": gs[cell]["Q_L"], "Q_ref": rs[cell]["Q_L"]}
     return out
 
 

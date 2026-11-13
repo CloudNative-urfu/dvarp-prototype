@@ -56,7 +56,7 @@ from darp_range.runner import RunPlan, Runner  # noqa: E402
 
 import isolation_probes  # noqa: E402
 
-A_ENTRIES = ("atk-01", "atk-13", "atk-17", "atk-21", "ctl-01", "ctl-13", "ctl-17", "ctl-21")
+A_ENTRIES = ("atk-01", "atk-13", "atk-17", "atk-18", "ctl-01", "ctl-13", "ctl-17", "ctl-18")
 KEY_CANARY = "sk-synthetic-canary-verify-5d1e2b"
 
 

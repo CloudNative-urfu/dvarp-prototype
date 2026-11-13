@@ -1,0 +1,172 @@
+{
+  "configs": {
+    "g0": {
+      "control_of": null,
+      "family": "g0",
+      "file": "g0.json",
+      "fingerprint": "f2d356909156c2dbd3fd80f66f53c3fda28a40137dddcfd120beb08dbe0ca898",
+      "role": "baseline",
+      "sha256": "d132abd5d0dba0d36df76a2d29dbbfde75e0f48683459ed1de87dd25d2635ef2"
+    },
+    "g0_seed2": {
+      "control_of": "g0",
+      "family": "g0",
+      "file": "g0_seed2.json",
+      "fingerprint": "77a02e1a7381420de26685d61d7fdc194c9b7fb607cd837f5bfce3fc3574e775",
+      "role": "control",
+      "sha256": "0901c3cba4f8c72968f569e642fcef3542c54a139d03cedfc0070215e0a2b335"
+    },
+    "g_ctx": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_ctx.json",
+      "fingerprint": "c981b2ac19e6419d56db5fbf12ca868bf7f592eea463135c19728f00a17add62",
+      "role": "main",
+      "sha256": "22cce7a902b538d6eeb3357d72e4ed87042febc0a1c2ab950153ce9bad507286"
+    },
+    "g_in": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_in.json",
+      "fingerprint": "c7d99421df61ea4fd8caf6d40817c9e55575a2066da2e89e1d4cf9ac18f5a141",
+      "role": "main",
+      "sha256": "8c0f4381a327807f1e0557b56b24f0af835650ccd6a2b762f6576eca766cdc04"
+    },
+    "g_in_detect_only": {
+      "control_of": "g_in",
+      "family": "guarded",
+      "file": "g_in_detect_only.json",
+      "fingerprint": "980725395dc621548fa272fa4296b603e89d8a7b7e6d805f3a217e554bb2dac8",
+      "role": "control",
+      "sha256": "25b85e7e3c42334ffbe3ab1d38f79f77b3cd21dcc7f9736d6983b59c178b8ae0"
+    },
+    "g_in_failclosed": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_in_failclosed.json",
+      "fingerprint": "eeff134365227d18996f8555395c965290da5cf9e20e44137870053cfeda7eab",
+      "role": "main",
+      "sha256": "fbdc13cbc27ddf4f9abb1cabaa4f49623b0e2800a66279a42c4e2ba151da1c01"
+    },
+    "g_in_oss": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_in_oss.json",
+      "fingerprint": "3193300082c4d79a72186aa4da3044575b8c1b7569adab6c4b2110fe9a7acdb3",
+      "role": "main",
+      "sha256": "6e55686a48a0d2fc5ede1bee20a4c369dd76b2892c79f7163d48a465eed45923"
+    },
+    "g_in_tool": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_in_tool.json",
+      "fingerprint": "116ef723851a8e45a9eceed8d5266e2e4d37571d27848303073ef5f447deeead",
+      "role": "main",
+      "sha256": "40783163c3c6cf780939f0a10ee08081fd1b2f805f507c6715e76e46263f7309"
+    },
+    "g_in_tool_minus_input_filter": {
+      "control_of": "g_in_tool",
+      "family": "guarded",
+      "file": "g_in_tool_minus_input_filter.json",
+      "fingerprint": "bdc5a3c0e657f6c1fa7f213eef0898e2a367b6bcac06ec289f819bf6db2550a6",
+      "role": "loo",
+      "sha256": "2eb916ceb443ede174dc3a046691e50694a79dfe780b8fad5e5b45a595f2f745"
+    },
+    "g_in_tool_minus_tool_arg_validator": {
+      "control_of": "g_in_tool",
+      "family": "guarded",
+      "file": "g_in_tool_minus_tool_arg_validator.json",
+      "fingerprint": "0fad41d682f9b812538c85e17b9cd09e47887d9d6a98405e5a59fd6b512fad31",
+      "role": "loo",
+      "sha256": "fc00638811652f111ff9540df768fcbd1c6662dbc9a31039b3c0a6a65b6bfc97"
+    },
+    "g_layered": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_layered.json",
+      "fingerprint": "24136f117b3de90c64100d8257de85921d0f0fc68206bdfa2bad3f4be1284010",
+      "role": "main",
+      "sha256": "65f632258df03a4bd1dec8a6c042d59a92d94b9bd19dfc4398cdc6bd91e3229e"
+    },
+    "g_layered_minus_context_provenance": {
+      "control_of": "g_layered",
+      "family": "guarded",
+      "file": "g_layered_minus_context_provenance.json",
+      "fingerprint": "df9ca07be4ec48016102c7d64f2f9b3bd8d85692dcfa421798c9f653eeab6c09",
+      "role": "loo",
+      "sha256": "1c000e99c1e0a286917485f762b652a5c5b4fdbc23462fbdc52bbdb1385bc1e3"
+    },
+    "g_layered_minus_input_filter": {
+      "control_of": "g_layered",
+      "family": "guarded",
+      "file": "g_layered_minus_input_filter.json",
+      "fingerprint": "6e620facc965270f4c53bd8e4d640f21431a143849eb69d7b09c92e9caa02427",
+      "role": "loo",
+      "sha256": "fb36b9ad6ddd52b6e142bde47cad50ed29da5c5e03d710cdee4de34aa09526bc"
+    },
+    "g_layered_minus_output_leak": {
+      "control_of": "g_layered",
+      "family": "guarded",
+      "file": "g_layered_minus_output_leak.json",
+      "fingerprint": "10acdbbb46c01f47c45ba87e2fc10f83c2838f333173dfb8a8e95948c40d72ff",
+      "role": "loo",
+      "sha256": "bcbdf040330fdeadcfb253e61d11537afb1242b13825e3204f05cd37d3fe18bb"
+    },
+    "g_layered_minus_tool_arg_validator": {
+      "control_of": "g_layered",
+      "family": "guarded",
+      "file": "g_layered_minus_tool_arg_validator.json",
+      "fingerprint": "c36e858d404db0d50657265dfa1bcf17915acfc6bd52e900f9fc342a92e53cef",
+      "role": "loo",
+      "sha256": "a4b840621e4e7abc2b111ecb18e5b38eee463aec7488b3c091696b9553889177"
+    },
+    "g_out": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_out.json",
+      "fingerprint": "bb09a1ed3ca939edcb11799638f2930e65ac3e82719d1d8c6d2f6015fe4962f7",
+      "role": "main",
+      "sha256": "d1fef6fcfbf60e3c4e4dc61cd2ca98f19585d4c9e1d1231e85e5c93baa5377b1"
+    },
+    "g_proc": {
+      "control_of": null,
+      "family": "g_proc",
+      "file": "g_proc.json",
+      "fingerprint": "af9231cac9b61984e93f067050118c2c72f2db63ea2998e112e2b29ca5688d8e",
+      "role": "baseline",
+      "sha256": "dc426f216c811faf7e232abfcb61f05e3564a2cb66d29f441cde542cb94c3aa1"
+    },
+    "g_simple": {
+      "control_of": null,
+      "family": "g_simple",
+      "file": "g_simple.json",
+      "fingerprint": "57d625bda12ebaf54adffc5596790f70a48582d884fbd335683f2ae0d243eeac",
+      "role": "baseline",
+      "sha256": "c12d43fca4c3e3714d14b8bc72d060f792342cfef23f3ea5b171c7e8627ac84d"
+    },
+    "g_tool": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_tool.json",
+      "fingerprint": "14b670a8a0b080574dea0b23f20b04ce43420b8b3162e2784b610064449ddf0b",
+      "role": "main",
+      "sha256": "573adda2cac2b98efc72ae66b8a33eea0fca0ee872fe7d20271d3465bea9b4ee"
+    }
+  },
+  "defense_code": {
+    "configs": "762f6a2fceb01871af166b7dea137fbccbc5ed547fb4a9f41da56735ba6ca5f3",
+    "executor": "fbd6faab0db88d6493c8e81ea50f054d7e56f32dfbcc2f33254d3457793eb2d2",
+    "guard_contract": "c66c7fed667dad793b256bf895b9edd17f05b7e17ebbcd2097560108db4e55bb",
+    "guard_plugins": "a8618eceacd11606232e7994be6247cc5234446c11c7514b0836174ba6526845",
+    "guard_policy": "a17601f77deb8b5a9d76c9d45eaf0e3c9268c00dfb3952ad43e6366e0ebbfa22",
+    "simple_baseline": "c17171a6b50814beecad1ff305c5a72e329dfb9bb193cb72773810fdf2b33ab1",
+    "tools": "d1105c6cc5df4bd5c89a6ede68d291dfca31c206aae3ff1249b79b22246941fd"
+  },
+  "lock_fingerprint": "fca6832837b2f33e8be2698b2b50c6ccb59a76def003a2f391be919841cc0938",
+  "locked_at": "2026-11-07T20:53:11Z",
+  "note": "revision 8 (lock v6): configurations unchanged (same files, set_fingerprint 6f20a02e...); only defense_code.executor re-hashed because darp_range/executor gained append-only TEMP triggers with recursive_triggers and the PRAGMA/ATTACH denial on the boundary-2/2r connection (history-append-only); boundary spec/fingerprints unchanged",
+  "post_hoc": {},
+  "preregistered": true,
+  "schema": "darp-configs-lock-1",
+  "set_fingerprint": "6f20a02e2a71be6e02f7554c9a577a2f4e8e39c1692046cf2e0d75658d3454dd"
+}

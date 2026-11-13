@@ -13,7 +13,7 @@ from __future__ import annotations
 
 SCHEMA_VERSION = 1
 
-# Причины возврата, которые клиент может указать (закрытый словарь для R2/R7 и g_simple).
+# Причины возврата, которые клиент может указать (закрытый словарь для R2/R7).
 REASON_CODES = (
     "defective", "wrong_item", "not_as_described", "does_not_fit", "changed_mind",
     "not_delivered", "other",

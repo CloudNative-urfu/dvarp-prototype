@@ -72,8 +72,6 @@ def believed_success(goal: str, turns: Iterable[Turn]) -> bool:
     seen = [t.seen for t in ts]
     if goal == "break":
         return "accepted" in seen
-    if goal == "shift":
-        return "escalated" in seen
     if goal == "slow":
         return seen.count("clarification") >= SLOW_CLARIFICATIONS
     return sum(len(t.reply or "") for t in ts) >= BURN_REPLY_CHARS

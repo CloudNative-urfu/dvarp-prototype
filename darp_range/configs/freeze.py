@@ -6,7 +6,7 @@
 1. `freeze(set, dir)` пишет каждую конфигурацию в `<dir>/<name>.json` (канонический JSON с
    вычисленными полями: разрешённые параметры плагинов, отпечатки, операционное определение)
    и `<dir>/configs.lock.json`: sha256 каждого файла, отпечаток набора, хеш кода защиты
-   (пакеты гвардрейлов, политики, правил процесса, g_simple, исполнителя). Повторная заморозка
+   (пакеты гвардрейлов, политики, правил процесса, исполнителя, инструментов). Повторная заморозка
    в каталог с lock запрещена — lock только дополняется записями `post_hoc`.
 2. `verify(dir)` сверяет файлы с lock и с текущим кодом: изменённый/пропавший файл, лишняя
    конфигурация без записи в lock, конфигурация, чьи вычисленные поля разошлись с кодом
@@ -34,8 +34,7 @@ from .spec import ConfigError, ConfigSpec
 LOCK_NAME = "configs.lock.json"
 LOCK_SCHEMA = "darp-configs-lock-1"
 # Код, от которого зависит поведение защиты при той же конфигурации (пути от корня пакета).
-DEFENSE_CODE = ("configs", "guard_contract", "guard_plugins", "guard_policy", "simple_baseline",
-                "executor", "tools")
+DEFENSE_CODE = ("configs", "guard_contract", "guard_plugins", "guard_policy", "executor", "tools")
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 
 

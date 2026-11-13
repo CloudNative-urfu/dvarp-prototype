@@ -160,7 +160,7 @@ def _campaign(a, log, entry_id, replies, hidden, db, agent_w, leak_turn, eids):
 def pick_entries(n: int = 3) -> list[dict]:
     entries, _ = load_corpus()
     atk = [e for e in entries if e["kind"] == "attack" and e.get("objective")]
-    # разные цели: break, slow, shift (первые по порядку)
+    # разные цели: break, slow, burn (первые по порядку)
     out, goals = [], set()
     for e in atk:
         g = e["axes"]["goal"]

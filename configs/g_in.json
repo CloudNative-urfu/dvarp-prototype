@@ -3,7 +3,7 @@
   "defender": "agent",
   "executor_boundary": "955561c084ad57a95d4b6b01e04aa38126105db4d311347046205bea08b09fee",
   "family": "guarded",
-  "fingerprint": "c7d99421df61ea4fd8caf6d40817c9e55575a2066da2e89e1d4cf9ac18f5a141",
+  "fingerprint": "22f339832165c499df2e78d1cd4db563bb247e04558a523038dbabe53722ed8e",
   "guards": [
     {
       "id": "input-filter",
@@ -14,7 +14,7 @@
     }
   ],
   "name": "g_in",
-  "notes": "Input filter: flag -> escalate, block -> safe terminate.",
+  "notes": "Positional matrix: input-filter at input, reaction policy canon_escalate.",
   "operational_definition": [
     "input: [input-filter] allow->continue, flag->escalate, block->terminate, error->continue",
     "clarifications per episode: 2"
@@ -70,8 +70,7 @@
     "policy_fingerprint": "34e9a9da4a630db0b3fcce745cff74e9af93b50a132734df04374b61f2262cae",
     "policy_version": "guard-policy-1",
     "process_fingerprint": null,
-    "process_version": null,
-    "simple_fingerprint": null
+    "process_version": null
   },
   "role": "main",
   "schema": "darp-config-1",

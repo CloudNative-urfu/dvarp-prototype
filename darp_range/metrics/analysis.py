@@ -64,7 +64,7 @@ def compute(run: RunData, *, l_viol: Iterable[float] = DEFAULT_L_VIOL,
         raise MetricsError(f"в прогоне нет базовой линии {reference!r}: L* не определён")
     l_viol = tuple(float(x) for x in l_viol)
     aggs_by: dict[str, dict[str, dict]] = {
-        lvl: {n: aggregate(c, RATE_PRESETS[lvl]) for n, c in run.configs.items()}
+        lvl: {n: aggregate(c, RATE_PRESETS[lvl], run.plan) for n, c in run.configs.items()}
         for lvl in RATE_LEVELS}
     aggs = aggs_by["base"]
     inputs_by = {lvl: {n: Inputs.from_agg(a) for n, a in aggs_by[lvl].items()}
@@ -163,6 +163,9 @@ def inefficient(configs: Mapping[str, Mapping[str, Any]], front: Mapping[str, An
             reasons.append("no safety gain vs g0 (ΔV = 0): never pays at any L_viol")
         if st == "more_violations":
             reasons.append("more violations than g0 (ΔV < 0): inadmissible at any L_viol")
+        if st == "queue_unstable":
+            reasons.append("manual queue unstable (rho >= 1) under the queue assumptions: "
+                           "inadmissible at any L_viol")
         if n in dominated:
             reasons.append("dominated on the Pareto front by " +
                            ", ".join(front_by(front, n)["dominated_by"]))

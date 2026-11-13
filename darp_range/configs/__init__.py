@@ -1,11 +1,12 @@
 """Компонент `configs`: конфигурации g0, g_proc (правила процесса, дедупликация, квоты),
-g_simple, конфигурации с гвардрейлами, контроль «чистый детектор»; заморозка по хешу.
+позиционная матрица гвардрейлов × три политики реакции канона, контроль «чистый детектор»;
+заморозка по хешу.
 
 Требования: NFR-2.10, NFR-2.12, FR-1.14. Только стандартная библиотека.
 
 - `spec` — `ConfigSpec`: закрытая схема конфигурации (набор гвардрейлов и точки, политика
-  реакции и пороги, правила процесса, защищаемая сторона agent/simple), инварианты семейств
-  `g0/g_proc/g_simple/guarded` и ролей, граница исполнителя фиксирована (FR-1.14), отпечаток;
+  реакции и пороги, правила процесса, защищаемая сторона agent), инварианты семейств
+  `g0/g_proc/guarded` и ролей, граница исполнителя фиксирована (FR-1.14), отпечаток;
 - `process` — `g_proc`: `ProcessSpec`, поток `ProcessLedger` (дедупликация, квоты),
   `ProcessGate` (лимит уточнений, типизированное завершение R1/R2/R5), `ProcessDefender`
   (лимит раундов и токенов агента); решения исполняются кодом через роль `process`;
@@ -29,7 +30,7 @@ from .process import (
     ProcessSpec, check_refund, normalize_request,
 )
 from .registry import (
-    REQUIRED_BASELINES, ConfigSet, detect_only, from_specs, g0, g_proc, g_simple, guarded,
+    REQUIRED_BASELINES, ConfigSet, detect_only, from_specs, g0, g_proc, guarded,
     leave_one_out, preregistered,
 )
 from .spec import (
@@ -44,7 +45,6 @@ __all__ = [
     "FrozenConfigError", "add_post_hoc", "defense_code_hashes", "freeze", "load_frozen",
     "load_lock", "verify", "PROCESS_VERSION", "Admission", "ProcessDefender", "ProcessError",
     "ProcessGate", "ProcessLedger", "ProcessSpec", "check_refund", "normalize_request",
-    "REQUIRED_BASELINES", "ConfigSet", "detect_only", "from_specs", "g0", "g_proc", "g_simple",
-    "guarded", "leave_one_out", "preregistered", "CONFIG_SCHEMA", "FAMILIES", "ROLES",
+    "REQUIRED_BASELINES", "ConfigSet", "detect_only", "from_specs", "g0", "g_proc", "guarded", "leave_one_out", "preregistered", "CONFIG_SCHEMA", "FAMILIES", "ROLES",
     "ConfigError", "ConfigSpec", "operational_definition", "same_detector", "FROZEN_DIR",
 ]

@@ -76,7 +76,7 @@ class BetaGate(unittest.TestCase):
 class ActOrEscalate(unittest.TestCase):
     def test_tau_star_matches_manual_term_of_l_star(self):
         be = {"terms": {"w_A": 0.5, "dV": 0.4, "manual": 0.1 * 6.0, "refuse": 0.0, "queue": 0.0,
-                        "attack_service": 0.0, "guard": 0.0}}
+                        "sla": 0.0, "attack_service": 0.0, "guard": 0.0}}
         g = {"n_attack": 20, "n_legal": 20, "continuity": {"escalations": 4}}
         r = {"continuity": {"escalations": 0}}
         res = act_or_escalate(be, g, r, (50.0, 500.0), 6.0)
@@ -89,17 +89,17 @@ class ActOrEscalate(unittest.TestCase):
 
 
 class Dominance(unittest.TestCase):
-    def test_guard_config_dominated_by_simple(self):
+    def test_guard_config_dominated_by_cheap_rival(self):
         def c(V, util, guards=("x",)):
             return {"guards": list(guards), "detect_only": False, "same_flow_as_reference": True,
                     "safety": {"V": V}, "utility": {"legal_completed_share": util}}
-        configs = {"g0": c(0.3, 1.0, ()), "g_simple": c(0.0, 1.0, ()), "g_in": c(0.0, 0.9),
+        configs = {"g0": c(0.3, 1.0, ()), "g_proc": c(0.0, 1.0, ()), "g_in": c(0.0, 0.9),
                    "g_big": c(0.0, 1.0)}
-        cost = {"g0": 0.0, "g_simple": 0.0, "g_in": 0.5, "g_big": 0.0}
+        cost = {"g0": 0.0, "g_proc": 0.0, "g_in": 0.5, "g_big": 0.0}
         d = dominance(configs, cost, [])
         self.assertEqual(d["dominated"], ["g_in"])
         row = {r["config"]: r for r in d["rows"]}
-        self.assertEqual(row["g_in"]["dominated_by"], ["g_simple"])
+        self.assertEqual(row["g_in"]["dominated_by"], ["g_proc"])
         self.assertEqual(row["g_big"]["dominated_by"], [])
 
     def test_loo_pure_cost_requires_positive_numerator(self):

@@ -11,7 +11,7 @@ from darp_range.metrics.robust import dominance
 def _agg(name, v, cost_usd, role="main", r=0.0):
     return {"config": name, "role": role, "w_L": 0.5, "w_A": 0.5,
             "safety": {"V": v}, "utility": {"R": r, "legal_completed_share": 1.0 - r},
-            "continuity": {"Q": 0.0, "E": 0.0},
+            "continuity": {"Q": 0.0, "P_sla_L": 0.0, "E": 0.0},
             "economics": {"defender_usd_per_episode": cost_usd}}
 
 
@@ -44,15 +44,15 @@ class CostToleranceTest(unittest.TestCase):
         self.assertEqual(pts["b"]["dominated_by"], ["a"])
 
     def test_dominance_noise_level_costs_are_equal(self):
-        cfgs = {"g_simple": _cfg(0.0, guards=()), "g_in": _cfg(0.0)}
-        dom = dominance(cfgs, {"g_simple": 0.002, "g_in": 0.002 + 1e-10})
+        cfgs = {"g_proc": _cfg(0.0, guards=()), "g_in": _cfg(0.0)}
+        dom = dominance(cfgs, {"g_proc": 0.002, "g_in": 0.002 + 1e-10})
         self.assertEqual(dom["dominated"], [])
-        dom = dominance(cfgs, {"g_simple": 0.002, "g_in": 0.002 - 1e-10})
+        dom = dominance(cfgs, {"g_proc": 0.002, "g_in": 0.002 - 1e-10})
         self.assertEqual(dom["dominated"], [])
 
     def test_dominance_real_cost_difference_still_dominates(self):
-        cfgs = {"g_simple": _cfg(0.0, guards=()), "g_in": _cfg(0.0)}
-        dom = dominance(cfgs, {"g_simple": 0.002, "g_in": 0.003})
+        cfgs = {"g_proc": _cfg(0.0, guards=()), "g_in": _cfg(0.0)}
+        dom = dominance(cfgs, {"g_proc": 0.002, "g_in": 0.003})
         self.assertEqual(dom["dominated"], ["g_in"])
 
 
