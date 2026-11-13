@@ -22,7 +22,7 @@ refreeze (absorbs #7).
 - **Corpus v2**: drop the goal=`shift` pairs p21–p24 (attack + paired control) and their
   `holdout_v2` paraphrases; remove `shift` from the taxonomy (corpus, attacker goals) and from
   success criteria (evaluator, attack cards). Escalation is a neutral outcome. Regenerated
-  `corpus/MANIFEST.json`, derived manifests, `artifacts/attack-cards.json`. Mode D multi-turn
+  `corpus/MANIFEST.json`, the `holdout_v2` manifest, the provenance registry, `artifacts/attack-cards.json`. Mode D multi-turn
   attacks are verified to be predefined sequences independent of agent replies (FR-1.20).
 - **Queue analytics (canon dvarp#18)**: escalation share `E(g)` is the primary queue metric,
   measured in paired runs and split by traffic class (`E_L` legal = natural + FP, `E_A` attack).
