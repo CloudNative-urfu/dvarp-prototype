@@ -3,7 +3,7 @@
   "defender": "agent",
   "executor_boundary": "955561c084ad57a95d4b6b01e04aa38126105db4d311347046205bea08b09fee",
   "family": "guarded",
-  "fingerprint": "6e620facc965270f4c53bd8e4d640f21431a143849eb69d7b09c92e9caa02427",
+  "fingerprint": "c9417c3ebda28d212260686d7e8aff3a7dda0224992a1923c511a72dfc859dc9",
   "guards": [
     {
       "id": "context-provenance",
@@ -30,9 +30,9 @@
   "name": "g_layered_minus_input_filter",
   "notes": "Leave-one-out of g_layered: without input-filter.",
   "operational_definition": [
-    "context: [context-provenance] allow->continue, flag->isolate, block->isolate, error->continue",
-    "tool: [tool-arg-validator] allow->continue, flag->isolate, block->clarify, error->isolate",
-    "output: [output-leak] allow->continue, flag->isolate, block->terminate, error->continue",
+    "context: [context-provenance] allow->continue, flag->escalate, block->terminate, error->continue",
+    "tool: [tool-arg-validator] allow->continue, flag->escalate, block->terminate, error->isolate",
+    "output: [output-leak] allow->continue, flag->escalate, block->terminate, error->continue",
     "clarifications per episode: 2"
   ],
   "policy": {
@@ -43,9 +43,9 @@
       "context": {
         "on": {
           "allow": "continue",
-          "block": "isolate",
+          "block": "terminate",
           "error": "continue",
-          "flag": "isolate"
+          "flag": "escalate"
         },
         "score_block": null,
         "score_flag": null
@@ -55,7 +55,7 @@
           "allow": "continue",
           "block": "terminate",
           "error": "continue",
-          "flag": "isolate"
+          "flag": "escalate"
         },
         "score_block": null,
         "score_flag": null
@@ -63,9 +63,9 @@
       "tool": {
         "on": {
           "allow": "continue",
-          "block": "clarify",
+          "block": "terminate",
           "error": "isolate",
-          "flag": "isolate"
+          "flag": "escalate"
         },
         "score_block": null,
         "score_flag": null
@@ -147,11 +147,10 @@
         ]
       }
     ],
-    "policy_fingerprint": "9300abab0de49f8d2da57c0b2f4e8e81ef7027cf42ac041c8519aceb6e0538a3",
+    "policy_fingerprint": "0e8699827b0c7172cff3c16e828cdc25321717bd6d97e804878cdc3f3a16f224",
     "policy_version": "guard-policy-1",
     "process_fingerprint": null,
-    "process_version": null,
-    "simple_fingerprint": null
+    "process_version": null
   },
   "role": "loo",
   "schema": "darp-config-1",

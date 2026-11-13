@@ -82,13 +82,12 @@ DEFENDER_PACKAGES = (
     "manual_queue",
     "evaluator",
     "state_store",
-    "simple_baseline",
     "configs",
     "runner",
     "metrics",
 )
 GUARD_PACKAGES = ("guard_contract", "guard_plugins", "guard_policy", "configs", "attackers")
-NO_GUARD_FAMILIES = ("g0", "proc", "simple")
+NO_GUARD_FAMILIES = ("g0", "proc")
 
 
 class AcceptanceError(RuntimeError):
@@ -351,7 +350,7 @@ def _fr_1_5(rv: RunView, r: _Req, probes) -> None:
     fam = {c: rv.family(c) for c in rv.configs}
     noguard = [c for c, f in fam.items() if f in NO_GUARD_FAMILIES]
     r.check(
-        "baselines g0 / g_proc / g_simple run with no plugin",
+        "baselines g0 / g_proc run with no plugin",
         bool(noguard) and all(not rows[c]["seen"] for c in noguard),
         noguard,
     )

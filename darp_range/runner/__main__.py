@@ -74,7 +74,7 @@ def cmd_schedule(a: argparse.Namespace) -> int:
 
 
 def demo(workdir: Path) -> tuple[dict[str, Any], list[tuple[str, bool]]]:
-    names = ["g0", "g0_seed2", "g_in", "g_in_detect_only", "g_proc", "g_simple"]
+    names = ["g0", "g0_seed2", "g_in", "g_in_detect_only", "g_proc"]
     plan = RunPlan(split="dev", blocks=1)
     rr = Runner(plan, workdir / "main").run(names)
     res = rr.configs

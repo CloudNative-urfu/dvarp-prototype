@@ -17,7 +17,7 @@ SMALL = [
     "--entries",
     "atk-01,atk-02,atk-13,atk-21,ctl-01,ctl-02,ctl-13,ctl-21",
     "--configs",
-    "g0,g_in,g_simple,g_in_detect_only",
+    "g0,g_in,g_proc,g_in_detect_only",
     "--seeds",
     "7,8,9",
     "--blocks",

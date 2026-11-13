@@ -3,7 +3,7 @@
   "defender": "agent",
   "executor_boundary": "955561c084ad57a95d4b6b01e04aa38126105db4d311347046205bea08b09fee",
   "family": "guarded",
-  "fingerprint": "24136f117b3de90c64100d8257de85921d0f0fc68206bdfa2bad3f4be1284010",
+  "fingerprint": "79d7365ae5bf1ea65cb1638e3bc24af9568cde58fac311826ec030b6e7951739",
   "guards": [
     {
       "id": "input-filter",
@@ -35,12 +35,12 @@
     }
   ],
   "name": "g_layered",
-  "notes": "All builtin guards at all four placements.",
+  "notes": "Positional matrix: input-filter + context-provenance + tool-arg-validator + output-leak at input/context/tool/output, reaction policy canon_escalate.",
   "operational_definition": [
     "input: [input-filter] allow->continue, flag->escalate, block->terminate, error->continue",
-    "context: [context-provenance] allow->continue, flag->isolate, block->isolate, error->continue",
-    "tool: [tool-arg-validator] allow->continue, flag->isolate, block->clarify, error->isolate",
-    "output: [output-leak] allow->continue, flag->isolate, block->terminate, error->continue",
+    "context: [context-provenance] allow->continue, flag->escalate, block->terminate, error->continue",
+    "tool: [tool-arg-validator] allow->continue, flag->escalate, block->terminate, error->isolate",
+    "output: [output-leak] allow->continue, flag->escalate, block->terminate, error->continue",
     "clarifications per episode: 2"
   ],
   "policy": {
@@ -51,9 +51,9 @@
       "context": {
         "on": {
           "allow": "continue",
-          "block": "isolate",
+          "block": "terminate",
           "error": "continue",
-          "flag": "isolate"
+          "flag": "escalate"
         },
         "score_block": null,
         "score_flag": null
@@ -73,7 +73,7 @@
           "allow": "continue",
           "block": "terminate",
           "error": "continue",
-          "flag": "isolate"
+          "flag": "escalate"
         },
         "score_block": null,
         "score_flag": null
@@ -81,9 +81,9 @@
       "tool": {
         "on": {
           "allow": "continue",
-          "block": "clarify",
+          "block": "terminate",
           "error": "isolate",
-          "flag": "isolate"
+          "flag": "escalate"
         },
         "score_block": null,
         "score_flag": null
@@ -189,11 +189,10 @@
         ]
       }
     ],
-    "policy_fingerprint": "56aced8b8b1b14b69975f95ab2c931b3a6f6a520a943b1a5d1a7901d4ca49004",
+    "policy_fingerprint": "d8a4fb076f4e21e3d1eea82a9d7fbfd83bad7ab42af9d57fa5fd25e85f77e81f",
     "policy_version": "guard-policy-1",
     "process_fingerprint": null,
-    "process_version": null,
-    "simple_fingerprint": null
+    "process_version": null
   },
   "role": "main",
   "schema": "darp-config-1",

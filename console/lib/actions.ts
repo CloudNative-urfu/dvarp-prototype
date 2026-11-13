@@ -97,7 +97,7 @@ export const ACTIONS: ActionDef[] = [
         label: "Конфигурации",
         kind: "configs",
         hint: "пусто = все замороженные",
-        default: "g0,g_in,g_ctx,g_layered,g_simple",
+        default: "g0,g_in,g_ctx,g_layered,g_proc",
       },
       { key: "seeds", label: "Seed'ы", kind: "seeds", default: "7", hint: "через запятую, до 5" },
       {

@@ -3,7 +3,7 @@
   "defender": "agent",
   "executor_boundary": "955561c084ad57a95d4b6b01e04aa38126105db4d311347046205bea08b09fee",
   "family": "guarded",
-  "fingerprint": "14b670a8a0b080574dea0b23f20b04ce43420b8b3162e2784b610064449ddf0b",
+  "fingerprint": "cbc1c712813af32358b566902cb593233cdabdb2afd928adfda37873959012bd",
   "guards": [
     {
       "id": "tool-arg-validator",
@@ -14,9 +14,9 @@
     }
   ],
   "name": "g_tool",
-  "notes": "Tool-argument validator: flag -> skip call, block -> skip and clarify.",
+  "notes": "Positional matrix: tool-arg-validator at tool, reaction policy canon_escalate.",
   "operational_definition": [
-    "tool: [tool-arg-validator] allow->continue, flag->isolate, block->clarify, error->isolate",
+    "tool: [tool-arg-validator] allow->continue, flag->escalate, block->terminate, error->isolate",
     "clarifications per episode: 2"
   ],
   "policy": {
@@ -27,9 +27,9 @@
       "tool": {
         "on": {
           "allow": "continue",
-          "block": "clarify",
+          "block": "terminate",
           "error": "isolate",
-          "flag": "isolate"
+          "flag": "escalate"
         },
         "score_block": null,
         "score_flag": null
@@ -64,11 +64,10 @@
         ]
       }
     ],
-    "policy_fingerprint": "7e004e8841fe6f06d86577e69eea11567dc3524a05d2e0fe32b6315408ab5254",
+    "policy_fingerprint": "6d92259f86857fda621fad59b5ef176d2faedbe318740d5f1eccf3aa34729105",
     "policy_version": "guard-policy-1",
     "process_fingerprint": null,
-    "process_version": null,
-    "simple_fingerprint": null
+    "process_version": null
   },
   "role": "main",
   "schema": "darp-config-1",

@@ -48,8 +48,6 @@ MUTANTS = [
      "            if False:"),
     ("отказы не считаются", LV,
      "            self.refusals[exc.limit_name] = self.refusals.get(exc.limit_name, 0) + 1\n", ""),
-    ("g_simple считается с моделью", LV, '        if defenders[name] == "simple":',
-     '        if False:'),
     ("повтор не учтён в плане эпизодов", LV,
      '        if plan.replay == "first_block" and sch.blocks:',
      '        if False and sch.blocks:'),

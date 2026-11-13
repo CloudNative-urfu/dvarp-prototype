@@ -398,7 +398,7 @@ class FrontierTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         g0 = _g0()
-        cheap_safe = _same_v("g_cheap_safe", tokens=10, role="baseline", family="g_simple")
+        cheap_safe = _same_v("g_cheap_safe", tokens=10, role="baseline", family="g_proc")
         for e in cheap_safe["pairs"][0]["attacked"]["episodes"][:2]:
             e["verdict"].update(violation=False, outcome="refused", task_status="completed")
         parent = _ga(name="g_pt", guards=("input-filter", "tool-arg-validator"), guard_tokens=200)
@@ -600,10 +600,8 @@ class EndToEndTest(unittest.TestCase):
             e = c["economics"]
             self.assertIn("self_limited", e)
             self.assertNotIn("self_limited", c["break_even"]["terms"])
-            # агент-заглушка тратит токены защищаемой стороны; g_simple — нет LLM
-            if c["family"] != "g_simple":
-                self.assertGreater(e["tokens_agent_per_episode"], 0, n)
-        self.assertEqual(self.rep["configs"]["g_simple"]["economics"]["tokens_agent_per_episode"], 0)
+            # агент-заглушка тратит токены защищаемой стороны
+            self.assertGreater(e["tokens_agent_per_episode"], 0, n)
 
     def test_cli_compute(self):
         out = self.dir / "cli-metrics"

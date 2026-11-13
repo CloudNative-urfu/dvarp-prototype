@@ -188,8 +188,7 @@ class FlowContext:
 
     def __post_init__(self):
         self.runner = self.log.writer("runner")
-        if self.cfg.defender != "simple":
-            self.model = self.model_factory(self.log, self.seed)
+        self.model = self.model_factory(self.log, self.seed)
         if self.cfg.process is not None:
             self.ledger = ProcessLedger(self.cfg.process)   # квоты и дубли — состояние потока
         self.channel_mode = "research" if self.plan.research_mode else "main"

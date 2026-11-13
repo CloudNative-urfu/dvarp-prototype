@@ -78,7 +78,7 @@ class AccessMatrixTest(unittest.TestCase):
         """Защита и оценщик не читают RESEARCH_LLM_* сами: модель им даёт брокер (llm/runner)."""
         pat = re.compile(r"ENV_API_KEY|[\"']RESEARCH_LLM_|LLMSettings|from_env\(|make_chat_model\(")
         for pkg in ("agent", "executor", "evaluator", "guard_contract", "guard_plugins",
-                    "guard_policy", "simple_baseline", "tools", "attackers", "channel"):
+                    "guard_policy", "tools", "attackers", "channel"):
             for f in sorted((ROOT / "darp_range" / pkg).glob("*.py")):
                 if f.relative_to(ROOT).as_posix() in BROKER_SIDE_FACTORIES:
                     continue

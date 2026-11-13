@@ -3,7 +3,7 @@
   "defender": "agent",
   "executor_boundary": "955561c084ad57a95d4b6b01e04aa38126105db4d311347046205bea08b09fee",
   "family": "g_proc",
-  "fingerprint": "af9231cac9b61984e93f067050118c2c72f2db63ea2998e112e2b29ca5688d8e",
+  "fingerprint": "cb67940c76c30a1a46bdea048f628ad2ffed08b691e2a6478ebe0f582fe5face",
   "guards": [],
   "name": "g_proc",
   "notes": "g0 + process rules: dedup, per-customer quota, round/clarification/token limits, typed finalization (R1/R2/R5); fair-share manual queue.",
@@ -38,8 +38,7 @@
     "policy_fingerprint": "bc3b17686e4ff23a7483af344eb7a6607238397ff2821a832a0793c7a6f63f89",
     "policy_version": "guard-policy-1",
     "process_fingerprint": "1d4f9515fa09402754609dad3dd80a31eee39c9a621ba0f679398ed05d181712",
-    "process_version": "g-proc-1",
-    "simple_fingerprint": null
+    "process_version": "g-proc-1"
   },
   "role": "baseline",
   "schema": "darp-config-1",

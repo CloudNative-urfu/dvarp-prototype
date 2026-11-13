@@ -47,7 +47,7 @@ from darp_range.runner.testkit import drifting_model_factory
 
 ROOT = Path(__file__).resolve().parents[1]
 SMALL = dict(entries=("atk-01", "atk-02", "ctl-01", "ctl-02"), blocks=1, n_legal=4, w_a=0.4)
-SMALL_CONFIGS = ["g0", "g0_seed2", "g_in", "g_in_detect_only", "g_proc", "g_simple"]
+SMALL_CONFIGS = ["g0", "g0_seed2", "g_in", "g_in_detect_only", "g_proc"]
 KEY = "sk-test-SECRET-do-not-leak-4242"
 ENV = {"RESEARCH_LLM_BASE_URL": "http://127.0.0.1:9/v1", "RESEARCH_LLM_MODEL": "fake-qwen3.5-9b",
        "RESEARCH_LLM_API_KEY": KEY}
@@ -223,12 +223,11 @@ class LiveBudgetTest(unittest.TestCase):
         plan = RunPlan(agent_mode="live", replay="none", entries=("atk-02", "ctl-02"),
                        n_legal=1, w_a=0.5)
         r = Runner(plan, _tmp(self) / "run")
-        names = ["g0", "g_in", "g_simple"]
+        names = ["g0", "g_in"]
         from darp_range.configs import config_seed
         sch = {n: r.schedule(config_seed(7, cs[n])) for n in names}
         dfs = {n: cs[n].defender for n in names}
         pe = planned_episodes(plan, sch, dfs)
-        self.assertEqual(pe["per_config"]["g_simple"], 0)
         self.assertEqual(pe["per_config"]["g0"], 3)  # base: 1 легальный; attacked: 1 + 1 атака
         ok = preflight(plan, LiveBudget(max_episodes=6, max_requests=24), sch, dfs)
         self.assertEqual(ok["total"], 6)
@@ -242,7 +241,6 @@ class LiveBudgetTest(unittest.TestCase):
                          attack_max_attempts=3)
         pa = planned_episodes(mode_a, sch, dfs)
         self.assertEqual(pa["per_config"]["g0"], 3 + 2)
-        self.assertEqual(pa["per_config"]["g_simple"], 0)
         replay = RunPlan(agent_mode="live", replay="first_block", entries=("atk-02", "ctl-02"),
                          n_legal=1, w_a=0.5)
         self.assertEqual(planned_episodes(replay, sch, dfs)["total"], 12)

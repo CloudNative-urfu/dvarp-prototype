@@ -6,7 +6,7 @@ import { Lock, Search } from "lucide-react";
 import type { ConfigInfo } from "@/lib/configs";
 import { Segment } from "./controls";
 
-const FAMILY: Record<string, string> = { g0: "без защиты", guarded: "гварды", g_proc: "правила процесса", g_simple: "простая форма" };
+const FAMILY: Record<string, string> = { g0: "без защиты", guarded: "гварды", g_proc: "правила процесса" };
 
 export function ConfigGrid({ configs }: { configs: ConfigInfo[] }) {
   const [q, setQ] = useState("");

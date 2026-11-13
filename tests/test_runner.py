@@ -135,7 +135,7 @@ class PlanAndScheduleTest(unittest.TestCase):
 # ------------------------------------------------------------------ прогон
 
 class RunnerRunTest(unittest.TestCase):
-    NAMES = ["g0", "g0_seed2", "g_in", "g_in_detect_only", "g_proc", "g_simple"]
+    NAMES = ["g0", "g0_seed2", "g_in", "g_in_detect_only", "g_proc"]
 
     @classmethod
     def setUpClass(cls):

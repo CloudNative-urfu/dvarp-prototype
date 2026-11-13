@@ -14,7 +14,7 @@
   предпосылки A1–A3, при которых L* = L_tau; прежнее «PPV_eff» — это отношение
   `prevented_per_extra_escalation` (не вероятность), а прежняя сверка была тождеством.
 - `dominance` — какие конфигурации с гвардрейлами доминируются простыми соперниками
-  (g_simple, g_tool, g_proc): не хуже по V, по полезности и по стоимости, лучше хотя бы в одном.
+  (g_tool, g_proc): не хуже по V, по полезности и по стоимости, лучше хотя бы в одном.
 
 Все функции — чистые функции эпизодов/агрегатов; случайность — `random.Random(seed)`.
 """
@@ -34,7 +34,7 @@ GATE_DELTA = 0.03            # AGO: δ = 0.03
 GATE_BLOCK, GATE_REVIEW = 0.8, 0.5
 GATE_DRAWS = 20000
 GATE_SEED = 4201             # AGO: posterior stream seed 4201
-SIMPLE_RIVALS = ("g_simple", "g_tool", "g_proc")
+SIMPLE_RIVALS = ("g_tool", "g_proc")
 
 
 def _rates(eps: Sequence[Any], keys: Iterable[str]) -> tuple[float, float, float, float]:

@@ -2,7 +2,7 @@
 
 Содержательно проверяется:
 - схема конфигурации закрыта: настройки исполнителя отвергаются, граница исполнителя одна и
-  сверяется по отпечатку (FR-1.14); инварианты семейств g0/g_proc/g_simple/guarded и ролей;
+  сверяется по отпечатку (FR-1.14); инварианты семейств g0/g_proc/guarded и ролей;
 - набор полон (NFR-2.12, §5): базовые линии, конфигурации с гвардрейлами, повтор g0 на другом
   seed, «чистый детектор» с теми же гвардрейлами и таблицей; leave-one-out убирает ровно один;
 - отпечаток чувствителен к порогам, параметрам плагинов и правилам процесса и устойчив к
@@ -68,7 +68,6 @@ from darp_range.configs.process import MSG_DUPLICATE, MSG_ESCALATED
 from darp_range.executor import BOUNDARY_FINGERPRINT, DENIAL_CODES
 from darp_range.guard_contract import GuardSet
 from darp_range.guard_policy import GuardedDefender, ReactionPolicy, StageRule
-from darp_range.simple_baseline import SimpleBaseline
 from darp_range.state_store import connect
 from darp_range.tools import PendingCall
 
@@ -92,12 +91,20 @@ class TestSpec(unittest.TestCase):
 
     def test_preregistered_set_is_complete(self):
         cs = self.cs
-        for name in ("g0", "g_proc", "g_simple"):
+        for name in ("g0", "g_proc"):
             self.assertEqual(cs[name].family, name)
             self.assertEqual(cs[name].role, "baseline")
+        self.assertEqual([c.name for c in cs if c.role == "baseline"], ["g0", "g_proc"])
         mains = [c for c in cs if c.family == "guarded" and c.role == "main"]
-        self.assertGreaterEqual(len(mains), 1)
-        self.assertEqual(cs["g_simple"].defender, "simple")
+        # позиционная матрица §4: 5 наборов × 3 политики канона + OSS-детектор на входе
+        self.assertEqual(len(mains), 16)
+        for pos in ("g_in", "g_ctx", "g_tool", "g_out", "g_layered"):
+            flags = [{r.on["flag"] for r in cs[pos + sfx].policy.stages.values()}
+                     for sfx in ("_iso", "", "_term")]
+            self.assertEqual(flags, [{"isolate"}, {"escalate"}, {"terminate"}], pos)
+            self.assertEqual(len({cs[pos + sfx].guards.fingerprint()
+                                  for sfx in ("_iso", "", "_term")}), 1, pos)
+        self.assertTrue(all(c.defender == "agent" for c in cs))
         self.assertIsNotNone(cs["g_proc"].process)
         self.assertEqual(cs["g_proc"].queue_discipline, "fair_share")
         rep = cs["g0_seed2"]
@@ -106,7 +113,7 @@ class TestSpec(unittest.TestCase):
         do = cs["g_in_detect_only"]
         self.assertTrue(do.policy.detect_only)
         self.assertTrue(same_detector(do, cs["g_in"]))
-        self.assertEqual(len(cs.names(roles=["loo"])), 6)
+        self.assertEqual(len(cs.names(roles=["loo"])), 4)
 
     def test_executor_boundary_is_shared_and_not_configurable(self):
         for c in self.cs:
@@ -133,6 +140,8 @@ class TestSpec(unittest.TestCase):
             ConfigSpec("x", "g_proc", "baseline", "agent", gs, pol, process=ProcessSpec())
         with self.assertRaises(ConfigError):
             ConfigSpec("x", "g_simple", "baseline", "agent", GuardSet.empty(), none)
+        with self.assertRaises(ConfigError):
+            ConfigSpec("x", "g0", "baseline", "simple", GuardSet.empty(), none)
         with self.assertRaises(ConfigError):
             ConfigSpec("x", "g_proc", "baseline", "agent", GuardSet.empty(), none)
         with self.assertRaises(ConfigError):
@@ -218,7 +227,7 @@ class TestSpec(unittest.TestCase):
 
     def test_set_requires_baselines_and_controls(self):
         allc = list(self.cs)
-        for drop in ("g_simple", "g_proc", "g0_seed2", "g_in_detect_only"):
+        for drop in ("g_proc", "g0_seed2", "g_in_detect_only"):
             with self.assertRaises(ConfigError, msg=drop):
                 ConfigSet(
                     [
@@ -696,8 +705,6 @@ class TestBuildAndFreezeGuard(unittest.TestCase):
         b = self._bundle("g_proc", model=self.model)
         self.assertIsInstance(b.defender, ProcessDefender)
         self.assertIsInstance(b.defender.inner, RefundAgent)
-        b = self._bundle("g_simple")
-        self.assertIsInstance(b.defender, SimpleBaseline)
         with self.assertRaises(ConfigError):
             self._bundle("g_in")
         with self.assertRaises(ConfigError):
@@ -777,7 +784,7 @@ class TestBuildAndFreezeGuard(unittest.TestCase):
 class TestCorpusEndToEnd(unittest.TestCase):
     """Все базовые линии и контроли на корпусе разработки со скриптовой моделью агента."""
 
-    NAMES = ("g0", "g_proc", "g_simple", "g_in", "g_in_detect_only")
+    NAMES = ("g0", "g_proc", "g_in", "g_in_detect_only")
 
     @classmethod
     def setUpClass(cls):
@@ -787,11 +794,7 @@ class TestCorpusEndToEnd(unittest.TestCase):
         for n in cls.NAMES:
             cfg = cls.cs[n]
             shop = new_shop(cls.wd / n, seed=config_seed(SEED, cfg))
-            model = (
-                None
-                if cfg.defender == "simple"
-                else make_agent_model(shop.log, mode="stub", seed=SEED)
-            )
+            model = make_agent_model(shop.log, mode="stub", seed=SEED)
             cls.runs[n] = run_corpus(shop, cfg, model)
             cls.sum[n] = summarize(cls.runs[n])
             cls.logs[n] = shop.log
@@ -823,10 +826,6 @@ class TestCorpusEndToEnd(unittest.TestCase):
             self.sum["g_proc"]["controls_completed"], self.sum["g0"]["controls_completed"]
         )
         self.assertEqual(self.sum["g_proc"]["control_violations"], [])
-
-    def test_g_simple_without_llm(self):
-        self.assertEqual(self.sum["g_simple"]["tokens"], {})
-        self.assertEqual(self.sum["g_simple"]["violations"], [])
 
     def test_detect_only_is_a_pure_detector(self):
         g0, do, gin = self.runs["g0"], self.runs["g_in_detect_only"], self.runs["g_in"]

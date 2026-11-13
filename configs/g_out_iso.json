@@ -1,0 +1,75 @@
+{
+  "control_of": null,
+  "defender": "agent",
+  "executor_boundary": "955561c084ad57a95d4b6b01e04aa38126105db4d311347046205bea08b09fee",
+  "family": "guarded",
+  "fingerprint": "56badccfbd3de5d9f2940aba51fff162d70320a9d413af41895aaff76045dc53",
+  "guards": [
+    {
+      "id": "output-leak",
+      "params": {},
+      "stages": [
+        "output"
+      ]
+    }
+  ],
+  "name": "g_out_iso",
+  "notes": "Positional matrix: output-leak at output, reaction policy canon_isolate.",
+  "operational_definition": [
+    "output: [output-leak] allow->continue, flag->isolate, block->terminate, error->continue",
+    "clarifications per episode: 2"
+  ],
+  "policy": {
+    "detect_only": false,
+    "max_clarifications": 2,
+    "name": "g_out_iso",
+    "stages": {
+      "output": {
+        "on": {
+          "allow": "continue",
+          "block": "terminate",
+          "error": "continue",
+          "flag": "isolate"
+        },
+        "score_block": null,
+        "score_flag": null
+      }
+    },
+    "version": "guard-policy-1"
+  },
+  "process": null,
+  "queue_discipline": "fifo",
+  "resolved": {
+    "guard_set_fingerprint": "2254feac34b331d0862c6d9b21772a5c8c48570f7f0adb9c1987d270cfbe7020",
+    "guards": [
+      {
+        "plugin": {
+          "deployment": "builtin",
+          "enabled_by_default": true,
+          "license": "",
+          "mechanism": "rules",
+          "origin": "own; recognizer classes after Presidio (catalog #19), without NLP model",
+          "params": {
+            "check_internal": true,
+            "flag_score": 0.6
+          },
+          "plugin_id": "output-leak",
+          "stages": [
+            "output"
+          ],
+          "version": "1.0"
+        },
+        "stages": [
+          "output"
+        ]
+      }
+    ],
+    "policy_fingerprint": "030f87df37c419a0e96f6a57ee9ae548aafdeb36ab11022d4467ef6cb8c820b0",
+    "policy_version": "guard-policy-1",
+    "process_fingerprint": null,
+    "process_version": null
+  },
+  "role": "main",
+  "schema": "darp-config-1",
+  "seed_label": "main"
+}

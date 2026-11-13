@@ -3,7 +3,7 @@
   "defender": "agent",
   "executor_boundary": "955561c084ad57a95d4b6b01e04aa38126105db4d311347046205bea08b09fee",
   "family": "guarded",
-  "fingerprint": "116ef723851a8e45a9eceed8d5266e2e4d37571d27848303073ef5f447deeead",
+  "fingerprint": "e09a91e0070ca7237c52950dac4032ebebf301e783684b792019797b8d7cee63",
   "guards": [
     {
       "id": "input-filter",
@@ -11,42 +11,24 @@
       "stages": [
         "input"
       ]
-    },
-    {
-      "id": "tool-arg-validator",
-      "params": {},
-      "stages": [
-        "tool"
-      ]
     }
   ],
-  "name": "g_in_tool",
-  "notes": "Combination of g_in and g_tool.",
+  "name": "g_in_iso",
+  "notes": "Positional matrix: input-filter at input, reaction policy canon_isolate.",
   "operational_definition": [
-    "input: [input-filter] allow->continue, flag->escalate, block->terminate, error->continue",
-    "tool: [tool-arg-validator] allow->continue, flag->isolate, block->clarify, error->isolate",
+    "input: [input-filter] allow->continue, flag->isolate, block->terminate, error->continue",
     "clarifications per episode: 2"
   ],
   "policy": {
     "detect_only": false,
     "max_clarifications": 2,
-    "name": "g_in_tool",
+    "name": "g_in_iso",
     "stages": {
       "input": {
         "on": {
           "allow": "continue",
           "block": "terminate",
           "error": "continue",
-          "flag": "escalate"
-        },
-        "score_block": null,
-        "score_flag": null
-      },
-      "tool": {
-        "on": {
-          "allow": "continue",
-          "block": "clarify",
-          "error": "isolate",
           "flag": "isolate"
         },
         "score_block": null,
@@ -58,7 +40,7 @@
   "process": null,
   "queue_discipline": "fifo",
   "resolved": {
-    "guard_set_fingerprint": "82eeaf50472f7fe2cad602b4bf13545eff6a57f1553b09dc3cb0e35e5704e9b6",
+    "guard_set_fingerprint": "d5f1584fd977629e4441af6932e16dc0e532b376d2573741d0990ee9b6070ef8",
     "guards": [
       {
         "plugin": {
@@ -83,34 +65,12 @@
         "stages": [
           "input"
         ]
-      },
-      {
-        "plugin": {
-          "deployment": "builtin",
-          "enabled_by_default": true,
-          "license": "",
-          "mechanism": "rules",
-          "origin": "own; argument-validator idea from arXiv 2610.09906; rules R1-R7 from trusted policy table",
-          "params": {
-            "check_refusals": true,
-            "flag_score": 0.6
-          },
-          "plugin_id": "tool-arg-validator",
-          "stages": [
-            "tool"
-          ],
-          "version": "1.0"
-        },
-        "stages": [
-          "tool"
-        ]
       }
     ],
-    "policy_fingerprint": "8a906ca63bfa24eca42cd8cba6736388c94927c8e121137a1a67172a84c860ec",
+    "policy_fingerprint": "6346369fcfdb969d6b04c183d0e335cc19e4cdae78933d40a2cbe7b4ff6441f5",
     "policy_version": "guard-policy-1",
     "process_fingerprint": null,
-    "process_version": null,
-    "simple_fingerprint": null
+    "process_version": null
   },
   "role": "main",
   "schema": "darp-config-1",

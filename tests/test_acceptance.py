@@ -15,7 +15,7 @@ from darp_range.report_cli.pipeline import run_offline
 from darp_range.runner.plan import RunPlan
 
 ROOT = Path(__file__).resolve().parents[1]
-CONFIGS = ["g0", "g_in", "g_layered", "g_in_detect_only", "g_simple"]
+CONFIGS = ["g0", "g_in", "g_layered", "g_in_detect_only", "g_proc"]
 
 
 class AcceptanceTest(unittest.TestCase):

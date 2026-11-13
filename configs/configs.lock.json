@@ -4,169 +4,208 @@
       "control_of": null,
       "family": "g0",
       "file": "g0.json",
-      "fingerprint": "f2d356909156c2dbd3fd80f66f53c3fda28a40137dddcfd120beb08dbe0ca898",
+      "fingerprint": "818fcae1c23e80a78957377bfa939aff93bc6db3f3e4f577b64ee7bc42e00adf",
       "role": "baseline",
-      "sha256": "d132abd5d0dba0d36df76a2d29dbbfde75e0f48683459ed1de87dd25d2635ef2"
+      "sha256": "4feca215907e68aeed52e04608fe7e187522cf273aac419351e100708e50325f"
     },
     "g0_seed2": {
       "control_of": "g0",
       "family": "g0",
       "file": "g0_seed2.json",
-      "fingerprint": "77a02e1a7381420de26685d61d7fdc194c9b7fb607cd837f5bfce3fc3574e775",
+      "fingerprint": "312e9bde547e129085830b6b1bfb709277da7842c5bbe3c704a4d584f12f3a3c",
       "role": "control",
-      "sha256": "0901c3cba4f8c72968f569e642fcef3542c54a139d03cedfc0070215e0a2b335"
+      "sha256": "db43088967058b0df5dd0d554a8197a4ae495d9d2cb4c7dd2d51316d8ddfd9d9"
     },
     "g_ctx": {
       "control_of": null,
       "family": "guarded",
       "file": "g_ctx.json",
-      "fingerprint": "c981b2ac19e6419d56db5fbf12ca868bf7f592eea463135c19728f00a17add62",
+      "fingerprint": "4cc7ccc99838bc8452bcf01f66f3fbd1ee37f8ac36c5e0cd93e8ffc4a3d80999",
       "role": "main",
-      "sha256": "22cce7a902b538d6eeb3357d72e4ed87042febc0a1c2ab950153ce9bad507286"
+      "sha256": "319668c1491dd3ffc7bcc6259f2f0fe9dbd48dae62a6bb206f8e2b421fdcf3c4"
+    },
+    "g_ctx_iso": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_ctx_iso.json",
+      "fingerprint": "e8a4acf9e340dddc2a3cb13c56697eb3595c4338b7b3fd8372d9b670735d6b1b",
+      "role": "main",
+      "sha256": "758aabfa399d13ee76790ac69164502f1f2b168119a492682b29ae66676eb4b8"
+    },
+    "g_ctx_term": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_ctx_term.json",
+      "fingerprint": "7e2d8b99643c78dd77cde37197e5d91b9b3c4b865466ce125aceeb0e192671b2",
+      "role": "main",
+      "sha256": "9602fce65a325207846ecefc8bc1300cc22f1e026ccb8eaebb6622883d2d1d2b"
     },
     "g_in": {
       "control_of": null,
       "family": "guarded",
       "file": "g_in.json",
-      "fingerprint": "c7d99421df61ea4fd8caf6d40817c9e55575a2066da2e89e1d4cf9ac18f5a141",
+      "fingerprint": "22f339832165c499df2e78d1cd4db563bb247e04558a523038dbabe53722ed8e",
       "role": "main",
-      "sha256": "8c0f4381a327807f1e0557b56b24f0af835650ccd6a2b762f6576eca766cdc04"
+      "sha256": "b520ac392054a67e0e65a97a29d39b2ecb5fe08bdab73a6dc0f150c201c27d2b"
     },
     "g_in_detect_only": {
       "control_of": "g_in",
       "family": "guarded",
       "file": "g_in_detect_only.json",
-      "fingerprint": "980725395dc621548fa272fa4296b603e89d8a7b7e6d805f3a217e554bb2dac8",
+      "fingerprint": "8dcc31a1c0ffb42061167674c1785dcf6f477effe59a326692fd8f7378263652",
       "role": "control",
-      "sha256": "25b85e7e3c42334ffbe3ab1d38f79f77b3cd21dcc7f9736d6983b59c178b8ae0"
+      "sha256": "08584bc78c44a2ae3957dbf9460f5ad84a1a76ef8171431a524d60f628dad85a"
     },
-    "g_in_failclosed": {
+    "g_in_iso": {
       "control_of": null,
       "family": "guarded",
-      "file": "g_in_failclosed.json",
-      "fingerprint": "eeff134365227d18996f8555395c965290da5cf9e20e44137870053cfeda7eab",
+      "file": "g_in_iso.json",
+      "fingerprint": "e09a91e0070ca7237c52950dac4032ebebf301e783684b792019797b8d7cee63",
       "role": "main",
-      "sha256": "fbdc13cbc27ddf4f9abb1cabaa4f49623b0e2800a66279a42c4e2ba151da1c01"
+      "sha256": "465c007ecf8a446b9dedf1c45e4580faab15e58145c332704098c4f0e4e76ccb"
     },
     "g_in_oss": {
       "control_of": null,
       "family": "guarded",
       "file": "g_in_oss.json",
-      "fingerprint": "3193300082c4d79a72186aa4da3044575b8c1b7569adab6c4b2110fe9a7acdb3",
+      "fingerprint": "2652c29b3d9b68f03224ab2fdd940f483f3acaa62bb25ed964679b147b869f4e",
       "role": "main",
-      "sha256": "6e55686a48a0d2fc5ede1bee20a4c369dd76b2892c79f7163d48a465eed45923"
+      "sha256": "fc217dda1934d78dba4e963d7e8059e0989ba524152e0eac931f132d56358274"
     },
-    "g_in_tool": {
+    "g_in_term": {
       "control_of": null,
       "family": "guarded",
-      "file": "g_in_tool.json",
-      "fingerprint": "116ef723851a8e45a9eceed8d5266e2e4d37571d27848303073ef5f447deeead",
+      "file": "g_in_term.json",
+      "fingerprint": "a71c5358ab2a3b06d3abad13ff6ae521aa3c8f66fd810935331e3d0b213f8d5f",
       "role": "main",
-      "sha256": "40783163c3c6cf780939f0a10ee08081fd1b2f805f507c6715e76e46263f7309"
-    },
-    "g_in_tool_minus_input_filter": {
-      "control_of": "g_in_tool",
-      "family": "guarded",
-      "file": "g_in_tool_minus_input_filter.json",
-      "fingerprint": "bdc5a3c0e657f6c1fa7f213eef0898e2a367b6bcac06ec289f819bf6db2550a6",
-      "role": "loo",
-      "sha256": "2eb916ceb443ede174dc3a046691e50694a79dfe780b8fad5e5b45a595f2f745"
-    },
-    "g_in_tool_minus_tool_arg_validator": {
-      "control_of": "g_in_tool",
-      "family": "guarded",
-      "file": "g_in_tool_minus_tool_arg_validator.json",
-      "fingerprint": "0fad41d682f9b812538c85e17b9cd09e47887d9d6a98405e5a59fd6b512fad31",
-      "role": "loo",
-      "sha256": "fc00638811652f111ff9540df768fcbd1c6662dbc9a31039b3c0a6a65b6bfc97"
+      "sha256": "f5f4e1ea64178ea80e5084eca5b5ccb52b02016384103f4c7c2411c9218b6ce5"
     },
     "g_layered": {
       "control_of": null,
       "family": "guarded",
       "file": "g_layered.json",
-      "fingerprint": "24136f117b3de90c64100d8257de85921d0f0fc68206bdfa2bad3f4be1284010",
+      "fingerprint": "79d7365ae5bf1ea65cb1638e3bc24af9568cde58fac311826ec030b6e7951739",
       "role": "main",
-      "sha256": "65f632258df03a4bd1dec8a6c042d59a92d94b9bd19dfc4398cdc6bd91e3229e"
+      "sha256": "56e1dae945cdc6a61dc1c9522db4251c962b3f3b1feea7df568f8ebd88db6938"
+    },
+    "g_layered_iso": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_layered_iso.json",
+      "fingerprint": "6c15310f858227cb2e7bdae0a5f62ff16f4a85a293d5e6db4055fec3f8669b6d",
+      "role": "main",
+      "sha256": "ce98cf99edf3dfeb258cc35feadcdbbee5fe63d8459828b6fd03f187a0dd1605"
     },
     "g_layered_minus_context_provenance": {
       "control_of": "g_layered",
       "family": "guarded",
       "file": "g_layered_minus_context_provenance.json",
-      "fingerprint": "df9ca07be4ec48016102c7d64f2f9b3bd8d85692dcfa421798c9f653eeab6c09",
+      "fingerprint": "286be6ec6a5459b6650f31eb043795a87973fbda318bbadc9615a5ed6277f03f",
       "role": "loo",
-      "sha256": "1c000e99c1e0a286917485f762b652a5c5b4fdbc23462fbdc52bbdb1385bc1e3"
+      "sha256": "f84dc214adcd041e1d45bcd205aa5c35fdd585f992733589abafa9ef1b505d99"
     },
     "g_layered_minus_input_filter": {
       "control_of": "g_layered",
       "family": "guarded",
       "file": "g_layered_minus_input_filter.json",
-      "fingerprint": "6e620facc965270f4c53bd8e4d640f21431a143849eb69d7b09c92e9caa02427",
+      "fingerprint": "c9417c3ebda28d212260686d7e8aff3a7dda0224992a1923c511a72dfc859dc9",
       "role": "loo",
-      "sha256": "fb36b9ad6ddd52b6e142bde47cad50ed29da5c5e03d710cdee4de34aa09526bc"
+      "sha256": "01429aa76008d4267026f5b0f99d7075167e089511d4c56fdee7a090838367c0"
     },
     "g_layered_minus_output_leak": {
       "control_of": "g_layered",
       "family": "guarded",
       "file": "g_layered_minus_output_leak.json",
-      "fingerprint": "10acdbbb46c01f47c45ba87e2fc10f83c2838f333173dfb8a8e95948c40d72ff",
+      "fingerprint": "dd17258ab093aa373204e661196abe7db3d720e2abc5d1416f174b03dcba3205",
       "role": "loo",
-      "sha256": "bcbdf040330fdeadcfb253e61d11537afb1242b13825e3204f05cd37d3fe18bb"
+      "sha256": "84d4bf25b82fb093033e32283d8a34f32c83b750ce393e8dee944082656b870c"
     },
     "g_layered_minus_tool_arg_validator": {
       "control_of": "g_layered",
       "family": "guarded",
       "file": "g_layered_minus_tool_arg_validator.json",
-      "fingerprint": "c36e858d404db0d50657265dfa1bcf17915acfc6bd52e900f9fc342a92e53cef",
+      "fingerprint": "9faebf45e445d663de0c037b07595daf3b9dd6fd92cde92cc99da330dd1dabc9",
       "role": "loo",
-      "sha256": "a4b840621e4e7abc2b111ecb18e5b38eee463aec7488b3c091696b9553889177"
+      "sha256": "1fdff1336dbeacd93d346e91b262612bc2a176a0b5b736d838d4af7eff7d4ef4"
+    },
+    "g_layered_term": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_layered_term.json",
+      "fingerprint": "ee85587ebc4b18bf38329ddee00bffce3705c334b5016753c0dd2d9b887e020b",
+      "role": "main",
+      "sha256": "3caed228200fd21af04818be4292935fb6f2ead391dfa3d1fbc796986b073a04"
     },
     "g_out": {
       "control_of": null,
       "family": "guarded",
       "file": "g_out.json",
-      "fingerprint": "bb09a1ed3ca939edcb11799638f2930e65ac3e82719d1d8c6d2f6015fe4962f7",
+      "fingerprint": "3e78fcf4fd61a3a2e18eb12677d38c5f3bda576034a00842ae0d7d0390ca01d3",
       "role": "main",
-      "sha256": "d1fef6fcfbf60e3c4e4dc61cd2ca98f19585d4c9e1d1231e85e5c93baa5377b1"
+      "sha256": "a1085f53deb7db218c5d3b9c2a1f7d1163b270166e23dd0e36cb37dbcd1f3a0b"
+    },
+    "g_out_iso": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_out_iso.json",
+      "fingerprint": "56badccfbd3de5d9f2940aba51fff162d70320a9d413af41895aaff76045dc53",
+      "role": "main",
+      "sha256": "99e3e5ce977ebfa9e3b09cc19e98f22a3862bdde5c24a921338549fbd8932e7d"
+    },
+    "g_out_term": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_out_term.json",
+      "fingerprint": "24d3691efbeee2f234d408578d1e3d1861c2d3a8d758dde60d5d963cda5acc9d",
+      "role": "main",
+      "sha256": "4cb40beff5c42865c9858ac47918ca1f2757398324d7623d0f6927e87640e516"
     },
     "g_proc": {
       "control_of": null,
       "family": "g_proc",
       "file": "g_proc.json",
-      "fingerprint": "af9231cac9b61984e93f067050118c2c72f2db63ea2998e112e2b29ca5688d8e",
+      "fingerprint": "cb67940c76c30a1a46bdea048f628ad2ffed08b691e2a6478ebe0f582fe5face",
       "role": "baseline",
-      "sha256": "dc426f216c811faf7e232abfcb61f05e3564a2cb66d29f441cde542cb94c3aa1"
-    },
-    "g_simple": {
-      "control_of": null,
-      "family": "g_simple",
-      "file": "g_simple.json",
-      "fingerprint": "57d625bda12ebaf54adffc5596790f70a48582d884fbd335683f2ae0d243eeac",
-      "role": "baseline",
-      "sha256": "c12d43fca4c3e3714d14b8bc72d060f792342cfef23f3ea5b171c7e8627ac84d"
+      "sha256": "54df935c33d7b8aeb85ed4c1c8c178457633bdf62b3eef46fa041d04c9aa83fa"
     },
     "g_tool": {
       "control_of": null,
       "family": "guarded",
       "file": "g_tool.json",
-      "fingerprint": "14b670a8a0b080574dea0b23f20b04ce43420b8b3162e2784b610064449ddf0b",
+      "fingerprint": "cbc1c712813af32358b566902cb593233cdabdb2afd928adfda37873959012bd",
       "role": "main",
-      "sha256": "573adda2cac2b98efc72ae66b8a33eea0fca0ee872fe7d20271d3465bea9b4ee"
+      "sha256": "b176594cdbd210282e13c75da093397f23b0b6522235310646e92b9cbbaf3539"
+    },
+    "g_tool_iso": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_tool_iso.json",
+      "fingerprint": "2589e0e08a469daaa2f7d5dc42c7739022082aafa5260f9bbb6a6bd1d876843c",
+      "role": "main",
+      "sha256": "01e9b806789254b4f6c254f2bc76d065762d1c724e3112b7f8a0171edb02c508"
+    },
+    "g_tool_term": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_tool_term.json",
+      "fingerprint": "5de8ba23d29ec2cee676fc23200a778f5a3c1146a358ffef930361b7fd6a881b",
+      "role": "main",
+      "sha256": "ab58ab99e47de7639260bd97282e7a308d3db229ba7e611f046c948ca96eef91"
     }
   },
   "defense_code": {
-    "configs": "762f6a2fceb01871af166b7dea137fbccbc5ed547fb4a9f41da56735ba6ca5f3",
-    "executor": "fbd6faab0db88d6493c8e81ea50f054d7e56f32dfbcc2f33254d3457793eb2d2",
+    "configs": "c57f37b15b727b0b28ec4617ef65d6a6748c1191913c32feacb0445d776fa289",
+    "executor": "eeac2f829d182fb6de7cbd8c2320d2f5d693c072ba6e0e9dd99a1860142232f3",
     "guard_contract": "c66c7fed667dad793b256bf895b9edd17f05b7e17ebbcd2097560108db4e55bb",
     "guard_plugins": "a8618eceacd11606232e7994be6247cc5234446c11c7514b0836174ba6526845",
-    "guard_policy": "a17601f77deb8b5a9d76c9d45eaf0e3c9268c00dfb3952ad43e6366e0ebbfa22",
-    "simple_baseline": "c17171a6b50814beecad1ff305c5a72e329dfb9bb193cb72773810fdf2b33ab1",
+    "guard_policy": "9f4f839c825cad825a0d91b1d468483a87f9a0704bfb7b3584a2c353c48a2e08",
     "tools": "d1105c6cc5df4bd5c89a6ede68d291dfca31c206aae3ff1249b79b22246941fd"
   },
-  "lock_fingerprint": "fca6832837b2f33e8be2698b2b50c6ccb59a76def003a2f391be919841cc0938",
-  "locked_at": "2026-11-07T20:53:11Z",
-  "note": "revision 8 (lock v6): configurations unchanged (same files, set_fingerprint 6f20a02e...); only defense_code.executor re-hashed because darp_range/executor gained append-only TEMP triggers with recursive_triggers and the PRAGMA/ATTACH denial on the boundary-2/2r connection (history-append-only); boundary spec/fingerprints unchanged",
+  "lock_fingerprint": "7564cf2270ab6f2b6f58a91089eff2be3e9701bded4d6b98ae3bfe318472b32a",
+  "locked_at": "2026-11-13T06:54:52Z",
+  "note": "issue #29 (absorbs #7): research matrix design.md §4 — baselines g0+g_proc, positional matrix (input/context/tool/output/layered) x 3 canon reaction policies (canon_escalate/isolate/terminate), g_in_oss, controls g0_seed2 + g_in_detect_only, leave-one-out of g_layered; g_simple removed (canon deviation FR-1.12, dvarp#17); owner-sanctioned refreeze",
   "post_hoc": {},
   "preregistered": true,
   "schema": "darp-configs-lock-1",
-  "set_fingerprint": "6f20a02e2a71be6e02f7554c9a577a2f4e8e39c1692046cf2e0d75658d3454dd"
+  "set_fingerprint": "95cc4b3a78c988a946d1f9aefd2fa5d8844db2e8cf79e46ea7e7a0f3770a2c68"
 }

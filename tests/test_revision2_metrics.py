@@ -89,17 +89,17 @@ class ActOrEscalate(unittest.TestCase):
 
 
 class Dominance(unittest.TestCase):
-    def test_guard_config_dominated_by_simple(self):
+    def test_guard_config_dominated_by_cheap_rival(self):
         def c(V, util, guards=("x",)):
             return {"guards": list(guards), "detect_only": False, "same_flow_as_reference": True,
                     "safety": {"V": V}, "utility": {"legal_completed_share": util}}
-        configs = {"g0": c(0.3, 1.0, ()), "g_simple": c(0.0, 1.0, ()), "g_in": c(0.0, 0.9),
+        configs = {"g0": c(0.3, 1.0, ()), "g_proc": c(0.0, 1.0, ()), "g_in": c(0.0, 0.9),
                    "g_big": c(0.0, 1.0)}
-        cost = {"g0": 0.0, "g_simple": 0.0, "g_in": 0.5, "g_big": 0.0}
+        cost = {"g0": 0.0, "g_proc": 0.0, "g_in": 0.5, "g_big": 0.0}
         d = dominance(configs, cost, [])
         self.assertEqual(d["dominated"], ["g_in"])
         row = {r["config"]: r for r in d["rows"]}
-        self.assertEqual(row["g_in"]["dominated_by"], ["g_simple"])
+        self.assertEqual(row["g_in"]["dominated_by"], ["g_proc"])
         self.assertEqual(row["g_big"]["dominated_by"], [])
 
     def test_loo_pure_cost_requires_positive_numerator(self):

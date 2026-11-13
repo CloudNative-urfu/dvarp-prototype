@@ -3,7 +3,7 @@
   "defender": "agent",
   "executor_boundary": "955561c084ad57a95d4b6b01e04aa38126105db4d311347046205bea08b09fee",
   "family": "guarded",
-  "fingerprint": "c36e858d404db0d50657265dfa1bcf17915acfc6bd52e900f9fc342a92e53cef",
+  "fingerprint": "9faebf45e445d663de0c037b07595daf3b9dd6fd92cde92cc99da330dd1dabc9",
   "guards": [
     {
       "id": "input-filter",
@@ -31,8 +31,8 @@
   "notes": "Leave-one-out of g_layered: without tool-arg-validator.",
   "operational_definition": [
     "input: [input-filter] allow->continue, flag->escalate, block->terminate, error->continue",
-    "context: [context-provenance] allow->continue, flag->isolate, block->isolate, error->continue",
-    "output: [output-leak] allow->continue, flag->isolate, block->terminate, error->continue",
+    "context: [context-provenance] allow->continue, flag->escalate, block->terminate, error->continue",
+    "output: [output-leak] allow->continue, flag->escalate, block->terminate, error->continue",
     "clarifications per episode: 2"
   ],
   "policy": {
@@ -43,9 +43,9 @@
       "context": {
         "on": {
           "allow": "continue",
-          "block": "isolate",
+          "block": "terminate",
           "error": "continue",
-          "flag": "isolate"
+          "flag": "escalate"
         },
         "score_block": null,
         "score_flag": null
@@ -65,7 +65,7 @@
           "allow": "continue",
           "block": "terminate",
           "error": "continue",
-          "flag": "isolate"
+          "flag": "escalate"
         },
         "score_block": null,
         "score_flag": null
@@ -150,11 +150,10 @@
         ]
       }
     ],
-    "policy_fingerprint": "d8d443482234b4b1091a8aa006b8fa9cd57ee1ca94da731f1542414fb3a275c1",
+    "policy_fingerprint": "00fed73bfcaf8488afacec3795a7f6a507bb264fc882aafbe11a67f4fb3b2715",
     "policy_version": "guard-policy-1",
     "process_fingerprint": null,
-    "process_version": null,
-    "simple_fingerprint": null
+    "process_version": null
   },
   "role": "loo",
   "schema": "darp-config-1",

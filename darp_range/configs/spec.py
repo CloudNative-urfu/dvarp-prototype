@@ -2,7 +2,8 @@
 
 Конфигурация `g` — это данные, а не код: набор гвардрейлов и места их установки (`GuardSet`),
 политика реакции с порогами (`ReactionPolicy`), правила процесса (`ProcessSpec`, только для
-`g_proc`-подобных) и выбор защищаемой стороны (свободный агент или `g_simple`).
+`g_proc`-подобных) и защищаемая сторона (LLM-агент; структурированная форма `g_simple` исключена
+каноном, отклонение FR-1.12).
 
 Чего в конфигурации нет и быть не может (FR-1.14, §3.3): исполнителя и его проверок. Граница
 исполнителя одна для всех конфигураций и входит в `g0`; схема конфигурации закрыта, поэтому
@@ -15,10 +16,9 @@
 | --- | --- | --- | --- |
 | `g0` | агент | нет | нет |
 | `g_proc` | агент | нет | да |
-| `g_simple` | форма + правила без LLM | нет | нет |
 | `guarded` | агент | ≥ 1 | опционально |
 
-Роли (`role`): `baseline` (g0/g_proc/g_simple), `main` (основное сравнение), `control`
+Роли (`role`): `baseline` (g0/g_proc), `main` (основное сравнение), `control`
 (обязательные контроли §5: повтор g0 на другом seed, «чистый детектор»), `loo`
 (leave-one-out, выводится из комбинированной конфигурации по правилу до прогона),
 `post_hoc` (добавлена после блокировки набора — в основной вывод не входит).
@@ -36,7 +36,6 @@ from darp_range.guard_contract import STAGES, GuardContractError, GuardSet
 from darp_range.guard_policy import POLICY_VERSION, PolicyError, ReactionPolicy
 from darp_range.manual_queue import DISCIPLINES
 from darp_range.repro import hash_obj
-from darp_range.simple_baseline import simple_fingerprint
 
 from .process import PROCESS_VERSION, ProcessError, ProcessSpec
 
@@ -54,9 +53,9 @@ def _allow_measured(guards_spec: list) -> bool:
     return bool(disabled) and all(i in MEASURED_ADAPTERS for i in disabled)
 
 CONFIG_SCHEMA = "darp-config-1"
-FAMILIES = ("g0", "g_proc", "g_simple", "guarded")
+FAMILIES = ("g0", "g_proc", "guarded")
 ROLES = ("baseline", "main", "control", "loo", "post_hoc")
-DEFENDERS = ("agent", "simple")
+DEFENDERS = ("agent",)
 NAME_RE = re.compile(r"^[a-z][a-z0-9_]{0,47}$")
 SEED_LABEL_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
 
@@ -148,20 +147,13 @@ class ConfigSpec:
     # ------------------------------------------------------------------ инварианты
     def _check_family(self) -> None:
         f, has_rules = self.family, bool(self.policy.stages)
-        if f == "g_simple":
-            if self.defender != "simple":
-                raise ConfigError("g_simple: защищаемая сторона — simple (без свободного агента)")
-        elif self.defender != "agent":
-            raise ConfigError(f"{f}: защищаемая сторона — agent")
-        if f in ("g0", "g_proc", "g_simple"):
+        if f in ("g0", "g_proc"):
             if self.guards:
                 raise ConfigError(f"{f}: базовая линия без гвардрейлов (NFR-2.12)")
             if has_rules or self.policy.detect_only:
                 raise ConfigError(f"{f}: политика реакции без правил (нет гвардрейлов)")
         if f == "g0" and (self.process is not None or self.queue_discipline != "fifo"):
             raise ConfigError("g0: агент + исполнитель, без правил процесса и с очередью fifo")
-        if f == "g_simple" and self.process is not None:
-            raise ConfigError("g_simple: правила процесса не подключаются")
         if f == "g_proc" and self.process is None:
             raise ConfigError("g_proc: нужны правила процесса (ProcessSpec)")
         if f == "guarded" and not self.guards:
@@ -183,7 +175,7 @@ class ConfigSpec:
     def _check_role(self) -> None:
         r = self.role
         if r == "baseline" and self.family == "guarded":
-            raise ConfigError("baseline: только g0/g_proc/g_simple")
+            raise ConfigError("baseline: только g0/g_proc")
         if r in ("control", "loo") and self.control_of is None:
             raise ConfigError(f"{r}: нужен control_of — конфигурация, которую контролируют")
         if r in ("baseline", "main") and self.control_of is not None:
@@ -196,7 +188,7 @@ class ConfigSpec:
     # ------------------------------------------------------------------ сериализация
     def resolved(self) -> dict[str, Any]:
         """Что фактически подставится в прогон: описания плагинов с параметрами по
-        умолчанию, версии кода защиты, граница исполнителя (FR-1.14), отпечаток g_simple."""
+        умолчанию, версии кода защиты, граница исполнителя (FR-1.14)."""
         return {
             "guards": [{"stages": list(e["stages"]), "plugin": p.describe()}
                        for p, e in zip(self.guards.plugins, self.guards.spec)],
@@ -205,7 +197,6 @@ class ConfigSpec:
             "policy_version": POLICY_VERSION,
             "process_fingerprint": None if self.process is None else self.process.fingerprint(),
             "process_version": None if self.process is None else PROCESS_VERSION,
-            "simple_fingerprint": simple_fingerprint() if self.defender == "simple" else None,
         }
 
     def to_json(self) -> dict[str, Any]:

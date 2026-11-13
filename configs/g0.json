@@ -3,7 +3,7 @@
   "defender": "agent",
   "executor_boundary": "955561c084ad57a95d4b6b01e04aa38126105db4d311347046205bea08b09fee",
   "family": "g0",
-  "fingerprint": "f2d356909156c2dbd3fd80f66f53c3fda28a40137dddcfd120beb08dbe0ca898",
+  "fingerprint": "818fcae1c23e80a78957377bfa939aff93bc6db3f3e4f577b64ee7bc42e00adf",
   "guards": [],
   "name": "g0",
   "notes": "Agent + executor, no guardrails: reference point (FR-1.14).",
@@ -25,8 +25,7 @@
     "policy_fingerprint": "bc3b17686e4ff23a7483af344eb7a6607238397ff2821a832a0793c7a6f63f89",
     "policy_version": "guard-policy-1",
     "process_fingerprint": null,
-    "process_version": null,
-    "simple_fingerprint": null
+    "process_version": null
   },
   "role": "baseline",
   "schema": "darp-config-1",

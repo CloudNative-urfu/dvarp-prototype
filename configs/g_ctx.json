@@ -3,22 +3,20 @@
   "defender": "agent",
   "executor_boundary": "955561c084ad57a95d4b6b01e04aa38126105db4d311347046205bea08b09fee",
   "family": "guarded",
-  "fingerprint": "c981b2ac19e6419d56db5fbf12ca868bf7f592eea463135c19728f00a17add62",
+  "fingerprint": "4cc7ccc99838bc8452bcf01f66f3fbd1ee37f8ac36c5e0cd93e8ffc4a3d80999",
   "guards": [
     {
       "id": "context-provenance",
       "params": {},
       "stages": [
-        "context",
-        "tool"
+        "context"
       ]
     }
   ],
   "name": "g_ctx",
-  "notes": "Context provenance: isolate untrusted fragments, skip tainted calls.",
+  "notes": "Positional matrix: context-provenance at context, reaction policy canon_escalate.",
   "operational_definition": [
-    "context: [context-provenance] allow->continue, flag->isolate, block->isolate, error->continue",
-    "tool: [context-provenance] allow->continue, flag->continue, block->isolate, error->isolate",
+    "context: [context-provenance] allow->continue, flag->escalate, block->terminate, error->continue",
     "clarifications per episode: 2"
   ],
   "policy": {
@@ -29,19 +27,9 @@
       "context": {
         "on": {
           "allow": "continue",
-          "block": "isolate",
+          "block": "terminate",
           "error": "continue",
-          "flag": "isolate"
-        },
-        "score_block": null,
-        "score_flag": null
-      },
-      "tool": {
-        "on": {
-          "allow": "continue",
-          "block": "isolate",
-          "error": "isolate",
-          "flag": "continue"
+          "flag": "escalate"
         },
         "score_block": null,
         "score_flag": null
@@ -52,7 +40,7 @@
   "process": null,
   "queue_discipline": "fifo",
   "resolved": {
-    "guard_set_fingerprint": "96b8c0ad63ed1a1146b00b84967d527e94540f98c7a5f7ef1bda94b5287f0fab",
+    "guard_set_fingerprint": "b151fcb27e70ff06ada01ed75fccfbdd68845ca382281bf5a0201b638223af3b",
     "guards": [
       {
         "plugin": {
@@ -77,16 +65,14 @@
           "version": "1.0"
         },
         "stages": [
-          "context",
-          "tool"
+          "context"
         ]
       }
     ],
-    "policy_fingerprint": "850698e74035ec65ddee1105d0fce5e43f5d4fc61e9ae4c3bb48c9a0e9a791bc",
+    "policy_fingerprint": "14e476f0776343dbc11324ea656e320902ee74f6a8f9262cf0222450d02dc4ba",
     "policy_version": "guard-policy-1",
     "process_fingerprint": null,
-    "process_version": null,
-    "simple_fingerprint": null
+    "process_version": null
   },
   "role": "main",
   "schema": "darp-config-1",

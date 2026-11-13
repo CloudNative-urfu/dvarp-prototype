@@ -1,13 +1,17 @@
 """Предзарегистрированный набор конфигураций и правила его полноты (§5, NFR-2.12).
 
-Набор фиксируется до итогового теста: базовые линии `g0`, `g_proc`, `g_simple`; основные
-конфигурации с гвардрейлами (по одной на точку установки и комбинации); обязательные контроли
-§5 — повтор `g0` на другом seed и «чистый детектор» (та же конфигурация с отключённой
-реакцией); варианты leave-one-out комбинированных конфигураций (break-even §9.3), которые
-выводятся детерминированно из комбинации и потому тоже регистрируются заранее.
+Набор фиксируется до итогового теста и повторяет исследовательскую матрицу dvarp
+`guardrails-research-design.md` §4 (перезаморозка issue #29):
 
-Состав — допущение decomposition «Конфигурации с гвардрейлами» плюс `g_out`, `g_layered`
-и `loo`-варианты; всё зарегистрировано до первого прогона итогового теста.
+- базовые линии `g0` и `g_proc` (NFR-2.12); `g_simple` исключён каноном (FR-1.12);
+- позиционная матрица: встроенный гвардрейл в каждой точке установки (`g_in` вход, `g_ctx`
+  контекст, `g_tool` инструмент, `g_out` выход) и все четыре вместе (`g_layered`) × три
+  политики реакции канона (`canon_escalate` — без суффикса, `canon_isolate` — `_iso`,
+  `canon_terminate` — `_term`); пороги — умолчания плагинов;
+- `g_in_oss` — OSS-детектор DeBERTa в точке входа при той же реакции, что `g_in`
+  (сравнение детекторов при фиксированной реакции);
+- обязательные контроли §5 — повтор `g0` на другом seed и «чистый детектор» `g_in`;
+- leave-one-out `g_layered` (break-even §9.3, design.md §8), выводятся детерминированно.
 """
 
 from __future__ import annotations
@@ -21,8 +25,19 @@ from darp_range.repro import hash_obj
 from .process import ProcessSpec
 from .spec import ConfigError, ConfigSpec, same_detector
 
-REQUIRED_BASELINES = ("g0", "g_proc", "g_simple")
-REGISTRY_VERSION = "configs-registry-1"
+REQUIRED_BASELINES = ("g0", "g_proc")
+REGISTRY_VERSION = "configs-registry-2"
+# Суффикс имени конфигурации матрицы → политика реакции канона (`guard_policy.PRESETS`).
+CANON_POLICIES = {"": "canon_escalate", "_iso": "canon_isolate", "_term": "canon_terminate"}
+# Префикс имени конфигурации матрицы → гвардрейлы и их точки установки.
+PLACEMENTS = {
+    "g_in": (("input-filter", ["input"]),),
+    "g_ctx": (("context-provenance", ["context"]),),
+    "g_tool": (("tool-arg-validator", ["tool"]),),
+    "g_out": (("output-leak", ["output"]),),
+    "g_layered": (("input-filter", ["input"]), ("context-provenance", ["context"]),
+                  ("tool-arg-validator", ["tool"]), ("output-leak", ["output"])),
+}
 
 
 def _gs(*entries: tuple[str, list[str]]) -> GuardSet:
@@ -53,11 +68,6 @@ def g_proc(process: ProcessSpec | None = None) -> ConfigSpec:
                       process=process or ProcessSpec(), queue_discipline="fair_share",
                       notes="g0 + process rules: dedup, per-customer quota, round/clarification/"
                             "token limits, typed finalization (R1/R2/R5); fair-share manual queue.")
-
-
-def g_simple() -> ConfigSpec:
-    return ConfigSpec("g_simple", "g_simple", "baseline", "simple", GuardSet.empty(), NONE,
-                      notes="Structured form + refund rules, no free LLM agent (FR-1.12).")
 
 
 def guarded(name: str, guards: GuardSet, policy: ReactionPolicy, *, role: str = "main",
@@ -185,43 +195,25 @@ class ConfigSet:
 
 def preregistered() -> ConfigSet:
     """Набор, зафиксированный до итогового теста (см. `configs/configs.lock.json`)."""
-    g_in = guarded("g_in", _gs(("input-filter", ["input"])), _policy("g_in", "input_escalate"),
-                   notes="Input filter: flag -> escalate, block -> safe terminate.")
-    # Ревизия 1 (case-update §6 п. 3, Shield to Target): fail-closed вариант g_in —
-    # отдельный кандидат, зарегистрирован в lock v2 до прогонов ревизии; g_in не меняется.
-    g_in_fc = guarded("g_in_failclosed", _gs(("input-filter", ["input"])),
-                      _policy("g_in_failclosed", "input_escalate_failclosed"),
-                      notes="g_in with fail-closed reaction to detector error/timeout "
-                            "(error -> safe terminate); registered at revision 1.")
-    g_tool = guarded("g_tool", _gs(("tool-arg-validator", ["tool"])),
-                     _policy("g_tool", "tool_clarify"),
-                     notes="Tool-argument validator: flag -> skip call, block -> skip and clarify.")
-    g_ctx = guarded("g_ctx", _gs(("context-provenance", ["context", "tool"])),
-                    _policy("g_ctx", "context_isolate"),
-                    notes="Context provenance: isolate untrusted fragments, skip tainted calls.")
-    g_out = guarded("g_out", _gs(("output-leak", ["output"])), _policy("g_out", "output_withhold"),
-                    notes="Output leak check: withhold draft, block -> safe terminate.")
-    g_in_tool = guarded("g_in_tool", _gs(("input-filter", ["input"]),
-                                         ("tool-arg-validator", ["tool"])),
-                        _policy("g_in_tool", "layered", ("input", "tool")),
-                        notes="Combination of g_in and g_tool.")
-    g_layered = guarded("g_layered", _gs(("input-filter", ["input"]),
-                                         ("context-provenance", ["context"]),
-                                         ("tool-arg-validator", ["tool"]),
-                                         ("output-leak", ["output"])),
-                        _policy("g_layered", "layered"),
-                        notes="All builtin guards at all four placements.")
-    # Ревизия 2 (K2.4, lock v3): OSS-детектор DeBERTa на том же месте и с той же реакцией, что
-    # g_in (§8.2: сначала сравниваются детекторы при фиксированной реакции); зарегистрирован до
-    # оценочных прогонов ревизии 2. Офлайн — воспроизведение по кэшу оценок живого ONNX-вывода.
+    matrix = {}
+    for pos, guards in PLACEMENTS.items():
+        stages = [st for _, sts in guards for st in sts]
+        for sfx, pol in CANON_POLICIES.items():
+            name = f"{pos}{sfx}"
+            matrix[name] = guarded(name, _gs(*guards), _policy(name, pol, stages),
+                                   notes=f"Positional matrix: {' + '.join(g for g, _ in guards)} "
+                                         f"at {'/'.join(stages)}, reaction policy {pol}.")
+    # Ревизия 2 (K2.4): OSS-детектор DeBERTa на том же месте и с той же реакцией, что g_in
+    # (сначала сравниваются детекторы при фиксированной реакции). Офлайн — воспроизведение по
+    # кэшу оценок живого ONNX-вывода.
     g_in_oss = guarded("g_in_oss", _gs(("deberta-pi-v2", ["input"])),
-                       _policy("g_in_oss", "input_escalate"),
+                       _policy("g_in_oss", CANON_POLICIES[""], ["input"]),
                        notes="OSS detector protectai/deberta-v3-base-prompt-injection-v2 (rev "
                              "90c9989, ONNX, threshold 0.5 from the model card) at input with the "
-                             "g_in reaction; registered at revision 2 (lock v3).")
+                             "g_in reaction policy canon_escalate.")
     cfgs = [g0(), g0("g0_seed2", role="control", seed_label="repeat-2", control_of="g0"),
-            g_proc(), g_simple(), g_in, g_in_fc, g_in_oss, g_tool, g_ctx, g_out, g_in_tool,
-            g_layered, detect_only(g_in), *leave_one_out(g_in_tool), *leave_one_out(g_layered)]
+            g_proc(), *matrix.values(), g_in_oss, detect_only(matrix["g_in"]),
+            *leave_one_out(matrix["g_layered"])]
     return ConfigSet(cfgs)
 
 
