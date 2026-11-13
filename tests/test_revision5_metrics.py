@@ -11,7 +11,7 @@ from darp_range.metrics.robust import dominance
 def _agg(name, v, cost_usd, role="main", r=0.0):
     return {"config": name, "role": role, "w_L": 0.5, "w_A": 0.5,
             "safety": {"V": v}, "utility": {"R": r, "legal_completed_share": 1.0 - r},
-            "continuity": {"Q": 0.0, "E": 0.0},
+            "continuity": {"Q": 0.0, "P_sla_L": 0.0, "E": 0.0},
             "economics": {"defender_usd_per_episode": cost_usd}}
 
 

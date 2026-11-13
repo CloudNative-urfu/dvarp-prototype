@@ -18,16 +18,18 @@
 Поток (`run_flow`) — один блок расписания в одном варианте (`base` — только легальные
 обращения, `attacked` — легальные + атаки). После эпизодов: цели slow/burn решаются против
 парного чистого эпизода той же пары в той же конфигурации и потоке (если его нет — отдельный
-эпизод-контроль класса `control`, в очередь не попадает), вердикты пишутся в журнал, обращения
-(эскалированные — в общую очередь) прогоняются через `manual_queue.ManualQueue`, затраты
-сводятся по сторонам (`event_log.summarize`): защищаемая (`defender-borne`) и атакующая
+эпизод-контроль класса `control`, в очередь не попадает), вердикты пишутся в журнал, каждая
+эскалация легального или атакующего обращения записывается событием `manual_queue.enqueue`
+(общая очередь; задержка не симулируется — она аналитическая, `manual_queue.analytic`, от
+измеренной доли эскалаций в `metrics`), затраты сводятся по сторонам (`event_log.summarize`): защищаемая (`defender-borne`) и атакующая
 (`self-limited`) раздельно, с проверками раздельного учёта.
 
 Парный прогон (`run_paired`): оба варианта одного блока на одном снимке и seed; легальные
 слоты обязаны совпасть (id, время, запись, аккаунт), траектории легальных эпизодов сверяются
 (расхождение — дефект воспроизводимости, у легального эпизода нет причин зависеть от
-атакующего трафика, кроме общей очереди, которая в траекторию не входит), затем
-`manual_queue.paired_impact` и сетка чувствительности очереди.
+атакующего трафика, кроме общей очереди, которая в траекторию не входит), затем расход
+защищаемой стороны, вызванный атаками. Доля эскалаций по классам трафика в паре — первичная
+величина очереди (dvarp#18); DES в измерительный путь не входит (отклонение FR-1.15/1.16).
 """
 
 from __future__ import annotations
@@ -48,9 +50,6 @@ from darp_range.evaluator import EpisodeTruth, capture_start, evaluate, finalize
 from darp_range.event_log import EventLog, summarize
 from darp_range.executor import Executor, Session
 from darp_range.llm import ChatModel
-from darp_range.manual_queue import (
-    CaseRecord, ManualQueue, PairingError, QueueResult, paired_impact, sensitivity,
-)
 from darp_range.repro import compare_trajectories, derive_seed, hash_obj, trajectory_fingerprint
 from darp_range.state_store import EpisodeStateManager, apply_fixture, connect, state_hash, verify_snapshot
 
@@ -120,7 +119,6 @@ class FlowResult:
     baseline_hash: str
     research_mode: bool
     episodes: list[EpisodeRecord]
-    queue: QueueResult
     costs: dict[str, Any]
     accounting: dict[str, Any]
     log_path: str | None
@@ -129,16 +127,17 @@ class FlowResult:
     def by_case(self) -> dict[str, EpisodeRecord]:
         return {e.episode_id: e for e in self.episodes}
 
-    def queue_cases(self, traffic: str | None = None) -> list[CaseRecord]:
-        return [_case(e) for e in self.episodes
-                if e.queued and (traffic is None or e.traffic == traffic)]
+    def escalations(self) -> dict[str, int]:
+        """Эскалации потока по классам трафика (то, что ушло в общую ручную очередь)."""
+        return {t: sum(e.escalated for e in self.episodes if e.queued and e.traffic == t)
+                for t in ("legal", "attack")}
 
     def fingerprint(self) -> str:
-        """Отпечаток потока для сравнения повторов: траектории, вердикты, итог очереди."""
+        """Отпечаток потока для сравнения повторов: траектории, вердикты, эскалации."""
         return hash_obj({
             "episodes": [[e.episode_id, e.trajectory_sha, e.final_hash, e.verdict.fingerprint()]
                          for e in self.episodes],
-            "queue": {k: v for k, v in self.queue.summary().items()},
+            "escalations": self.escalations(),
         })
 
     def to_json(self) -> dict[str, Any]:
@@ -149,16 +148,9 @@ class FlowResult:
             "baseline_hash": self.baseline_hash, "research_mode": self.research_mode,
             "fingerprint": self.fingerprint(), "log": self.log_path,
             "episodes": [e.to_json() for e in self.episodes],
-            "queue": {"summary": self.queue.summary(),
-                      "outcomes": {k: vars(o) for k, o in self.queue.outcomes.items()}},
+            "escalations": self.escalations(),
             "costs": self.costs, "accounting": self.accounting, "campaigns": self.campaigns,
         }
-
-
-def _case(e: EpisodeRecord) -> CaseRecord:
-    return CaseRecord(case_id=e.episode_id, traffic=e.traffic, t_arrival=e.t_arrival,
-                      auto_minutes=e.auto_minutes, escalated=e.escalated, account=e.actor_id,
-                      episode_id=e.episode_id, reason=e.escalation_reason)
 
 
 # ------------------------------------------------------------------ контекст потока
@@ -544,10 +536,13 @@ def _run_flow(ctx: FlowContext, log_path: str | None) -> FlowResult:
     ev_w = log.writer("evaluator")
     for e in episodes:
         record(ev_w, e.verdict, t_sim=e.t_arrival)
-    queue = ManualQueue(ctx.plan.queue_config(ctx.cfg.queue_discipline),
-                        log.writer("manual_queue"))
-    queue.extend(_case(e) for e in episodes if e.queued)
-    qres = queue.run()
+    qw = log.writer("manual_queue")
+    for e in episodes:
+        if e.queued and e.escalated:
+            qw.emit("enqueue", {"case_id": e.episode_id, "case_episode": e.episode_id,
+                                "case_traffic": e.traffic, "account": e.actor_id,
+                                "reason": e.escalation_reason},
+                    t_sim=e.t_arrival + e.auto_minutes)
     events = log.events
     costs = summarize(events)
     for e in episodes:
@@ -559,7 +554,7 @@ def _run_flow(ctx: FlowContext, log_path: str | None) -> FlowResult:
         config=ctx.cfg.name, config_fingerprint=ctx.cfg.fingerprint(), seed=ctx.seed,
         block=ctx.block.block, variant=ctx.variant, flow_seed=ctx.block.flow_seed,
         schedule_sha256=ctx.block.fingerprint(), baseline_hash=mgr.baseline_hash,
-        research_mode=ctx.plan.research_mode, episodes=episodes, queue=qres, costs=costs,
+        research_mode=ctx.plan.research_mode, episodes=episodes, costs=costs,
         accounting=acc, log_path=log_path, campaigns=campaigns)
     log.close(flow_fingerprint=res.fingerprint(), episodes=len(episodes),
               accounting_ok=acc["ok"])
@@ -575,15 +570,11 @@ class PairedResult:
     base: FlowResult
     attacked: FlowResult
     defects: list[dict[str, Any]]
-    impact: dict[str, Any] | None
-    pair_error: str | None
-    sensitivity: list[dict[str, Any]]
     attack_induced: dict[str, Any]
 
     def to_json(self) -> dict[str, Any]:
         return {"config": self.config, "block": self.block, "defects": self.defects,
-                "impact": self.impact, "pair_error": self.pair_error,
-                "sensitivity": self.sensitivity, "attack_induced": self.attack_induced,
+                "attack_induced": self.attack_induced,
                 "base": self.base.to_json(), "attacked": self.attacked.to_json()}
 
 
@@ -623,18 +614,10 @@ def run_paired(make_ctx: Callable[[str], FlowContext], *,
     base = run_flow(make_ctx("base"), log_path=(log_paths or {}).get("base"))
     attacked = run_flow(make_ctx("attacked"), log_path=(log_paths or {}).get("attacked"))
     defects = compare_pair(base, attacked)
-    impact, err = None, None
-    try:
-        impact = paired_impact(base.queue, attacked.queue)
-    except PairingError as exc:
-        err = str(exc)
-    sens = sensitivity(base.queue_cases("legal"), attacked.queue_cases("attack"),
-                       discipline=base.queue.config.discipline) if err is None else []
     induced = {
         "defender_borne": _delta(attacked.costs["defender_borne"], base.costs["defender_borne"]),
         "self_limited": dict(attacked.costs["self_limited"]),
         "note": "defender_borne: attacked - base (same legal flow); self_limited: attacker side "
                 "only, not part of the defender economics (NFR-2.9, §7.2)",
     }
-    return PairedResult(base.config, base.block, base, attacked, defects, impact, err, sens,
-                        induced)
+    return PairedResult(base.config, base.block, base, attacked, defects, induced)

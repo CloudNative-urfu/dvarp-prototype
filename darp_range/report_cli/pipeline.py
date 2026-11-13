@@ -37,7 +37,7 @@ from darp_range.event_log import load_jsonl
 from darp_range.guard_contract.registry import DEFAULT_REGISTRY
 from darp_range.metrics import compute, from_run_result, seed_spread, write
 from darp_range.metrics.analysis import cross_seed_noise_floor
-from darp_range.metrics.report import MAIN_QUEUE_MODES
+from darp_range.metrics.report import MAIN_QUEUE_MODES, queue_section
 from darp_range.metrics.stats import fmt
 from darp_range.repro import file_hashes, hash_tree, sha256_file
 from darp_range.runner import Runner, RunPlan, RunResult, build_schedule
@@ -166,7 +166,11 @@ def _artifacts_index(
     analytic_checks = {
         "lstar_row_per_config": sorted(r["config"] for r in lstar_rows) == sorted(rep["configs"]),
         "every_config_has_status": all(r["status"] for r in lstar_rows),
-        "pareto_front_nonempty": bool(rep["pareto"]["front"]),
+        # пустой фронт допустим, только если очередь нестабильна у всех кандидатов (dvarp#18:
+        # при ρ ≥ 1 конфигурация недопустима и во фронт не входит)
+        "pareto_front_nonempty": bool(rep["pareto"]["front"]) or all(
+            c["continuity"]["Q"] is None for c in rep["configs"].values()
+            if c["role"] in ("baseline", "main")),
         "inefficient_list_written": Path(metrics_files["inefficient.csv"]).exists(),
         "price_bounds_low_high": all(
             r["L_star_low_prices"] != "" or r["status"] != "threshold" for r in lstar_rows
@@ -221,6 +225,14 @@ def _summary(rep: Mapping[str, Any]) -> dict[str, Any]:
             "R": c["utility"]["R"],
             "Q": c["continuity"]["Q"],
             "E": c["continuity"]["E"],
+            # ревизия канона dvarp#18: доля эскалаций по классам трафика и аналитическая очередь
+            "E_L": c["continuity"]["E_L"],
+            "E_A": c["continuity"]["E_A"],
+            "queue_model": c["continuity"]["queue_model"],
+            "queue_stable": c["continuity"]["queue_stable"],
+            "rho": c["continuity"]["rho"],
+            "W_q": c["continuity"]["W_q"],
+            "P_sla_L": c["continuity"]["P_sla_L"],
             "C_ep": c["economics"]["C_ep"],
             "C_guard": c["economics"]["C_guard"],
             "status": be["status"],
@@ -239,7 +251,8 @@ def _summary(rep: Mapping[str, Any]) -> dict[str, Any]:
             "lost_stories": c["utility"]["lost_stories"],
             "lost_scenario_exhausted": c["utility"].get("lost_scenario_exhausted"),
             "terms": {
-                k: be["terms"][k] for k in ("refuse", "queue", "manual", "guard", "attack_service")
+                k: be["terms"][k]
+                for k in ("refuse", "queue", "sla", "manual", "guard", "attack_service")
             },
             "queue_modes": {
                 m: {"dQ": q["dQ"], "status": q["status"], "L_star": q["L_star"]}
@@ -349,24 +362,25 @@ def _md(res: Mapping[str, Any], rep: Mapping[str, Any]) -> str:
         "## Таблица L* (FR-1.24)",
         "",
         "L* — порог цены нарушения, выше которого конфигурация окупается против g0. "
-        "low/high — L* на нижних/верхних границах цен C_refuse, C_queue, C_manual и ставок "
-        "вычислений; min..max — по 16 углам диапазонов. † — другой поток (повтор g0 на "
+        "low/high — L* на нижних/верхних границах цен C_refuse, C_queue, C_sla, C_manual и "
+        "ставок вычислений; min..max — по 32 углам диапазонов. † — другой поток (повтор g0 на "
         "другом seed): его ΔV — шум seed.",
         "",
         "Статус `unresolved` — ΔV статистически не разрешён (95% ДИ содержит 0 или |ΔV| в "
         "пределах шума seed): вывод «окупается/не окупается» не делается, L* — точечная "
         "оценка; `формула` — статус §9.2 без статистики. Полезность рядом с V. Числитель L* "
-        "разложен по членам (USD/эпизод): отказы, очередь, ручные разборы, гвардрейл. ΔQ/L* — "
-        "предрегистрированные режимы очереди ("
+        "разложен по членам (USD/эпизод): отказы, очередь (аналитическая Q_L), SLA, ручные "
+        "разборы, гвардрейл; `queue_unstable` — ρ ≥ 1, недопустима при любом L_viol. ΔQ/L* — "
+        "ячейки сетки K×S аналитической очереди ("
         + ", ".join(f"`{m}`" for m in MAIN_QUEUE_MODES)
         + "; полная сетка — `seed-*/metrics/queue_lstar.csv`).",
         "",
         "| config | role | status | формула | L* base | L* low | L* high | L* min..max | "
         "V | ΔV [95% ДИ] | легальные выполнены (с атаками / без атак) | lost (исчерп.) | R | Q | E | "
-        "член отказы | член очередь | член ручн. | член гвардр. | "
+        "член отказы | член очередь | член SLA | член ручн. | член гвардр. | "
         + " | ".join(f"ΔQ / L* @{m}" for m in MAIN_QUEUE_MODES)
         + " |",
-        "|" + "---|" * (19 + len(MAIN_QUEUE_MODES)),
+        "|" + "---|" * (20 + len(MAIN_QUEUE_MODES)),
     ]
     for n, r in res["summary"]["configs"].items():
         mark = "" if r["same_flow_as_reference"] else " †"
@@ -386,8 +400,9 @@ def _md(res: Mapping[str, Any], rep: Mapping[str, Any]) -> str:
             f"{fmt(r.get('legal_completed_share_base_flow'))} | "
             f"{r['lost_stories']} ({r['lost_scenario_exhausted']}) | {fmt(r['R'])} | "
             f"{fmt(r['Q'])} | {fmt(r['E'])} | {fmt(t['refuse'])} | {fmt(t['queue'])} | "
-            f"{fmt(t['manual'])} | {fmt(t['guard'])} | " + " | ".join(qm) + " |"
+            f"{fmt(t['sla'])} | {fmt(t['manual'])} | {fmt(t['guard'])} | " + " | ".join(qm) + " |"
         )
+    L += queue_section([rep["configs"][n] for n in sorted(rep["configs"])])
     L += [
         "",
         "Pareto-фронт: "

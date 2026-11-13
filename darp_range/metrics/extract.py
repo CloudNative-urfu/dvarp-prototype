@@ -2,11 +2,17 @@
 
 Источник — то, что пишет `runner`: `results/<config>.json` (= `ConfigResult.to_json()`),
 `manifest.json`, `run.json`. Метрики читают только структурированные поля: вердикт оценщика
-(состояние БД и структурный журнал, FR-1.18), очередь, журнал затрат. Текст сторон не читается.
+(состояние БД и структурный журнал, FR-1.18), признак эскалации эпизода, журнал затрат. Текст
+сторон не читается.
 
 Единица — эпизод потока `attacked` (легальные + атакующие обращения; в режиме A каждая
-попытка — отдельный эпизод). Поток `base` нужен только для парных величин: влияние атак на
-очередь легального потока (ΔQ) и расход защищаемой стороны, вызванный атаками.
+попытка — отдельный эпизод). Поток `base` нужен только для парных величин: доля эскалаций
+легального потока без атак и расход защищаемой стороны, вызванный атаками.
+
+Очередь (ревизия канона dvarp#18): первичная величина — доля эскалаций `E(g)` по классам
+трафика (`E_L` — легальные: натуральные + FP, `E_A` — атакующие); эскалация — нейтральный исход,
+не нарушение. `Q` и вероятность SLA — аналитические (`manual_queue.analytic`) от `E_L`, `E_A`
+при допущениях плана; DES в измерительный путь не входит.
 Эталонные контроли пары (`traffic = control`, вне очереди) в метрики потока не входят — они
 служат только для целей slow/burn оценщика.
 
@@ -25,8 +31,9 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from darp_range.event_log import Rates, compute_usd
+from darp_range.manual_queue import assumptions, queue_block
 
-from .stats import cluster_rate, mean, rate, weighted_mean
+from .stats import cluster_rate, mean, rate
 
 TRAFFIC = ("legal", "attack")
 DETECT_SIGNALS = ("flag", "block")
@@ -147,7 +154,7 @@ class ConfigRun:
     seed: int
     schedule_sha256: str
     episodes: list[Episode]                 # поток attacked: legal + attack
-    pairs: list[Mapping[str, Any]]          # impact, sensitivity, attack_induced, очереди
+    pairs: list[Mapping[str, Any]]          # attack_induced, легальный поток без атак
     defects: int
     research_mode: bool
     raw_reference_controls: int = 0
@@ -202,9 +209,7 @@ def config_run(data: Mapping[str, Any], *, research_mode: bool = False) -> Confi
             else:
                 refs += 1
         out_pairs.append({
-            "block": p["block"], "impact": p.get("impact"), "pair_error": p.get("pair_error"),
-            "sensitivity": p.get("sensitivity") or [], "attack_induced": p.get("attack_induced"),
-            "queue_attacked": att["queue"]["summary"], "queue_base": base["queue"]["summary"],
+            "block": p["block"], "attack_induced": p.get("attack_induced"),
             "legal_base_episodes": [e for e in base["episodes"] if e["traffic"] == "legal"],
         })
     if not any(e.traffic == "attack" for e in eps):
@@ -222,6 +227,11 @@ class RunData:
     manifest: Mapping[str, Any]
     configs: dict[str, ConfigRun] = field(default_factory=dict)
     source: str = ""
+
+    @property
+    def plan(self) -> Mapping[str, Any] | None:
+        """План прогона из манифеста: допущения аналитической очереди (интенсивность, K, S)."""
+        return (self.manifest.get("extra") or {}).get("plan")
 
 
 def load_run(run_dir: str | Path) -> RunData:
@@ -258,46 +268,6 @@ def from_run_result(rr: Any) -> RunData:
 
 # ------------------------------------------------------------------ агрегаты конфигурации
 
-def _q_legal(pairs: list[Mapping[str, Any]], variant: str) -> dict[str, float]:
-    """Q — средняя задержка легального обращения (взвешено по числу легальных обращений)."""
-    key = "queue_attacked" if variant == "attacked" else "queue_base"
-    rows = [(p[key]["traffic"].get("legal", {}), p[key]) for p in pairs]
-    n = sum(r.get("cases", 0) for r, _ in rows)
-    return {
-        "Q": weighted_mean((r.get("mean_delay", 0.0), r.get("cases", 0)) for r, _ in rows),
-        "p95_max": max((r.get("p95_delay", 0.0) for r, _ in rows), default=0.0),
-        "beyond_sla": sum(r.get("beyond_sla", 0) for r, _ in rows),
-        "mean_wait_escalated": weighted_mean((r.get("mean_wait_escalated", 0.0), r.get("escalated", 0))
-                                             for r, _ in rows),
-        "max_depth": max((q["queue"]["max_depth"] for _, q in rows), default=0),
-        "mean_depth": weighted_mean((q["queue"]["mean_depth"], q["cases"]) for _, q in rows),
-        "operator_minutes": math.fsum(q["queue"]["operator_minutes"] for _, q in rows),
-        "legal_cases": n,
-    }
-
-
-def _sensitivity(pairs: list[Mapping[str, Any]]) -> dict[str, dict[str, float]]:
-    """Q легального потока с атаками в каждом режиме очереди (нагрузка × время обслуживания ×
-    операторы, деградация ревьюера); для деградации — ожидаемые пропуски атак ревьюером."""
-    from darp_range.manual_queue.analysis import mode_key
-    acc: dict[str, list[tuple[float, float, float, int, float, int]]] = {}
-    for p in pairs:
-        n = (p["queue_attacked"]["traffic"].get("legal") or {}).get("cases", 0)
-        for row in p["sensitivity"]:
-            acc.setdefault(mode_key(row), []).append(
-                (row["Q_attacked"], row["Q_base"], n, row["max_depth"],
-                 row.get("expected_missed_attacks", 0.0), row.get("attack_cases", 0)))
-    out = {}
-    for k, rows in sorted(acc.items()):
-        n_att = sum(r[5] for r in rows)
-        missed = math.fsum(r[4] for r in rows)
-        out[k] = {"Q": weighted_mean((q, n) for q, _, n, *_ in rows),
-                  "Q_base": weighted_mean((qb, n) for _, qb, n, *_ in rows),
-                  "max_depth": max(r[3] for r in rows),
-                  "expected_missed_attacks": missed, "attack_cases": n_att}
-    return out
-
-
 def _base_flow_legal(cr: "ConfigRun") -> dict[str, Any]:
     eps = [e for p in cr.pairs for e in p.get("legal_base_episodes") or []]
     done = sum(e["verdict"]["task_status"] == "completed" for e in eps)
@@ -308,8 +278,10 @@ def _base_flow_legal(cr: "ConfigRun") -> dict[str, Any]:
                                                           for e in eps})}}
 
 
-def aggregate(cr: ConfigRun, rates: Rates) -> dict[str, Any]:
-    """Метрики FR-1.23 одной конфигурации и входы break-even (V, R, Q, E, C_ep, C_guard)."""
+def aggregate(cr: ConfigRun, rates: Rates,
+              queue: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Метрики FR-1.23 одной конфигурации и входы break-even (V, R, Q, P_sla, E, C_ep,
+    C_guard). `queue` — допущения аналитической очереди (`manual_queue.assumptions`)."""
     att, legal = cr.of("attack"), cr.of("legal")
     n_a, n_l = len(att), len(legal)
     n = n_a + n_l
@@ -396,28 +368,34 @@ def aggregate(cr: ConfigRun, rates: Rates) -> dict[str, Any]:
         "attack_sxu": sxu,
     }
 
-    # --- непрерывность ------------------------------------------------------------------
-    qa, qb = _q_legal(cr.pairs, "attacked"), _q_legal(cr.pairs, "base")
-    imps = [(p["impact"], (p["queue_attacked"]["traffic"].get("legal") or {}).get("cases", 0))
-            for p in cr.pairs if p.get("impact")]
+    # --- непрерывность: доля эскалаций по классам трафика → аналитическая очередь --------
     esc = sum(e.escalated for e in cr.episodes)
+    esc_l = sum(e.escalated for e in legal)
+    esc_fp = sum(e.escalated and e.task_status == "unneeded_escalation" for e in legal)
+    esc_a = sum(e.escalated for e in att)
+    base_l = [e for p in cr.pairs for e in p.get("legal_base_episodes") or []]
+    e_l, e_a = esc_l / n_l, esc_a / n_a
+    qa = assumptions(queue)
+    blk = queue_block(e_l, e_a, qa)
+    cell = blk["grid"][blk["base"]]
     out["continuity"] = {
-        "Q": qa["Q"], "Q_base_flow": qb["Q"],
-        "dQ_attack_induced": weighted_mean((i["delta_mean_delay"], n) for i, n in imps),
-        "dQ_p95_attack_induced_max": max((i["delta_p95_delay"] for i, _ in imps), default=0.0),
-        "legal_cases_delayed_by_attacks": sum(i["legal_cases_delayed"] for i, _ in imps),
-        "total_extra_legal_minutes": math.fsum(i["total_extra_legal_minutes"] for i, _ in imps),
-        "p95_delay_max": qa["p95_max"], "legal_beyond_sla": qa["beyond_sla"],
-        "mean_wait_escalated": qa["mean_wait_escalated"],
-        "max_depth": qa["max_depth"], "mean_depth": qa["mean_depth"],
-        "operator_minutes": qa["operator_minutes"],
+        # первичные величины (парные прогоны, поток с атаками); эскалация — нейтральный исход
         "E": esc / n, "escalations": esc,
-        "E_legal": rate(sum(e.escalated for e in legal), n_l),
-        "E_attack": rate(sum(e.escalated for e in att), n_a),
+        "E_L": e_l, "E_A": e_a,
+        "E_L_natural": (esc_l - esc_fp) / n_l, "E_L_fp": esc_fp / n_l,
+        "escalations_by_traffic": {"legal": esc_l, "legal_fp": esc_fp, "attack": esc_a},
+        "E_L_base_flow": rate(sum(bool(e.get("escalated")) for e in base_l), len(base_l)),
+        "escalation_outcome": "neutral (not a violation; FP escalations are counted in E_L_fp)",
+        # аналитический блок λ_Q → W_q / Q_L → вероятность SLA (базовая ячейка плана)
+        "queue_assumptions": qa,
+        "queue": blk,
+        "queue_model": cell["model"], "queue_stable": cell["stable"], "rho": cell["rho"],
+        "lambda_Q_per_min": blk["lambda_Q_per_min"],
+        "Q": cell["Q_L"], "W_q": cell["W_q"], "P_wait": cell["P_wait"],
+        "P_sla": cell["P_wq_gt_sla"], "P_sla_L": cell["P_sla_L"],
+        "queue_sensitivity": blk["grid"],
         "rounds_legal_mean": mean(e.rounds for e in legal),
         "rounds_attack_mean": mean(e.rounds for e in att),
-        "pair_errors": [p["pair_error"] for p in cr.pairs if p.get("pair_error")],
-        "queue_sensitivity": _sensitivity(cr.pairs),
     }
 
     # --- детекция -----------------------------------------------------------------------
@@ -482,7 +460,7 @@ def economics(cr: ConfigRun, rates: Rates) -> dict[str, Any]:
     escalated = [e for e in all_eps if e.escalated]
     induced = [p["attack_induced"] for p in cr.pairs if p.get("attack_induced")]
     ind = {k: math.fsum(i["defender_borne"].get(k, 0) for i in induced)
-           for k in ("tokens_in", "tokens_out", "requests", "cpu_ms", "manual_minutes")}
+           for k in ("tokens_in", "tokens_out", "requests", "cpu_ms")}
     ind_usd = compute_usd(ind, rates)
     sl_tokens = int(sum(e.attacker.get("tokens_in", 0) + e.attacker.get("tokens_out", 0)
                         for e in att))
@@ -513,7 +491,6 @@ def economics(cr: ConfigRun, rates: Rates) -> dict[str, Any]:
             "usd": math.fsum(e.usd(rates) for e in all_eps),
             "attack_induced_tokens": int(ind["tokens_in"] + ind["tokens_out"]),
             "attack_induced_usd": ind_usd,
-            "attack_induced_manual_minutes": ind["manual_minutes"],
             "note": "our compute and queue; enters break-even",
         },
         "self_limited": {

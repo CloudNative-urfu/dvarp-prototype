@@ -94,18 +94,18 @@ class PlanAndScheduleTest(unittest.TestCase):
 
     def test_every_attack_in_flow_and_legal_slots_are_controls(self):
         s = build_schedule(7, RunPlan(), ENTRIES)
-        self.assertEqual(len(s.attacks), 24)
-        self.assertEqual(s.per_block, 6)          # 24 легальных при w_A=0.2
+        self.assertEqual(len(s.attacks), 20)      # корпус v2 (без цели shift)
+        self.assertEqual(s.per_block, 5)          # 20 легальных при w_A=0.2
         self.assertEqual(len(s.blocks), 4)
         self.assertTrue(all(n >= 1 for n in s.attack_coverage().values()))
         kinds = {e["id"]: e["kind"] for e in ENTRIES}
         for b in s.blocks:
             legal = [x for x in b.slots if x.traffic == "legal"]
-            self.assertEqual(len(legal), 24)
+            self.assertEqual(len(legal), 20)
             self.assertTrue(all(kinds[x.entry_id] == "control" for x in legal))
             self.assertTrue(all(kinds[x.entry_id] == "attack" for x in b.slots
                                 if x.traffic == "attack"))
-            self.assertEqual(len({x.entry_id for x in legal}), 24)   # каждый контроль — раз
+            self.assertEqual(len({x.entry_id for x in legal}), 20)   # каждый контроль — раз
             times = [x.t_arrival for x in b.slots]
             self.assertEqual(times, sorted(times))
 
@@ -214,7 +214,6 @@ class RunnerRunTest(unittest.TestCase):
         for c in self.rr.configs.values():
             p = c.pairs[0]
             self.assertEqual(p.defects, [], c.name)
-            self.assertIsNone(p.pair_error, c.name)
             lb = [e for e in p.base.episodes if e.traffic == "legal"]
             la = [e for e in p.attacked.episodes if e.traffic == "legal"]
             self.assertEqual([(e.episode_id, e.t_arrival, e.entry_id, e.actor_id,
@@ -223,7 +222,7 @@ class RunnerRunTest(unittest.TestCase):
                                e.trajectory_sha, e.final_hash) for e in la])
             self.assertFalse(any(e.traffic == "attack" for e in p.base.episodes))
             self.assertTrue(any(e.traffic == "attack" for e in p.attacked.episodes))
-            self.assertEqual(p.impact["legal_cases"], len(lb))
+            self.assertEqual(p.base.escalations()["legal"], p.attacked.escalations()["legal"])
 
     def test_compare_pair_rejects_mismatched_flows(self):
         g0, gin = self.rr.configs["g0"].pairs[0], self.rr.configs["g_in"].pairs[0]
@@ -318,14 +317,15 @@ class RunnerRunTest(unittest.TestCase):
                     want = {"legal": "legal", "attack": "attack", "control": "control"}[e.traffic]
                     self.assertEqual(e.verdict.kind, want, (c.name, e.episode_id))
 
-    def test_queue_gets_all_flow_cases_with_config_discipline(self):
+    def test_every_escalation_enters_the_shared_queue_journal(self):
         for c in self.rr.configs.values():
             f = c.pairs[0].attacked
-            self.assertEqual(sorted(f.queue.outcomes),
-                             sorted(e.episode_id for e in f.episodes if e.queued))
-            self.assertEqual(f.queue.config.discipline, c.config.queue_discipline)
-        self.assertEqual(self.rr.configs["g_proc"].pairs[0].base.queue.config.discipline,
-                         "fair_share")
+            ev = load_jsonl(self.rr.out_dir / f.log_path).events
+            got = sorted(e["data"]["case_id"] for e in ev
+                         if e["component"] == "manual_queue" and e["kind"] == "enqueue")
+            self.assertEqual(got, sorted(e.episode_id for e in f.episodes
+                                         if e.queued and e.escalated), c.name)
+            self.assertFalse(any(e["kind"] in ("service_start", "service_end") for e in ev))
 
     # --- файлы и манифест ---------------------------------------------------------------
     def test_files_manifest_and_run_log(self):
@@ -376,37 +376,38 @@ class ReproducibilityDefectTest(unittest.TestCase):
 
 
 class QueueImpactTest(unittest.TestCase):
-    """FR-1.16 через оркестратор: эскалации атак задерживают легальный поток в паре."""
+    """FR-1.15/1.16 через оркестратор (ревизия канона dvarp#18): доля эскалаций по классам
+    трафика в парных прогонах → аналитическая задержка легального потока."""
 
     def test_attack_escalations_delay_legal_flow(self):
-        plan = RunPlan(entries=("ctl-11", "ctl-12", "ctl-21", "ctl-22", "ctl-24", "atk-21",
-                                "atk-22", "atk-24"), n_legal=5, w_a=0.5, blocks=1,
-                       service_mode="slow", mean_gap=2.0, replay="none")
-        rr = _Shared.run("queue", plan, ["g0"])
-        p = rr.configs["g0"].pairs[0]
-        self.assertGreater(sum(e.escalated for e in p.base.episodes if e.traffic == "legal"), 0)
-        self.assertGreater(p.impact["attack_escalated"], 0)
-        self.assertEqual(p.impact["legal_escalated"],
-                         sum(e.escalated for e in p.base.episodes if e.traffic == "legal"))
-        self.assertGreater(p.impact["delta_mean_delay"], 0.0)
-        self.assertGreater(p.impact["legal_cases_delayed"], 0)
-        for e in p.attacked.episodes:     # время автоматической обработки — по раундам
-            self.assertGreater(e.rounds, 0)
-            self.assertEqual(e.auto_minutes, e.rounds * plan.minutes_per_round)
-            o = p.attacked.queue.outcomes[e.episode_id]
-            self.assertEqual(o.escalated, e.escalated)
-            if not e.escalated:
-                self.assertEqual(o.delay_minutes, e.auto_minutes)
-            else:
-                self.assertGreaterEqual(o.delay_minutes, e.auto_minutes + 15.0)
-        grid = [r for r in p.sensitivity if r["load"] == "x1" and not r["degraded"]]
-        self.assertEqual({r["mode"] for r in grid}, {"fast", "base", "slow"})
-        # ревизия 1: предрегистрированные режимы нагрузки ×3 и деградации ревьюера
-        self.assertEqual({r["load"] for r in p.sensitivity}, {"x1", "x3"})
-        self.assertTrue(any(r["degraded"] for r in p.sensitivity))
-        slow1 = next(r for r in p.sensitivity if r["mode"] == "slow" and r["operators"] == 1)
-        fast2 = next(r for r in p.sensitivity if r["mode"] == "fast" and r["operators"] == 2)
-        self.assertGreaterEqual(slow1["delta_Q"], fast2["delta_Q"])
+        from darp_range.metrics import compute, from_run_result
+        # 2 оператора: при K=1 эскалации всех атак g_in делают очередь нестабильной (ρ ≥ 1)
+        plan = RunPlan(entries=("ctl-11", "ctl-01", "ctl-02", "ctl-03", "atk-11", "atk-16"),
+                       n_legal=4, blocks=1, replay="none", operators=2)
+        rr = _Shared.run("queue", plan, ["g0", "g_in"])
+        p = rr.configs["g_in"].pairs[0]
+        self.assertGreater(p.base.escalations()["legal"], 0)        # натуральные эскалации
+        self.assertEqual(p.base.escalations(), {**p.attacked.escalations(), "attack": 0})
+        self.assertGreater(p.attacked.escalations()["attack"], 0)   # flag → escalate (g_in)
+        rep = compute(from_run_result(rr))
+        g0, gin = rep["configs"]["g0"]["continuity"], rep["configs"]["g_in"]["continuity"]
+        self.assertEqual(g0["E_A"], 0.0)
+        self.assertGreater(gin["E_A"], 0.0)
+        self.assertEqual(gin["E_L"], g0["E_L"])
+        self.assertEqual(gin["E_L_base_flow"], gin["E_L"])
+        a = gin["queue_assumptions"]
+        self.assertEqual((a["service_minutes"], a["operators"]), (8.0, 2))
+        self.assertEqual(gin["queue_model"], "M/M/c (Erlang C)")
+        self.assertAlmostEqual(gin["lambda_Q_per_min"], a["lambda_L_per_min"] * gin["E_L"]
+                               + a["lambda_A_per_min"] * gin["E_A"])
+        self.assertGreater(gin["Q"], g0["Q"])                       # общая очередь
+        self.assertAlmostEqual(gin["Q"], gin["E_L"] * gin["W_q"])
+        dq = rep["configs"]["g_in"]["break_even"]["terms"]["dQ"]
+        self.assertAlmostEqual(dq, gin["Q"] - g0["Q"])              # ΔQ в L* — аналитика
+        grid = rep["configs"]["g_in"]["queue_sensitivity_L_star"]
+        self.assertEqual(len(grid), 6)
+        self.assertGreater(grid["S8_K2"]["Q"], grid["S4_K2"]["Q"])
+        self.assertEqual(grid["S15_K1"]["status"], "queue_unstable")
 
 
 class AdaptiveAndReferenceTest(unittest.TestCase):
@@ -423,7 +424,6 @@ class AdaptiveAndReferenceTest(unittest.TestCase):
             self.assertAlmostEqual(b.t_arrival, a.t_arrival + a.auto_minutes)
             self.assertGreater(b.t_arrival, a.t_arrival)
         self.assertEqual(len({e.restored_hash for e in att}), 1)
-        self.assertTrue(all(e.episode_id in f.queue.outcomes for e in att))
         self.assertEqual(f.campaigns[0]["mode"], "A")
         self.assertEqual(len(f.campaigns[0]["attempts"]), len(att))
         self.assertGreater(f.costs["self_limited"]["tokens"], 0)
@@ -441,7 +441,7 @@ class AdaptiveAndReferenceTest(unittest.TestCase):
         f = rr.configs["g0"].pairs[0].attacked
         refs = [e for e in f.episodes if e.traffic == "control"]
         self.assertEqual(len(refs), 1)
-        self.assertNotIn(refs[0].episode_id, f.queue.outcomes)     # эталон вне очереди
+        self.assertFalse(refs[0].queued)                             # эталон вне очереди
         for e in f.episodes:
             if e.traffic == "attack":
                 self.assertIsNotNone(e.verdict.outcome)

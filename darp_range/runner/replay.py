@@ -52,7 +52,7 @@ def compare_flows(orig: FlowResult, again: FlowResult) -> list[dict[str, Any]]:
             defect("verdict", episode_id=a.episode_id,
                    outcome_a=a.verdict.outcome, outcome_b=b.verdict.outcome,
                    task_a=a.verdict.task_status, task_b=b.verdict.task_status)
-    qa, qb = hash_obj(orig.queue.summary()), hash_obj(again.queue.summary())
+    qa, qb = hash_obj(orig.escalations()), hash_obj(again.escalations())
     if qa != qb:
         defect("queue", sha256_a=qa, sha256_b=qb)
     return out

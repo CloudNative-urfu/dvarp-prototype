@@ -60,6 +60,8 @@ def bootstrap_lstar(g_eps: Sequence[Any], ref_eps: Sequence[Any], g: Inputs, ref
     keys = sorted({e.pair_id for e in ref_eps} & {e.pair_id for e in g_eps})
     if not keys or g.config == ref.config:
         return {"B": 0, "ci95": None, "note": "no common scenarios or reference config"}
+    if g.Q is None or ref.Q is None or g.P_sla is None or ref.P_sla is None:
+        return {"B": 0, "ci95": None, "note": "queue unstable (rho >= 1): L* undefined"}
     rng = random.Random(seed)
     # Ревизия 3 (K3.6): каждый репликат относится к одному из режимов §9.2 —
     #   undefined  : ΔV ≤ 0 — L* не определён;
@@ -236,7 +238,8 @@ def act_or_escalate(be: Mapping[str, Any], g_agg: Mapping[str, Any], ref_agg: Ma
     else:
         out["L_tau"] = None
         out["escalate_at"] = None
-    other = math.fsum(abs(t.get(k, 0.0)) for k in ("refuse", "queue", "attack_service", "guard"))
+    other = math.fsum(abs(t.get(k) or 0.0) for k in ("refuse", "queue", "sla", "attack_service",
+                                                     "guard"))
     # Ревизия 4: A4 — g не создаёт нарушений, которых не было у g0 на тех же эпизодах.
     # Вывод: при A2, A3 L* = C_manual·esc/(n·w_A·ΔV), а n·w_A·ΔV = prevented − new (парные эпизоды);
     # при A1 prevented = useful ⇒ L* = C_manual·esc/(useful − new) = C_manual/PPV_net,
@@ -256,8 +259,9 @@ def act_or_escalate(be: Mapping[str, Any], g_agg: Mapping[str, Any], ref_agg: Ma
     ppv_net = pp["ppv_net"] if pp else None
     out["ppv_net"] = ppv_net
     out["L_tau_net"] = c_manual / ppv_net if ppv_net is not None and ppv_net > 0 else None
-    l_full = (numerator(t) / (t["w_A"] * t["dV"])
-              if t["dV"] > EPS and t["w_A"] > EPS else None)
+    num = numerator(t)
+    l_full = (num / (t["w_A"] * t["dV"])
+              if num is not None and t["dV"] > EPS and t["w_A"] > EPS else None)
     out["L_star_full"] = l_full
     observed = (l_full is not None and out["L_tau"] is not None
                 and abs(l_full - out["L_tau"]) <= 1e-9 * max(1.0, abs(out["L_tau"])))
@@ -294,12 +298,13 @@ def dominance(configs: Mapping[str, Mapping[str, Any]], cost: Mapping[str, float
         return c["utility"].get("legal_completed_share") or 0.0
     rows = []
     for n, c in sorted(configs.items()):
-        if not c.get("guards") or c.get("detect_only") or not c.get("same_flow_as_reference", True):
+        if not c.get("guards") or c.get("detect_only") or not c.get("same_flow_as_reference", True) \
+                or cost[n] is None:
             continue
         dom_by = []
         for r in rivals:
             rc = configs[r]
-            if not rc.get("same_flow_as_reference", True):
+            if not rc.get("same_flow_as_reference", True) or cost[r] is None:
                 continue
             # ревизия 5: стоимости в пределах COST_EPS_USD равны (шум cpu_ms не решает)
             le = (rc["safety"]["V"] <= c["safety"]["V"] + EPS and util(rc) >= util(c) - EPS
@@ -315,7 +320,8 @@ def dominance(configs: Mapping[str, Mapping[str, Any]], cost: Mapping[str, float
     # избыточен по V, но не дорожает решение — это не «чистый расход».
     pure_waste, redundant_free = [], []
     for r in loo or ():
-        if r.get("pure_expense") or r.get("expense_without_gain"):
+        if (r.get("pure_expense") or r.get("expense_without_gain")) \
+                and r["marginal_numerator"] is not None:   # None — очередь нестабильна
             row = {"config": r["config"], "parent": r["parent"],
                    "removed_guard": r["removed_guard"],
                    "marginal_numerator_usd": r["marginal_numerator"],

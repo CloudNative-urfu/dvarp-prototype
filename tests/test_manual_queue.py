@@ -1,11 +1,14 @@
-"""Проверки компонента manual_queue: общая очередь с конечной пропускной способностью и явным
-временем обслуживания (FR-1.15) и измеримое влияние эскалаций на легальный поток (FR-1.16)."""
+"""Проверки компонента manual_queue (ревизия канона dvarp#18): аналитическая очередь от долей
+эскалаций E_L/E_A (M/M/1 при K = 1, M/M/c — Эрланг C — при K > 1, вероятность SLA, сетка K×S)
+и дискретно-событийная модель как проверка аналитической формулы (в измерительный путь не
+входит)."""
 
 from __future__ import annotations
 
 import contextlib
 import io
 import json
+import math
 import random
 import tempfile
 import unittest
@@ -13,8 +16,8 @@ from pathlib import Path
 
 from darp_range.event_log import EventLog, load_jsonl, summarize
 from darp_range.manual_queue import (
-    SERVICE_MODES, CaseRecord, ManualQueue, PairingError, QueueConfig, QueueError, attack_count,
-    build_flow, paired_impact, poisson_times, run_pair, sensitivity, simulate,
+    SERVICE_MODES, CaseRecord, ManualQueue, QueueConfig, QueueError, assumptions, attack_count,
+    build_flow, erlang_c, mmc, poisson_times, queue_block, self_check, simulate,
 )
 from darp_range.manual_queue.__main__ import main as cli_main
 
@@ -139,93 +142,61 @@ class TestQueueingTheory(unittest.TestCase):
         self.assertLess(two, one / 3)
 
 
-class TestLegalFlowImpact(unittest.TestCase):
-    """FR-1.16 и NFR-2.8: эскалации атак физически стоят в той же очереди, что и легальные."""
+class TestAnalytic(unittest.TestCase):
+    """Измерительный путь очереди: формулы M/M/1 и M/M/c (Эрланг C) и блок λ_Q → W_q → SLA."""
 
-    def setUp(self):
-        self.legal = [CaseRecord(s.case_id, "legal", s.t_arrival, 3.0, s.index % 5 == 0,
-                                 account=f"cust-{s.index}", episode_id=s.case_id)
-                      for s in build_flow(5, n_legal=24, with_attacks=False)]
-        self.attack_slots = [s for s in build_flow(5, n_legal=24, w_a=0.2) if s.traffic == "attack"]
+    def test_self_check(self):
+        self_check()
 
-    def attacks(self, escalated=True):
-        return [CaseRecord(s.case_id, "attack", s.t_arrival, 4.0, escalated, account="atk",
-                           episode_id=s.case_id) for s in self.attack_slots]
+    def test_mmc_with_one_server_is_mm1(self):
+        for lam, s in ((0.02, 8.0), (0.1, 4.0), (0.05, 15.0)):
+            c, rho = mmc(lam, s, 1, 60.0), lam * s
+            self.assertEqual(c["model"], "M/M/1")
+            self.assertAlmostEqual(c["W_q"], rho / (1 / s - lam))
+            self.assertAlmostEqual(c["P_wq_gt_sla"], rho * math.exp(-(1 / s - lam) * 60.0))
 
-    def test_attack_escalations_delay_legal(self):
-        b, a, imp = run_pair(self.legal, self.attacks(), QueueConfig())
-        self.assertGreater(imp["legal_escalated"], 0)
-        self.assertGreater(imp["attack_escalated"], 0)
-        self.assertGreater(imp["delta_mean_delay"], 0)
-        self.assertGreater(imp["delta_mean_wait_escalated"], 0)
-        self.assertGreater(imp["legal_cases_delayed"], 0)
-        self.assertGreater(imp["Q_attacked"], imp["Q_base"])
-        self.assertAlmostEqual(imp["attack_operator_minutes"], 8.0 * len(self.attack_slots))
-        # неэскалированные легальные обращения очередь не задерживает
-        for o in a.by_traffic("legal"):
-            if not o.escalated:
-                self.assertEqual(o.delay_minutes, 3.0)
+    def test_erlang_c_textbook_and_bounds(self):
+        self.assertAlmostEqual(erlang_c(2, 1.0), 1 / 3)
+        self.assertAlmostEqual(erlang_c(3, 2.0), 4 / 9)
+        self.assertEqual(mmc(0.1, 8.0, 2, 60.0)["model"], "M/M/c (Erlang C)")
+        with self.assertRaises(QueueError):
+            erlang_c(1, 1.0)
+        self.assertFalse(mmc(0.2, 8.0, 1, 60.0)["stable"])
+        self.assertIsNone(mmc(0.2, 8.0, 1, 60.0)["W_q"])
 
-    def test_non_escalated_attacks_do_not_touch_queue(self):
-        _, _, imp = run_pair(self.legal, self.attacks(escalated=False), QueueConfig())
-        self.assertEqual(imp["delta_mean_delay"], 0)
-        self.assertEqual(imp["legal_cases_delayed"], 0)
+    def test_queue_block_unconditional_delay_and_grid(self):
+        a = assumptions({"mean_gap": 3.0, "w_a": 0.2, "service_mode": "base", "operators": 1,
+                         "sla_minutes": 60.0})
+        self.assertAlmostEqual(a["lambda_L_per_min"], 1 / 3)
+        self.assertAlmostEqual(a["lambda_A_per_min"], (1 / 3) * 0.2 / 0.8)
+        blk = queue_block(0.1, 0.6, a)
+        self.assertAlmostEqual(blk["lambda_Q_per_min"], 0.1 / 3 + 0.6 / 12)
+        self.assertEqual(blk["base"], "S8_K1")
+        self.assertEqual(set(blk["grid"]), {f"S{s:g}_K{k}" for s in (4, 8, 15) for k in (1, 2)})
+        c = blk["grid"]["S8_K1"]
+        self.assertAlmostEqual(c["Q_L"], 0.1 * c["W_q"])           # P(esc|legal)·W_q
+        self.assertAlmostEqual(c["P_sla_L"], 0.1 * c["P_wq_gt_sla"])
+        self.assertFalse(blk["grid"]["S15_K1"]["stable"])           # ρ = 1.25
+        self.assertIsNone(blk["grid"]["S15_K1"]["Q_L"])
+        self.assertEqual(len({g["lambda_Q_per_min"] for g in blk["grid"].values()}), 1)
+        # нет эскалаций — нет задержки; атакующие эскалации задерживают легальный поток
+        self.assertEqual(queue_block(0.0, 0.0, a)["grid"]["S8_K1"]["W_q"], 0.0)
+        self.assertGreater(queue_block(0.1, 0.6, a)["grid"]["S8_K1"]["Q_L"],
+                           queue_block(0.1, 0.0, a)["grid"]["S8_K1"]["Q_L"])
 
-    def test_false_positive_escalations_also_load_queue(self):
-        # ложные эскалации легальных (FP гвардрейла) тоже задерживают остальных легальных
-        fp = [CaseRecord(c.case_id, c.traffic, c.t_arrival, c.auto_minutes, True,
-                         account=c.account, episode_id=c.episode_id) for c in self.legal]
-        q_plain = simulate(self.legal, QueueConfig()).summary()["Q_legal"]
-        q_fp = simulate(fp, QueueConfig()).summary()["Q_legal"]
-        self.assertGreater(q_fp, q_plain + 5)
+    def test_des_cross_checks_erlang_c(self):
+        """DES остаётся только проверкой формулы: M/M/2 на длинном пуассоновском потоке."""
+        lam, s = 0.15, 8.0                      # ρ = 0.6: шум DES при 40000 обращений < 5%
+        times = poisson_times(13, "erlang", 40000, 1 / lam)
+        r = simulate([esc(f"c{i:05d}", t) for i, t in enumerate(times)],
+                     QueueConfig(service_minutes=s, operators=2, service_dist="exponential",
+                                 seed=5))
+        w = sum(o.wait_minutes for o in r.outcomes.values()) / len(times)
+        want = mmc(lam, s, 2, 60.0)["W_q"]
+        self.assertAlmostEqual(w, want, delta=want * 0.08)
 
-    def test_effect_grows_with_service_time_and_shrinks_with_operators(self):
-        rows = {(r["operators"], r["mode"]): r for r in sensitivity(self.legal, self.attacks())
-                if r["load"] == "x1" and not r["degraded"]}
-        self.assertEqual(len(rows), 6)
-        for c in (1, 2):
-            self.assertLessEqual(rows[(c, "fast")]["delta_Q"], rows[(c, "base")]["delta_Q"])
-            self.assertLessEqual(rows[(c, "base")]["delta_Q"], rows[(c, "slow")]["delta_Q"])
-            self.assertGreaterEqual(rows[(c, "fast")]["delta_Q"], 0)
-        self.assertGreater(rows[(1, "slow")]["delta_Q"], 0)
-        for m in SERVICE_MODES:
-            self.assertLessEqual(rows[(2, m)]["delta_Q"], rows[(1, m)]["delta_Q"])
 
-    def test_load_factor_and_reviewer_degradation_modes(self):
-        """Ревизия 1: нагрузка ×3 (сжатие прибытий) и деградация ревьюера — предрегистрированные
-        режимы; при большей нагрузке задержка не меньше, деградация даёт ожидаемые пропуски."""
-        rows = sensitivity(self.legal, self.attacks())
-        by = {(r["load"], r["operators"], r["mode"]): r for r in rows}
-        self.assertEqual(len(rows), 14)                 # 2 нагрузки × (6 + 1 деградация)
-        for (load, c, m), r in by.items():
-            if load == "x3":
-                self.assertGreaterEqual(r["Q_attacked"], by[("x1", c, m)]["Q_attacked"] - 1e-9)
-        d1, d3 = by[("x1", 1, "degraded")], by[("x3", 1, "degraded")]
-        b1 = by[("x1", 1, "base")]
-        self.assertTrue(d1["degraded"])
-        self.assertGreaterEqual(d1["Q_attacked"], b1["Q_attacked"])     # усталость удлиняет разбор
-        self.assertGreater(d3["expected_missed_attacks"], 0.0)
-        self.assertGreaterEqual(d3["expected_missed_attacks"], d1["expected_missed_attacks"])
-        self.assertEqual(b1["expected_missed_attacks"], 0.0)
-
-    def test_degradation_off_keeps_fingerprint(self):
-        from darp_range.manual_queue.model import QueueConfig as QC
-        self.assertNotIn("fatigue_per_case", QC().as_dict())
-        self.assertNotEqual(QC().fingerprint(), QC(fatigue_per_case=0.1).fingerprint())
-
-    def test_pairing_rejects_different_legal_flow(self):
-        base = simulate(self.legal, QueueConfig())
-        shifted = [CaseRecord(c.case_id, c.traffic, c.t_arrival + (0.5 if i == 3 else 0), c.auto_minutes,
-                              c.escalated, episode_id=c.episode_id) for i, c in enumerate(self.legal)]
-        with self.assertRaises(PairingError):
-            paired_impact(base, simulate(shifted + self.attacks(), QueueConfig()))
-        with self.assertRaises(PairingError):
-            paired_impact(base, simulate(self.legal[1:] + self.attacks(), QueueConfig()))
-        with self.assertRaises(PairingError):
-            paired_impact(base, simulate(self.legal + self.attacks(), QueueConfig(operators=2)))
-        with self.assertRaises(PairingError):
-            run_pair(self.legal + self.attacks(), self.attacks(), QueueConfig())
-
+class TestFairShare(unittest.TestCase):
     def test_fair_share_protects_legal_from_single_account_flood(self):
         flood = [esc(f"atk{i:02d}", 0, "attack", account="atk") for i in range(10)]
         legal = [esc("leg", 1, account="cust")]
@@ -343,15 +314,12 @@ class TestCli(unittest.TestCase):
             out = Path(td) / "d.json"
             buf = io.StringIO()
             with contextlib.redirect_stdout(buf):
-                rc = cli_main(["demo", "--seed", "7", "--out", str(out), "--log", str(Path(td) / "l.jsonl")])
+                rc = cli_main(["demo", "--out", str(out)])
             self.assertEqual(rc, 0, buf.getvalue())
-            rows = json.loads(out.read_text())["rows"]
-            self.assertEqual(len(rows), 14)          # 6 + деградация, × 2 нагрузки (ревизия 1)
-            base = [r for r in rows if r["operators"] == 1 and r["mode"] == "base"
-                    and r["load"] == "x1"][0]
-            self.assertGreater(base["delta_Q"], 0)
-            self.assertIn("OK", buf.getvalue())
-            self.assertFalse(load_jsonl(Path(td) / "l.jsonl").events == [])
+            d = json.loads(out.read_text())
+            self.assertEqual(len(d["block"]["grid"]), 6)
+            self.assertTrue(all(d["checks"].values()))
+            self.assertIn("PASS", buf.getvalue())
 
 
 if __name__ == "__main__":

@@ -46,7 +46,9 @@ from darp_range.runner import Runner, RunnerError, RunPlan
 from darp_range.runner.testkit import drifting_model_factory
 
 ROOT = Path(__file__).resolve().parents[1]
-SMALL = dict(entries=("atk-01", "atk-02", "ctl-01", "ctl-02"), blocks=1, n_legal=4, w_a=0.4)
+# 2 оператора: при K=1 эскалации атак g_in делают аналитическую очередь нестабильной (ρ ≥ 1)
+SMALL = dict(entries=("atk-01", "atk-02", "ctl-01", "ctl-02"), blocks=1, n_legal=4, w_a=0.4,
+             operators=2)
 SMALL_CONFIGS = ["g0", "g0_seed2", "g_in", "g_in_detect_only", "g_proc"]
 KEY = "sk-test-SECRET-do-not-leak-4242"
 ENV = {"RESEARCH_LLM_BASE_URL": "http://127.0.0.1:9/v1", "RESEARCH_LLM_MODEL": "fake-qwen3.5-9b",
@@ -495,7 +497,7 @@ class CliTest(unittest.TestCase):
         d = _tmp(self)
         args = ["offline", "--out", str(d / "o"), "--configs", "g0,g_in",
                 "--entries", "atk-01,atk-02,ctl-01,ctl-02", "--blocks", "1", "--n-legal", "4",
-                "--w-a", "0.4"]
+                "--w-a", "0.4", "--operators", "2"]
         r = self._cli(*args)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("PASS NFR-2.5: local contour checks", r.stdout)

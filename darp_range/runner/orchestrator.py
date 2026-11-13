@@ -85,7 +85,6 @@ class ConfigResult:
         outcomes: dict[str, int] = {}
         for e in att:
             outcomes[e.verdict.outcome] = outcomes.get(e.verdict.outcome, 0) + 1
-        imp = [p.impact for p in self.pairs if p.impact is not None]
         return {
             "config": self.name, "fingerprint": self.config.fingerprint(),
             "role": self.config.role, "family": self.config.family, "seed": self.seed,
@@ -96,8 +95,6 @@ class ConfigResult:
             "legal_completed": sum(e.verdict.task_ok for e in legal),
             "legal_escalated": sum(e.escalated for e in legal),
             "attack_escalated": sum(e.escalated for e in att),
-            "delta_Q_mean_delay": [round(i["delta_mean_delay"], 6) for i in imp],
-            "pair_errors": [p.pair_error for p in self.pairs if p.pair_error],
             "accounting_ok": all(f.accounting["ok"] for f in self.flows()),
             "defender_borne_attack_induced_tokens": sum(
                 p.attack_induced["defender_borne"]["tokens_in"]

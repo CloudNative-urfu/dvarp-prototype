@@ -5,10 +5,10 @@
 эксперимента. Теперь:
 - прогон, где во всех режимах ΔQ = 0, проходит статистическую приёмку (нулевой эффект —
   допустимый результат; OLD падает);
-- причинный механизм проверяется на контролируемой фикстуре очереди
-  (`manual_queue.queue_mechanism_check`): инъекция эскалаций повышает задержку легального
-  обращения на аналитически известную величину, без эскалаций и при свободной ёмкости ΔQ = 0;
-- сломанный механизм (эскалации не попадают в общую очередь) фикстура ловит.
+- причинный механизм (ревизия канона dvarp#18) — аналитический: эскалации атак и FP входят
+  в общую интенсивность λ_Q = λ_L·E_L + λ_A·E_A и повышают безусловную задержку легального
+  клиента Q_L = E_L·W_q; без эскалаций Q_L = 0; сломанный механизм (атаки не входят в λ_Q)
+  проверка ловит.
 """
 
 from __future__ import annotations
@@ -28,8 +28,8 @@ def _cfg(dq):
                            "decision_confident": False, "unresolved_reasons": ["ci"]},
             "same_flow_as_reference": True,
             "queue_sensitivity_L_star": {
-                "base/c1/x3": {"dQ": dq, "dV": 0.0, "L_star": None},
-                "degraded/c1/x3": {"dQ": dq, "dV": 0.0, "L_star": None}}}
+                "S8_K1": {"dQ": dq, "dV": 0.0, "L_star": None},
+                "S15_K1": {"dQ": dq, "dV": 0.0, "L_star": None}}}
 
 
 def _run_view(d: Path, dq: float):
@@ -67,33 +67,27 @@ class ZeroQueueEffectIsAcceptable(unittest.TestCase):
             self.assertFalse(r.to_json()["pass"])
 
 
-class QueueMechanismFixture(unittest.TestCase):
-    def test_mechanism_check_passes_on_real_queue(self):
-        from darp_range.manual_queue import queue_mechanism_check
-        res = queue_mechanism_check()
-        self.assertTrue(res["ok"], res)
-        self.assertAlmostEqual(res["cases"]["inject_one"]["dQ_legal_total"], 6.0)
-        self.assertEqual(res["cases"]["no_escalation"]["dQ_legal_total"], 0.0)
-        self.assertEqual(res["cases"]["ample_capacity"]["dQ_legal_total"], 0.0)
+class QueueMechanismAnalytic(unittest.TestCase):
+    A = {"mean_gap": 3.0, "w_a": 0.2, "service_mode": "base", "operators": 1, "sla_minutes": 60.0}
+
+    def _q(self, e_l, e_a, block=None):
+        from darp_range.manual_queue import assumptions, queue_block
+        return (block or queue_block)(e_l, e_a, assumptions(self.A))["grid"]["S8_K1"]["Q_L"]
+
+    def test_attack_escalations_raise_legal_delay(self):
+        self.assertEqual(self._q(0.0, 0.0), 0.0)
+        self.assertEqual(self._q(0.0, 0.5), 0.0)       # легальные не эскалируются — не ждут
+        self.assertGreater(self._q(0.1, 0.5), self._q(0.1, 0.0))
+        self.assertGreater(self._q(0.2, 0.0), self._q(0.1, 0.0))   # FP тоже грузят очередь
 
     def test_broken_mechanism_is_caught(self):
-        """Мутация: атакующие эскалации обслуживаются «отдельной» очередью (не влияют)."""
-        from darp_range.manual_queue import analysis, model
+        """Мутация: атакующие эскалации «не попадают» в общую очередь (λ_Q без λ_A·E_A)."""
+        from darp_range.manual_queue import analytic
 
-        real = model.simulate
-
-        def separate_queues(cases, config):
-            cases = list(cases)
-            legal = [c for c in cases if c.traffic != "attack"]
-            res = real(legal, config)
-            return res
-        orig = analysis.simulate
-        analysis.simulate = separate_queues
-        try:
-            res = analysis.queue_mechanism_check()
-        finally:
-            analysis.simulate = orig
-        self.assertFalse(res["ok"])
+        def separate(e_l, e_a, a):
+            return analytic.queue_block(e_l, 0.0, a)
+        self.assertEqual(self._q(0.1, 0.5, separate), self._q(0.1, 0.0, separate))
+        self.assertNotEqual(self._q(0.1, 0.5), self._q(0.1, 0.0))
 
 
 if __name__ == "__main__":
