@@ -7,6 +7,9 @@
 - [x] spec rewritten: stale references removed (simple_baseline, manual_queue DES, corpus v1,
       19 configurations), owner vision (three services, two orchestrator contours, frozen-DB
       snapshot contract) recorded
+- [x] spec second pass under the scenario change: attack-side contour = the polygon
+      connection contract (start/completion signals, transitional bwrap attacker), metrics-svc
+      out of this change's scope (issue #33), telemetry barrier (canon dvarp#20)
 
 ## 2. Phase 1 — seams
 
@@ -29,8 +32,11 @@
 - [ ] tool callback client in the service + `/tool-callback` data API on the orchestrator
       side (executor op via toolbox semantics, `PendingCall` contract preserved)
 - [ ] orchestrator: thin pair-scheduling core + two strictly separated launch contours
-      (defender-side: staging, spawn, freeze check; attack-side: corpus brief, sandbox spawn,
-      attempt lifecycle) — no mutual imports, no shared mutable state, channel is the only
+      (defender-side: staging, spawn, freeze check; attack-side: the polygon connection
+      contract — start-of-attack-cycle signal (episode invite) and completion signal (raw
+      records of the attacking side); transitional mode until the polygon exists: the current
+      bwrap/IPC attacker runs behind the same contour; corpus v2 stays transitional in the СС)
+      — no mutual imports, no shared mutable state, channel is the only
       mediator; architecture test enforces import isolation (attack-side does not import
       defender-side and vice versa)
 - [ ] orchestrator-side lifecycle: staging, spawn (port 0 → argv), ready.json, pids.json

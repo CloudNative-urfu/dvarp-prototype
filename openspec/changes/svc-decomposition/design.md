@@ -55,6 +55,19 @@ Runtime facts (zero-version, revision 11 scaffold):
   state; the channel is the only mediator between the contours. Import isolation is enforced
   by an architecture test (attack-side does not import defender-side and vice versa), in the
   spirit of the existing `import_audit`.
+- Decision: **attack-side contour is the polygon connection contract** (scenario change,
+  2026-11-13): the orchestrator opens an attack cycle by a start signal (episode invite:
+  config, seed, budget) and receives a completion signal (attack cycle finished, raw records
+  of the attacking side transferred). The polygon is a separate future service; until it
+  exists, the current attacker (bwrap + JSON-lines IPC, text-only) runs in a transitional
+  mode behind the same contour — the swap stays local to the contour. The attack corpus is
+  transitional in the СС and moves to the polygon repo later.
+- Decision: **telemetry barrier** — per-turn telemetry (guard triggers, on-the-spot diff
+  verdicts, costs) travels alongside the dialog reply but is never visible to the
+  attacking agent; the text channel and the telemetry stream are separate channels,
+  enforced by the architecture test. Final metrics are computed by `metrics-svc`
+  (issue #33, separate task; out of this change's scope) — the СС does not compute final
+  metrics (single source of truth). Canon: dvarp#20 (NFR-2.8 mix-run, СС↔polygon contract).
 - Decision: **passive raw-record instrumentation inside the service** — collectors subscribe
   to the same raw events (guard journal, costs, decisions, escalation/clarify events) and do
   not affect agent behavior; only raw records with episode/turn ids leave the service; the
