@@ -24,10 +24,12 @@ Runtime facts (zero-version, revision 11 scaffold):
 
 ## Goals / Non-Goals
 
-- Goals: defender (config + guards + agent + LLM client) as an HTTP service on 127.0.0.1;
-  script orchestrator as the single owner of data, snapshots, queue, aggregation; a parity
-  gate proving service mode equals the in-process reference; honest accounting that does
-  not hide transport overhead.
+- Goals: defender (config + guards + reaction policy + escalation rules + agent + LLM client)
+  as an HTTP service on 127.0.0.1; script orchestrator as the single owner of data,
+  snapshots, aggregation (`E_L`/`E_A`, analytic queue block `λ_Q = λ_L·E_L + λ_A·E_A`) and
+  the report; two strictly separated launch contours inside the orchestrator; a parity gate
+  proving service mode equals the in-process reference; honest accounting that does not
+  hide transport overhead.
 - Non-Goals: decomposing the attacker (bwrap/IPC stays as is); moving executor or episode
   DB into the service; rewriting metrics/evaluator; hot config reload (config stays
   load-once per service process); touching frozen defense code.
@@ -47,7 +49,25 @@ Runtime facts (zero-version, revision 11 scaffold):
 
 ## Decisions
 
-- Decision: variant A1, phased (0 seams → 1 service + parity → 2 live migration).
+- Decision: variant A1, phased (0 spec → 1 seams → 2 service + parity → 3 live migration).
+- Decision: **two strictly separated launch contours inside the orchestrator** (defender-side
+  and attack-side) around a thin pair-scheduling core: no mutual imports, no shared mutable
+  state; the channel is the only mediator between the contours. Import isolation is enforced
+  by an architecture test (attack-side does not import defender-side and vice versa), in the
+  spirit of the existing `import_audit`.
+- Decision: **passive raw-record instrumentation inside the service** — collectors subscribe
+  to the same raw events (guard journal, costs, decisions, escalation/clarify events) and do
+  not affect agent behavior; only raw records with episode/turn ids leave the service; the
+  traffic class (`E_L` natural+FP vs `E_A`) is attributed by the orchestrator. Aggregation
+  and the analytic queue block stay orchestrator-side.
+- Decision: **DB snapshot contract** — every run starts from the same initial state
+  (deterministic generator, hash-checked snapshot restore), as hatched on the owner's
+  vision diagram; editing the generator/schema means regenerating snapshots and corpus, not
+  re-freezing defense code.
+- Decision: canon v2 alignment — corpus v2 (40 entries, goals `break`/`slow`/`burn`, no
+  `shift`; escalation is a neutral outcome), 24 frozen configurations with three canon
+  reaction policies (`canon_isolate`/`canon_escalate`/`canon_terminate`), FR-1.20 scripted
+  multi-turn; spec aligned with dvarp#17 and the queue-analytics revision dvarp#18.
 - Decision: one service process per config cell; the orchestrator stages the frozen config
   directory (copy of `configs/` + `configs.lock.json`) to a per-cell temp dir and passes it
   via env (`DARP_SVC_CONFIG_DIR`). The service verifies hashes itself (`load_frozen` +
@@ -118,8 +138,9 @@ Runtime facts (zero-version, revision 11 scaffold):
 
 ## Migration Plan
 
-1. Phase 0: introduce `DefenderPort`/`ToolPort` seams with in-process adapters; tests green.
-2. Phase 1: implement `darp_range/defender_svc/` (server, session, staging, client),
-   orchestration lifecycle, parity test (StubBackend).
-3. Phase 2: live mode through the service, migrate `scripts/live_mode_a_v.py`, transport
+1. Phase 0: spec aligned with canon (done on the branch).
+2. Phase 1: `DefenderPort`/`ToolPort` seams with in-process adapters; tests green.
+3. Phase 2: implement `darp_range/defender_svc/` (server, session, staging, client), two-
+   contour orchestrator + architecture test, parity test (StubBackend).
+4. Phase 3: live mode through the service, migrate `scripts/live_mode_a_v.py`, transport
    bucket in the report, docs/legacy-marking update, verify smoke.

@@ -2,12 +2,13 @@
 
 ### Requirement: Defender as an HTTP service
 The repository SHALL provide `darp_range/defender_svc/` — an HTTP service bound to 127.0.0.1
-(built on `svckit/http.py`, stdlib only) that holds the frozen guard configuration, the guard
-pipeline, the agent and the LLM client, while the orchestrator remains the single owner of the
-executor, the episode DB, snapshots, manual_queue, evaluator, metrics and the report.
+(built on `svckit/http.py`, stdlib only) that holds the staged frozen guard configuration,
+the guard pipeline, the reaction policy, escalation rules, the agent and the LLM client,
+while the orchestrator remains the single owner of the executor, the episode DB, snapshots,
+the evaluator, metrics (incl. `E_L`/`E_A` and the analytic queue block) and the report.
 
 The service code SHALL NOT modify frozen defense modules
-(`darp_range/{configs,guard_contract,guard_plugins,guard_policy,simple_baseline,executor,tools}/`).
+(`darp_range/{configs,guard_contract,guard_plugins,guard_policy,executor,tools}/`).
 
 #### Scenario: Service serves a defender turn
 - **WHEN** the orchestrator posts a turn to the service session
@@ -40,12 +41,33 @@ contract (guard decision before the call crosses the boundary) SHALL be preserve
 ### Requirement: Single-writer event and cost aggregation
 The orchestrator SHALL be the only writer of the EventLog and the episode DB. The service
 SHALL return per-turn records (guard journal, model usage, agent events, sequence numbers)
-in its responses for the orchestrator to write in order.
+in its responses for the orchestrator to write in order. The service SHALL carry passive
+internal instrumentation — collectors subscribing to the same raw events (guard journal,
+costs, decisions, escalation/clarify events) — that does not affect agent behavior; only raw
+records with episode/turn ids leave the service, and the traffic-class attribution
+(`E_L` natural+FP vs `E_A`) is performed by the orchestrator.
 
 #### Scenario: Records land in order
 - **WHEN** a turn completes across both processes
 - **THEN** the orchestrator writes the returned records into its event log and meters
   without service-side writes
+
+#### Scenario: Instrumentation stays passive
+- **WHEN** a collector observes an event inside the service
+- **THEN** the agent loop behavior is unchanged, and the collector produces raw records only
+
+### Requirement: Two isolated launch contours in the orchestrator
+The orchestrator SHALL be structured as a thin pair-scheduling core plus two strictly
+separated launch contours — defender-side (config staging, service spawn, per-episode freeze
+check) and attack-side (corpus brief from corpus v2, sandbox spawn, attempt lifecycle) — with
+no mutual imports and no shared mutable state; the channel SHALL be the only mediator between
+the contours. Import isolation SHALL be enforced by an architecture test (attack-side does
+not import defender-side modules and vice versa).
+
+#### Scenario: Contours do not cross-import
+- **WHEN** the architecture test inspects the orchestrator's launch contours
+- **THEN** no module of one contour imports a module of the other; shared access is limited to
+  channel types and the port interfaces
 
 ### Requirement: Meter scope across the boundary
 The service SHALL receive a scoped meter budget (run/cell/episode ids and limits) at session
