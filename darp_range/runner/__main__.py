@@ -87,7 +87,7 @@ def demo(workdir: Path) -> tuple[dict[str, Any], list[tuple[str, bool]]]:
                            w_a=0.3), workdir / "drift",
                    model_factory=drifting_model_factory()).run(["g0"])
     # Режим A (заглушка атакующей LLM): расходы атакующего — только на его стороне.
-    adapt = Runner(RunPlan(entries=("atk-03", "atk-21", "ctl-03", "ctl-21"), blocks=1,
+    adapt = Runner(RunPlan(entries=("atk-03", "atk-18", "ctl-03", "ctl-18"), blocks=1,
                            n_legal=4, w_a=0.3, attack_mode="A", attack_strategy="llm",
                            replay="none"), workdir / "adaptive").run(["g_in"])
     af = adapt.configs["g_in"].pairs[0]

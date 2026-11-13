@@ -3,39 +3,38 @@
  "coverage": {
   "control_type": {
    "financial_terms": 4,
-   "legal_complaint": 6,
-   "long_emotional": 3,
+   "legal_complaint": 5,
+   "long_emotional": 2,
    "needs_clarification": 2,
-   "quoted_injection": 4
+   "quoted_injection": 2
   },
   "delivery": {
-   "indirect_data": 4,
-   "masked_legit": 6,
-   "multi_turn": 3,
-   "single_turn": 6
+   "indirect_data": 3,
+   "masked_legit": 5,
+   "multi_turn": 2,
+   "single_turn": 5
   },
   "goal": {
    "break": 10,
    "burn": 3,
-   "shift": 4,
    "slow": 2
   },
   "mechanism": {
-   "direct_task": 4,
+   "direct_task": 3,
    "instruction_split": 1,
-   "obfuscation": 4,
+   "obfuscation": 3,
    "role_switch": 2,
-   "staged_injection": 3,
-   "trust_spoof": 5
+   "staged_injection": 2,
+   "trust_spoof": 4
   },
   "split": {
-   "dev": 15,
-   "holdout": 4
+   "dev": 12,
+   "holdout": 3
   }
  },
  "created_utc": "2026-11-04T12:21:54Z",
  "dirty_rates": {
-  "attack": 0.9474,
+  "attack": 1.0,
   "control": 1.0
  },
  "dropped": [
@@ -78,6 +77,38 @@
   {
    "id": "ctl-15",
    "reason": "partner dropped"
+  },
+  {
+   "id": "atk-21",
+   "reason": "goal removed from the taxonomy (canon FR-1.21, issue #29)"
+  },
+  {
+   "id": "atk-22",
+   "reason": "goal removed from the taxonomy (canon FR-1.21, issue #29)"
+  },
+  {
+   "id": "atk-23",
+   "reason": "goal removed from the taxonomy (canon FR-1.21, issue #29)"
+  },
+  {
+   "id": "atk-24",
+   "reason": "goal removed from the taxonomy (canon FR-1.21, issue #29)"
+  },
+  {
+   "id": "ctl-21",
+   "reason": "goal removed from the taxonomy (canon FR-1.21, issue #29)"
+  },
+  {
+   "id": "ctl-22",
+   "reason": "goal removed from the taxonomy (canon FR-1.21, issue #29)"
+  },
+  {
+   "id": "ctl-23",
+   "reason": "goal removed from the taxonomy (canon FR-1.21, issue #29)"
+  },
+  {
+   "id": "ctl-24",
+   "reason": "goal removed from the taxonomy (canon FR-1.21, issue #29)"
   }
  ],
  "entry_hashes": {
@@ -96,10 +127,6 @@
   "atk-17": "8645dd70157b9a7b2d59bf673964b4a39a05461d865a295767f26e4e209ca54d",
   "atk-18": "1be317632398c4a03c42ddd6332826293a7998e97a07ba4ac73b8e2b4167cdce",
   "atk-20": "cd9669befbe8b4dfd04208dc9b310a184be47a9e7987eab9fc6fa5a241b7e2a1",
-  "atk-21": "567ceed322f34cd919b7cbe36443ea8567bff8d7ae61f0fdccc5df4cd5368fe7",
-  "atk-22": "385198578ddfde002ce972b9d284eeea234bc9b7d32fb4a9211d1f915e352bbb",
-  "atk-23": "0883efc00866298354ddcd2571834a3b49f5f379f09ec7264a69c8a65385abb5",
-  "atk-24": "730f388cf81b6807cf770571f9a1b11fac73bd50ed84247295ede75fc99f25cc",
   "ctl-01": "afe72b861b8c253376a832d335c822d0ce0c1bae7c637614b08a30976084123b",
   "ctl-02": "eb634f86573aa5c6edf96add616132a197272746d10759dccc5c9ec62e98d2c2",
   "ctl-03": "1fba1dbe9f5b4aeb169bfd656ee4acf8005ff02da26463eb31b3f525efd1bcd7",
@@ -114,11 +141,7 @@
   "ctl-16": "4ec6f75f8f2993c9a925d3ef75d4d79df575aafdde3f22a993c782d621494727",
   "ctl-17": "9b7af230e83686922b93bb0a961748dbf4f61b7f68b6e26d4aa8b056f8500401",
   "ctl-18": "d5e2d5e6ca8b0bfc52aa9e85606cf1409b0fa96bf319063812ff019f04d690b4",
-  "ctl-20": "56762be828dc193baa3d53b978b050399671a707245f8fd3afcd4803a2243b6b",
-  "ctl-21": "3ec478166eb7db518fbc6d1a9c10ec97019b4a3aa1df123a3e7061ab23a7885a",
-  "ctl-22": "aa5b77032709319a9bf06de9fa84d3faa7c4157c201e271bd50c0b728681eea0",
-  "ctl-23": "4c3e75d12d0210e19d99d52e5e121690bb0d0f30aab0c419b3416ec950b19517",
-  "ctl-24": "844169b293cf7fa98302989bb148550d926691bcd763bd2edda2c7cb9a7a37c9"
+  "ctl-20": "56762be828dc193baa3d53b978b050399671a707245f8fd3afcd4803a2243b6b"
  },
  "file": "darp_corpus_holdout_v2.jsonl",
  "generator": {
@@ -131,13 +154,13 @@
  },
  "independence": "texts written by the experimental model (not the rule/stub author); the set is visible to the author after generation, so it is NOT blind/closed",
  "language": "en (dirty English, NFR-2.7)",
- "n_attacks": 19,
- "n_controls": 19,
- "n_entries": 38,
- "n_independent_scenarios": 19,
+ "n_attacks": 15,
+ "n_controls": 15,
+ "n_entries": 30,
+ "n_independent_scenarios": 15,
  "parent_corpus_sha256": "4e155426043e7eefcce1106b8a5b2e1f5db8b54c5a436f991db829b67a9229c5",
  "schema": "darp.corpus/1",
- "sha256": "7d31a56d90f284fccb924e09314a15ead70365c4249d3ace6129f7a109f8f27f",
+ "sha256": "d5bf7ee90823f9dbf810705ea1e411d49dac7312434c911caa80f71384ed856f",
  "synthetic": true,
  "version": "holdout_v2"
 }

@@ -20,7 +20,8 @@ MODES = ("D", "A")
 # corpus — режим D; llm — режим A (LLM-агент); template/random — базовые линии поиска
 # формулировок режима A (§10: «сравнивается с шаблонным и случайным поиском»).
 STRATEGIES = ("corpus", "llm", "template", "random")
-GOALS = ("break", "slow", "burn", "shift")
+# Цели атаки по канону (FR-1.21): `shift` исключена — эскалация не нарушение (dvarp#17).
+GOALS = ("break", "slow", "burn")
 
 # Как атакующий воспринял ответ агента — только по тексту канала (perception.py).
 SEEN = ("accepted", "escalated", "refused", "clarification", "closed", "other", "none")

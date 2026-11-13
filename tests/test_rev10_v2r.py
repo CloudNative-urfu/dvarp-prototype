@@ -15,7 +15,7 @@ from darp_range.report_cli.acceptance import RunView, _fr_1_24, _Req
 ROOT = Path(__file__).resolve().parents[1]
 SMALL = [
     "--entries",
-    "atk-01,atk-02,atk-13,atk-21,ctl-01,ctl-02,ctl-13,ctl-21",
+    "atk-01,atk-02,atk-13,atk-18,ctl-01,ctl-02,ctl-13,ctl-18",
     "--configs",
     "g0,g_in,g_proc,g_in_detect_only",
     "--seeds",

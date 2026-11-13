@@ -17,7 +17,7 @@ from ..repro.hashing import canonical_json, hash_obj, sha256_bytes, sha256_file
 from .entries import authored_entries
 from .schema import CORPUS_SCHEMA, CorpusError, coverage, dirty_rates, validate_corpus
 
-CORPUS_VERSION = "v1"
+CORPUS_VERSION = "v2"
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DIR = ROOT / "corpus"
 CORPUS_FILE = f"darp_corpus_{CORPUS_VERSION}.jsonl"

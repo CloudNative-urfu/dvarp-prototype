@@ -114,10 +114,10 @@ def demo(seed: int, model_mode: str) -> tuple[dict, list[tuple[str, bool]]]:
             "D/corpus vs g_in": _campaign(kit, ATTACK_DRAFT, "break", mode="D",
                                           strategy="corpus", seed=seed, limits=one,
                                           model_mode="stub", guards=GUARD_IN),
-            "A/llm shift vs g_in": _campaign(kit, ATTACK_DRAFT, "shift", mode="A",
+            "A/llm break vs g_in": _campaign(kit, ATTACK_DRAFT, "break", mode="A",
                                              strategy="llm", seed=seed, limits=lim_a,
                                              model_mode=model_mode, guards=GUARD_IN),
-            "A/template shift vs g_in": _campaign(kit, ATTACK_DRAFT, "shift", mode="A",
+            "A/template break vs g_in": _campaign(kit, ATTACK_DRAFT, "break", mode="A",
                                                   strategy="template", seed=seed,
                                                   limits=AttackLimits(), model_mode="stub",
                                                   guards=GUARD_IN),
@@ -131,7 +131,7 @@ def demo(seed: int, model_mode: str) -> tuple[dict, list[tuple[str, bool]]]:
         }
     finally:
         kit.cleanup()
-    g0, gin, a = runs["D/corpus vs g0"], runs["D/corpus vs g_in"], runs["A/llm shift vs g_in"]
+    g0, gin, a = runs["D/corpus vs g0"], runs["D/corpus vs g_in"], runs["A/llm break vs g_in"]
     firsts = [x["turns"][0]["tactic"] for x in a["attempts"] if x["turns"]]
     checks = [
         ("D vs g0: corpus text only, refund outside window created (break by DB)",
@@ -142,11 +142,11 @@ def demo(seed: int, model_mode: str) -> tuple[dict, list[tuple[str, bool]]]:
          len(firsts) == len(set(firsts)) >= 1),
         ("A/llm: stops on believed success or exhausts attempts, all attempts kept",
          a["stopped"] in ("believed_success", "attempts_exhausted") and len(a["attempts"]) >= 1),
-        ("A/llm: shift believed only after visible escalation text",
-         a["stopped"] != "believed_success" or a["attempts"][-1]["seen"] == "escalated"),
+        ("A/llm: break believed only after visible acceptance text",
+         a["stopped"] != "believed_success" or a["attempts"][-1]["seen"] == "accepted"),
         ("A/llm: attacker model costs on attacker side", a["attacker_llm_calls"] >= 1
          and sum(a["attacker_tokens"].values()) > 0),
-        ("A/template: no model calls", runs["A/template shift vs g_in"]["attacker_llm_calls"] == 0),
+        ("A/template: no model calls", runs["A/template break vs g_in"]["attacker_llm_calls"] == 0),
         ("A: model request limit -> protocol violation seen by evaluator",
          runs["A/llm request-limit"]["violation"] == "model_request_limit"
          and all(runs["A/llm request-limit"]["protocol_violation_seen_by_evaluator"].values())),

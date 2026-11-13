@@ -45,8 +45,8 @@ from darp_range.state_store import EpisodeStateManager, StoreError
 
 ROOT = Path(__file__).resolve().parents[1]
 ENTRIES, _ = load_corpus()
-SMALL = RunPlan(entries=("atk-02", "atk-07", "atk-14", "atk-21", "ctl-02", "ctl-07", "ctl-14",
-                         "ctl-21"), blocks=1, n_legal=4, w_a=0.5)
+SMALL = RunPlan(entries=("atk-02", "atk-07", "atk-14", "atk-18", "ctl-02", "ctl-07", "ctl-14",
+                         "ctl-18"), blocks=1, n_legal=4, w_a=0.5)
 
 
 def _tmp(tag: str) -> Path:

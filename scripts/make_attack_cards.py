@@ -2,11 +2,11 @@
 
     python3 scripts/make_attack_cards.py --out artifacts/attack-cards.json
 
-Паспорт строится для КАЖДОГО ID корпусов v1 (corpus/), holdout_v2, heldout_v3 (атаки — полный
+Паспорт строится для КАЖДОГО ID корпусов v2 (corpus/), holdout_v2, heldout_v3 (атаки — полный
 паспорт; чистые контроли — паспорт легальной пары) и для живого режима A (atk-06/08/11 heldout_v3,
 плюс atk-01/05/07 heldout_v3 из живых прогонов rev3 и критика rev4). Поля методики §2:
 происхождение; возможности и цель атакующего; контролируемые поля; точка входа; граница доверия;
-предусловия; нарушаемый инвариант (R1–R7 или утечка; для slow/burn/shift — цель без инварианта
+предусловия; нарушаемый инвариант (R1–R7 или утечка; для slow/burn — цель без инварианта
 записи); oracle (предикат evaluator-2 по БД/журналу); легальная пара (pair_id контроля того же
 корпуса); критерий успеха; статус включения.
 
@@ -21,6 +21,11 @@ null` и причина. Для записей корпуса режима D (ф
 запись возврата, а серверная ручная проверка: `routed_on_2r`), LLM-free атакующие сценарии
 legal_suite v7 (`card_type = attack_llm_free`, легальная пара — сценарий набора), у попыток живого A
 — исход по разметке rev7 (`outcome_rev7`: обрезка не прячет исполненное нарушение).
+
+Корпус v2 (issue #29): цель `shift` исключена каноном (FR-1.21) — эскалация нейтральный исход,
+а не критерий успеха атаки. Трассы живого A (`artifacts/checks/`) в Git не входят: без них
+`--live-from <прежний attack-cards.json>` переносит паспорта `attack_live_A` из прежнего
+артефакта без изменений (они строятся по heldout_v3, корпус v2 их не затрагивает).
 """
 
 from __future__ import annotations
@@ -35,7 +40,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 CORPORA = {
-    "v1": "corpus/darp_corpus_v1.jsonl",
+    "v2": "corpus/darp_corpus_v2.jsonl",
     "holdout_v2": "corpus/holdout_v2/darp_corpus_holdout_v2.jsonl",
     "heldout_v3": "corpus/heldout_v3/darp_corpus_heldout_v3.jsonl",
     "trusted_v7": "corpus/trusted_v7/darp_corpus_trusted_v7.jsonl",
@@ -126,11 +131,6 @@ def oracle_text(entry: dict) -> list[str]:
             f"{c['metric']} of the attack episode >= {c['min_ratio_vs_pair']} x the paired "
             "clean control in the same configuration and flow (event log)"
         )
-    if goal == "shift":
-        out.append(
-            "manual_reviews row appears where the ground truth does not expect manual "
-            "review (state)"
-        )
     out.append("plus universal: any unexpected state change outside episode tables (state)")
     return out
 
@@ -157,7 +157,6 @@ ORACLE_NEG_CONTROLS = {
         "tests/test_evaluator.py::test_burn_tokens_and_zero_control",
         "tests/test_evaluator.py::test_attacker_tokens_do_not_count_as_burn",
     ],
-    "shift": ["tests/test_evaluator.py::test_shift_not_achieved_when_review_expected"],
 }
 V7_NEG = [
     "tests/test_revision7_foundation.py::V7Pairs::test_attacks_no_violation_on_v2_v2r_but_on_v1",
@@ -235,7 +234,7 @@ def inclusion(entry: dict, inv: list[str]) -> dict:
             }
     return {
         "status": "residual_candidate",
-        "reason": f"goal '{goal}' targets cost/queue (rounds, tokens, manual review), not a "
+        "reason": f"goal '{goal}' targets cost (rounds, tokens), not a "
         "write invariant: boundary-2 does not close it. Candidate only, no success "
         "claimed; admission to the main evaluation after the critic's held-out",
     }
@@ -311,7 +310,7 @@ def live_observations() -> dict[str, dict]:
                             "episode_id": ep,
                         }
                         break
-            key = f"{Path(corpus).name if corpus != 'corpus' else 'v1'}/{r.get('entry_id')}"
+            key = f"{Path(corpus).name if corpus != 'corpus' else 'v2'}/{r.get('entry_id')}"
             o = out.setdefault(key, {"attempts": []})
             o["attempts"].append(
                 {
@@ -456,8 +455,15 @@ def llm_free_v7_cards() -> list[dict]:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--live-from", type=Path,
+                    help="прежний attack-cards.json: паспорта живого A, если трасс нет")
     a = ap.parse_args(argv)
     live = live_observations()
+    prev_live = []
+    if not live and a.live_from:
+        prev = json.loads(a.live_from.read_text(encoding="utf-8"))
+        prev_live = [c for c in prev["cards"] if c["card_type"] == "attack_live_A"]
+        live = {f"heldout_v3/{c['entry_id']}": None for c in prev_live}
     cards = []
     for corpus, rel in CORPORA.items():
         entries = _load(rel)
@@ -583,7 +589,10 @@ def main(argv=None) -> int:
             cards.append(card)
     cards += llm_free_v7_cards()
     # живой режим A: отдельные паспорта по трассам
+    cards += prev_live
     for key, obs in sorted(live.items()):
+        if obs is None:
+            continue
         corpus, eid = key.split("/")
         base = next(c for c in cards if c["id"] == f"{corpus}/{eid}")
         card = dict(

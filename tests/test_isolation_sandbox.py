@@ -97,8 +97,8 @@ sys.stdin.readline()
 @unittest.skipUnless(bwrap_works(), SKIP_MSG)
 class SandboxRegressionTest(unittest.TestCase):
     def test_mode_d_byte_identical(self):
-        plan = RunPlan(master_seed=7, entries=("atk-01", "atk-02", "atk-13", "atk-21", "ctl-01",
-                                               "ctl-02", "ctl-13", "ctl-21"),
+        plan = RunPlan(master_seed=7, entries=("atk-01", "atk-02", "atk-13", "atk-18", "ctl-01",
+                                               "ctl-02", "ctl-13", "ctl-18"),
                        blocks=1, n_legal=4, w_a=0.5, attack_mode="D", replay="none")
         r = compare_paths(plan, ["g0"], tmpdir(self), label="unit-D")
         self.assertTrue(r["identical"], r["diffs"])
