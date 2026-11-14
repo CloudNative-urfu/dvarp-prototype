@@ -46,6 +46,12 @@
       generated order base — orders/positions/tickets consistent with R1–R7 and corpus
       ground truth, placeholder identifiers rejected); implementation — separate task #36
       (BruhWhyMeHaveNoIdea), after Phase 1–2
+- [ ] attack-side exit condition (end state: two independent systems, wired only for the
+      paper's runs, wired state frozen as the scientific result; polygon then evolves into a
+      standalone evaluation product): when the polygon service is ready for contour runs
+      (at/before the article merge), attacker code, attack corpus entries, attack-cards and
+      attack-path unit tests migrate to the polygon repo and are cut from the СС —
+      no re-freeze needed (attack code is not frozen)
 - [ ] orchestrator-side lifecycle: staging, spawn (port 0 → argv), ready.json, pids.json
       registry, shutdown; single-writer rule (svc returns records, orchestrator writes)
 - [ ] meters: scoped meter budget at `/start`, per-turn cost records, aggregation into

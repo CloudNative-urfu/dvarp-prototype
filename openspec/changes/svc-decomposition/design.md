@@ -61,7 +61,15 @@ Runtime facts (zero-version, revision 11 scaffold):
   of the attacking side transferred). The polygon is a separate future service; until it
   exists, the current attacker (bwrap + JSON-lines IPC, text-only) runs in a transitional
   mode behind the same contour — the swap stays local to the contour. The attack corpus is
-  transitional in the СС and moves to the polygon repo later.
+  transitional in the СС and moves to the polygon repo later. End-state vision
+  (team-lead decision, 2026-11-14): **two independent systems** — the СС (process/defense)
+  and the polygon (evaluation); they are wired together only for the paper's runs, the
+  wired state is frozen as the scientific result, after that the systems diverge and the
+  polygon evolves into a standalone evaluation product. Exit condition of the transitional
+  mode: the polygon service is ready for contour runs (at/before the article merge) —
+  the attacker code, attack corpus entries, attack-cards and attack-path unit tests then
+  migrate to the polygon repo and are cut from the СС (no re-freeze: attack code is not
+  frozen).
 - Decision: **telemetry barrier** — per-turn telemetry (guard triggers, on-the-spot diff
   verdicts, costs) travels alongside the dialog reply but is never visible to the
   attacking agent; the text channel and the telemetry stream are separate channels,
