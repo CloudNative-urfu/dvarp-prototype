@@ -32,13 +32,20 @@
 - [ ] tool callback client in the service + `/tool-callback` data API on the orchestrator
       side (executor op via toolbox semantics, `PendingCall` contract preserved)
 - [ ] orchestrator: thin pair-scheduling core + two strictly separated launch contours
-      (defender-side: staging, spawn, freeze check; attack-side: the polygon connection
-      contract — start-of-attack-cycle signal (episode invite) and completion signal (raw
-      records of the attacking side); transitional mode until the polygon exists: the current
-      bwrap/IPC attacker runs behind the same contour; corpus v2 stays transitional in the СС)
+      (defender-side: staging, spawn, freeze check, driving the legal traffic through the
+      traffic-svc contract; attack-side: the polygon connection contract —
+      start-of-attack-cycle signal (episode invite) and completion signal (raw
+      records of the attacking side); transitional modes until the neighbor services exist:
+      the current bwrap/IPC attacker and the current simulation internals run behind the
+      same contract interfaces; corpus v2 stays transitional in the СС)
       — no mutual imports, no shared mutable state, channel is the only
       mediator; architecture test enforces import isolation (attack-side does not import
       defender-side and vice versa)
+- [ ] traffic-svc contract described explicitly in this spec (episode/flow invite: config,
+      seed, budget, id + hash of the DB snapshot; legal episodes bind to real rows of the
+      generated order base — orders/positions/tickets consistent with R1–R7 and corpus
+      ground truth, placeholder identifiers rejected); implementation — separate task #36
+      (BruhWhyMeHaveNoIdea), after Phase 1–2
 - [ ] orchestrator-side lifecycle: staging, spawn (port 0 → argv), ready.json, pids.json
       registry, shutdown; single-writer rule (svc returns records, orchestrator writes)
 - [ ] meters: scoped meter budget at `/start`, per-turn cost records, aggregation into
