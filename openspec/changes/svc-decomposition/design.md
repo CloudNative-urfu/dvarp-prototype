@@ -73,6 +73,21 @@ Runtime facts (zero-version, revision 11 scaffold):
   not affect agent behavior; only raw records with episode/turn ids leave the service; the
   traffic class (`E_L` natural+FP vs `E_A`) is attributed by the orchestrator. Aggregation
   and the analytic queue block stay orchestrator-side.
+- Decision: **traffic-svc is a separate service with an explicit contract** (team-lead
+  decision, 2026-11-14, issue #36): the legal traffic simulation internals (arrivals,
+  schedule blocks, `base`/`attacked` variants) are carved out of the orchestrator's
+  defender-side contour into a separate service implemented by BruhWhyMeHaveNoIdea. The
+  defender-side contour owns only the contract: the episode/flow invite carries config,
+  seed, budget and the **id + hash of the DB snapshot**; until traffic-svc exists, the
+  current simulation internals (`manual_queue.build_flow`, `plan.build_schedule`) run
+  behind the same contract interface — the swap stays local to the contour.
+- Decision: **legal episodes bind to real DB state** (team-lead decision, 2026-11-14):
+  legal traffic episodes reference real rows of the generated order base — orders,
+  positions, tickets consistent with rules R1–R7 and the corpus ground truth
+  (`pick_accounts`/`corpus.bind` semantics); placeholder identifiers are forbidden.
+  The snapshot id + hash in the episode invite is the anchor; the snapshot generator
+  (deterministic, hash-checked on restore) is the single base state for every config
+  start of a run.
 - Decision: **DB snapshot contract** — every run starts from the same initial state
   (deterministic generator, hash-checked snapshot restore), as hatched on the owner's
   vision diagram; editing the generator/schema means regenerating snapshots and corpus, not
