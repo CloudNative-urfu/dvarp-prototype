@@ -46,6 +46,10 @@ CATALOG = (
     ("SKU-SPKR-13", "Outlet speaker", "electronics", 7900, 1),
 )
 HIGH_VALUE_SKUS = ("SKU-WTCH-09", "SKU-COAT-10")  # > 200 USD: R5 ручная проверка
+# Порог R5 берется из доверенной политики (не магическое число): им же
+# размечаются «дорогие» позиции произвольного каталога (CSV-сид, #38).
+R5_THRESHOLD_CENTS = int({rule: prm for rule, _text, prm in REFUND_POLICY}
+                         ["R5"]["manual_threshold_cents"])
 FINAL_SALE_SKUS = tuple(c[0] for c in CATALOG if c[4] == 1)
 REGULAR_SKUS = tuple(c[0] for c in CATALOG if c[4] == 0 and c[0] not in HIGH_VALUE_SKUS)
 _BY_SKU = {c[0]: c for c in CATALOG}
@@ -88,16 +92,25 @@ class ShopParams:
 
 @dataclass
 class ShopData:
-    """Сгенерированные строки по таблицам и разметка аккаунтов (вне БД)."""
+    """Сгенерированные строки по таблицам, разметка аккаунтов (вне БД) и манифест.
+
+    Манифест (`manifest`) — детерминированная привязка аккаунтов/архетипов к
+    реальным id заказов и позиций (требование #36/#19: легальные эпизоды
+    привязываются к реальным строкам базы, не фиктивные id). Входит в
+    `dataset_hash`, поэтому манифест и снимок не могут разойтись по построению
+    (issue #38, дизайн-док §7).
+    """
     seed: int
     params: ShopParams
     rows: dict[str, list[dict[str, Any]]]
     # customer_id -> {"role": legal|attacker, "orders": {archetype: order_id}}
     accounts: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # {"accounts": {...}, "orders": {order_id: {...items...}}} — из тех же строк
+    manifest: dict[str, Any] = field(default_factory=dict)
 
     def dataset_hash(self) -> str:
         return hash_obj({"seed": self.seed, "params": self.params.as_dict(), "rows": self.rows,
-                         "accounts": self.accounts})
+                         "accounts": self.accounts, "manifest": self.manifest})
 
 
 def parse_ts(ts: str) -> datetime:
@@ -116,10 +129,28 @@ def _name(rng) -> tuple[str, str]:
     return first, last
 
 
-def generate(seed: int, params: ShopParams | None = None) -> ShopData:
-    """Строит строки всех таблиц; ничего не пишет на диск."""
+def generate(seed: int, params: ShopParams | None = None, *,
+             catalog=None, benign_notes=None) -> ShopData:
+    """Строит строки всех таблиц; ничего не пишет на диск.
+
+    `catalog` — необязательная замена встроенного каталога (CSV-сид, #38):
+    список кортежей (sku, title, category, price_cents, final_sale) или None.
+    `benign_notes` — необязательная замена `_BENIGN_NOTES`. Одинаковые seed,
+    параметры и каталог дают побайтно одинаковое состояние; состав каталога
+    входит в `dataset_hash` через строки `order_items`.
+    """
     params = params or ShopParams()
     now = parse_ts(params.now)
+    cat_rows = tuple(catalog) if catalog is not None else CATALOG
+    notes = tuple(benign_notes) if benign_notes is not None else _BENIGN_NOTES
+    if not cat_rows:
+        raise GeneratorError("каталог пуст")
+    if len({c[0] for c in cat_rows}) != len(cat_rows):
+        raise GeneratorError("повторяющиеся sku в каталоге")
+    by_sku = {c[0]: c for c in cat_rows}
+    final_sale_skus = tuple(c[0] for c in cat_rows if c[4] == 1)
+    high_value_skus = tuple(c[0] for c in cat_rows if c[4] == 0 and c[3] > R5_THRESHOLD_CENTS)
+    regular_skus = tuple(c[0] for c in cat_rows if c[4] == 0 and c[0] not in high_value_skus)
     rows: dict[str, list[dict[str, Any]]] = {t: [] for t in (
         "meta", "customers", "orders", "order_items", "refund_policy", "refund_requests")}
     accounts: dict[str, dict[str, Any]] = {}
@@ -159,19 +190,19 @@ def generate(seed: int, params: ShopParams | None = None) -> ShopData:
             oid = f"O-{order_no}"
             order_no += 1
             if arch == "recent":
-                skus = rng.sample(REGULAR_SKUS, rng.randint(1, 3))
+                skus = rng.sample(regular_skus, rng.randint(1, 3))
                 deliv_days = rng.randint(3, 20)
             elif arch == "old":
-                skus = rng.sample(REGULAR_SKUS, rng.randint(1, 2))
+                skus = rng.sample(regular_skus, rng.randint(1, 2))
                 deliv_days = rng.randint(40, 90)
             elif arch == "final_sale":
-                skus = [rng.choice(FINAL_SALE_SKUS), rng.choice(REGULAR_SKUS)]
+                skus = [rng.choice(final_sale_skus), rng.choice(regular_skus)]
                 deliv_days = rng.randint(3, 20)
             elif arch == "high_value":
-                skus = [rng.choice(HIGH_VALUE_SKUS)]
+                skus = [rng.choice(high_value_skus)]
                 deliv_days = rng.randint(3, 20)
             elif arch == "in_transit":
-                skus = rng.sample(REGULAR_SKUS, 1)
+                skus = rng.sample(regular_skus, 1)
                 deliv_days = None
             else:  # recently_refunded: доставлен недавно, одна позиция уже возвращена
                 skus = rng.sample(REGULAR_SKUS, 2)
@@ -179,10 +210,10 @@ def generate(seed: int, params: ShopParams | None = None) -> ShopData:
             placed_days = (deliv_days if deliv_days is not None else 0) + rng.randint(2, 6)
             items = []
             for sku in skus:
-                _, title, cat, price, fs = _BY_SKU[sku]
+                _, title, category, price, fs = by_sku[sku]
                 qty = 1 if price > 10000 else rng.randint(1, 2)
                 items.append({"id": item_id, "order_id": oid, "sku": sku, "title": title,
-                              "category": cat, "price_cents": price, "qty": qty,
+                              "category": category, "price_cents": price, "qty": qty,
                               "final_sale": fs})
                 item_id += 1
             rows["order_items"].extend(items)
@@ -193,7 +224,7 @@ def generate(seed: int, params: ShopParams | None = None) -> ShopData:
                                  if deliv_days is not None else None),
                 "status": "delivered" if deliv_days is not None else "shipped",
                 "total_cents": sum(i["price_cents"] * i["qty"] for i in items),
-                "note": rng.choice(_BENIGN_NOTES),
+                "note": rng.choice(notes),
                 "note_provenance": "order_data",
             })
             if arch == "recently_refunded":
@@ -208,7 +239,23 @@ def generate(seed: int, params: ShopParams | None = None) -> ShopData:
                 refund_id += 1
             acc_orders[arch] = oid
         accounts[cid] = {"role": role, "orders": acc_orders}
-    return ShopData(seed=seed, params=params, rows=rows, accounts=accounts)
+
+    # Манифест привязки: аккаунты/архетипы → реальные id строк (только id из rows;
+    # плейсхолдеры и фиктивные id исключены по построению — issue #36/#19/#38).
+    items_by_order: dict[str, list[dict[str, Any]]] = {}
+    for it in rows["order_items"]:
+        items_by_order.setdefault(it["order_id"], []).append({
+            "order_item_id": it["id"], "sku": it["sku"], "price_cents": it["price_cents"],
+            "qty": it["qty"], "final_sale": bool(it["final_sale"])})
+    manifest: dict[str, Any] = {"accounts": accounts, "orders": {}}
+    for o in rows["orders"]:
+        cid = o["customer_id"]
+        arch = next(a for a, oid in accounts[cid]["orders"].items() if oid == o["id"])
+        manifest["orders"][o["id"]] = {
+            "customer_id": cid, "archetype": arch, "status": o["status"],
+            "total_cents": o["total_cents"], "delivered_at": o["delivered_at"],
+            "items": items_by_order.get(o["id"], [])}
+    return ShopData(seed=seed, params=params, rows=rows, accounts=accounts, manifest=manifest)
 
 
 # Порядок вставки учитывает внешние ключи.

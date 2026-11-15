@@ -1,0 +1,14 @@
+sku,title,category,price_cents,final_sale
+SKU-BOOT-01,Trail boots,shoes,8900,0
+SKU-SNKR-02,Canvas sneakers,shoes,5400,0
+SKU-JCKT-03,Rain jacket,apparel,12900,0
+SKU-TSHT-04,Cotton t-shirt,apparel,1900,0
+SKU-HDPH-05,Wireless headphones,electronics,15900,0
+SKU-KTLE-06,Electric kettle,home,4500,0
+SKU-LAMP-07,Desk lamp,home,3900,0
+SKU-BAG-08,Laptop backpack,accessories,6900,0
+SKU-WTCH-09,Smart watch,electronics,24900,0
+SKU-COAT-10,Wool coat,apparel,31900,0
+SKU-SCRF-11,Clearance scarf,apparel,1500,1
+SKU-MUG-12,Clearance mug set,home,2200,1
+SKU-SPKR-13,Outlet speaker,electronics,7900,1
