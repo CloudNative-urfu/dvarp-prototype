@@ -80,14 +80,14 @@ class ShopSpec:
 
 
 def build_database(path: str | Path, seed: int, params: ShopParams | None = None,
-                   overwrite: bool = False) -> ShopSpec:
+                   overwrite: bool = False, *, catalog=None, benign_notes=None) -> ShopSpec:
     path = Path(path)
     if path.exists():
         if not overwrite:
             raise StoreError(f"файл уже существует: {path}")
         _remove_db_files(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    data: ShopData = generate(seed, params)
+    data: ShopData = generate(seed, params, catalog=catalog, benign_notes=benign_notes)
     conn = connect(path)
     try:
         write_into(conn, data)
@@ -218,6 +218,27 @@ def _luhn_ok(digits: str) -> bool:
             if total % 10 == 0:
                 return True
     return False
+
+
+# ---------------------------------------------------------------- версии схемы
+
+SUPPORTED_SCHEMA_VERSIONS = (1, 2, 3)
+
+
+def apply_schema_version(conn: sqlite3.Connection, schema_version: int) -> None:
+    """Последовательность миграций 2..schema_version поверх базовой БД v1:
+    v2 — доверенные таблицы boundary-2 (`trusted.apply_schema_v2`), v3 — колонки
+    аудита и индексы (`migrate_v3.apply_schema_v3`). Базовая БД после этого
+    проверяется `check_integrity`; её новый логический хеш — в `state_hash`."""
+    if schema_version not in SUPPORTED_SCHEMA_VERSIONS:
+        raise StoreError(f"schema_version {schema_version!r} не из {SUPPORTED_SCHEMA_VERSIONS}")
+    for version in range(2, schema_version + 1):
+        if version == 2:
+            from .trusted import apply_schema_v2
+            apply_schema_v2(conn)
+        elif version == 3:
+            from .migrate_v3 import apply_schema_v3
+            apply_schema_v3(conn)
 
 
 # ---------------------------------------------------------------- снимки
@@ -364,18 +385,16 @@ class EpisodeStateManager:
         base = self.workdir / "base.sqlite"
         self.spec = build_database(base, seed, params, overwrite=True)
         self.schema_version = schema_version
-        if schema_version == 2:
-            # ревизия 6 (boundary-2): доверенные таблицы до снимка; БД v1 не меняются
-            from .trusted import apply_schema_v2
+        if schema_version != 1:
+            # миграции поверх базовой БД до снимка (v2: доверенные таблицы boundary-2;
+            # v3: колонки аудита и индексы); базовые БД v1 и их логические хеши не меняются
             conn = connect(base)
             try:
-                apply_schema_v2(conn)
+                apply_schema_version(conn, schema_version)
                 check_integrity(conn)
                 self.spec.state_hash = state_hash(conn)
             finally:
                 conn.close()
-        elif schema_version != 1:
-            raise StoreError(f"schema_version {schema_version!r} не из (1, 2)")
         self.snapshot = take_snapshot(base, self.workdir / "baseline.snapshot.sqlite")
         os.chmod(self.snapshot.path, 0o444)  # защита снимка от случайной записи
         self._baseline_state = dump_state(self.snapshot.path)
