@@ -8,6 +8,7 @@
 
 import json
 import os
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -16,8 +17,8 @@ from pathlib import Path
 
 from darp_range.state_store import (
     CATALOG, EpisodeStateManager, ManifestError, SeedError, apply_schema_v3, build_database,
-    connect, deploy_database, dump_state, has_schema_v3, load_catalog_csv, load_manifest,
-    load_notes_csv, state_hash, verify_manifest,
+    connect, deploy_database, dump_state, generate, has_schema_v3, load_catalog_csv,
+    load_manifest, load_notes_csv, state_hash, verify_manifest,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -43,12 +44,13 @@ class MigrationV3Tests(_Tmp):
         self.assertFalse(has_schema_v3(conn))
         apply_schema_v3(conn)
         cols = {t: {r[1] for r in conn.execute(f"PRAGMA table_info('{t}')")}
-                for t in ("manual_reviews", "info_requests", "ops_ledger")}
+                for t in ("manual_reviews", "info_requests", "ops_ledger", "tickets")}
         self.assertIn("decided_at", cols["manual_reviews"])
         self.assertIn("decision", cols["manual_reviews"])
         self.assertIn("decided_by", cols["manual_reviews"])
         self.assertIn("question_text", cols["info_requests"])
         self.assertIn("detail_json", cols["ops_ledger"])
+        self.assertIn("closed_at", cols["tickets"])
         idx = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='index'")}
         for name in ("idx_refunds_ticket", "idx_refusals_ticket", "idx_info_ticket",
                      "idx_tickets_customer_status", "idx_reviews_queue"):
@@ -68,6 +70,31 @@ class MigrationV3Tests(_Tmp):
         conn.execute("PRAGMA user_version = 9")
         with self.assertRaises(RuntimeError):
             apply_schema_v3(conn)
+        conn.close()
+
+    def test_refund_status_dictionary_extended_rows_preserved(self):
+        spec = build_database(self.tmp / "db.sqlite", 7)
+        conn = connect(spec.path)
+        before = conn.execute(
+            "SELECT count(*), sum(amount_cents) FROM refund_requests").fetchone()
+        apply_schema_v3(conn)
+        after = conn.execute(
+            "SELECT count(*), sum(amount_cents) FROM refund_requests").fetchone()
+        self.assertEqual(before, after)              # перестройка сохранила строки
+        # расширенный словарь: новые исходы принимаются, неизвестные отвергаются
+        (item_id, cid) = conn.execute(
+            "SELECT i.id, o.customer_id FROM order_items i JOIN orders o "
+            "ON o.id = i.order_id LEFT JOIN refund_requests r ON r.order_item_id = i.id "
+            "WHERE r.id IS NULL LIMIT 1").fetchone()
+        conn.execute(
+            "INSERT INTO refund_requests(ticket_id, order_item_id, customer_id, amount_cents, "
+            "reason_code, status, created_by, created_at) VALUES "
+            "(NULL, ?, ?, 100, 'defective', 'approved', 'executor', 'x')", (item_id, cid))
+        with self.assertRaises(sqlite3.IntegrityError):
+            conn.execute(
+                "INSERT INTO refund_requests(order_item_id, customer_id, amount_cents, "
+                "reason_code, status, created_by, created_at) VALUES "
+                "(?, ?, 100, 'defective', 'bogus', 'executor', 'x')", (item_id + 1, cid))
         conn.close()
 
     def test_episode_manager_schema_versions(self):
@@ -129,6 +156,31 @@ class ManifestTests(_Tmp):
         return deploy_database(
             self.tmp / "db.sqlite", 7, schema_version=3, overwrite=True,
             snapshot_path=self.tmp / "snap.sqlite", manifest_path=self.tmp / "m.json")
+
+    def test_manifest_part_of_dataset_hash(self):
+        from darp_range.repro import hash_obj
+        data = generate(7)
+        # детерминизм манифеста
+        self.assertEqual(data.manifest, generate(7).manifest)
+        # манифест входит в dataset_hash: хеш без него отличается
+        h_without = hash_obj({"seed": data.seed, "params": data.params.as_dict(),
+                              "rows": data.rows, "accounts": data.accounts})
+        self.assertNotEqual(h_without, data.dataset_hash())
+
+    def test_manifest_binds_real_rows_no_placeholders(self):
+        r = self._deploy()
+        manifest = load_manifest(self.tmp / "m.json")
+        self.assertEqual(manifest["dataset_hash"], r["dataset_hash"])
+        for oid, o in manifest["orders"].items():
+            self.assertRegex(oid, r"^O-\d+$")        # реальные id, не плейсхолдеры
+            self.assertTrue(o["items"])
+            for it in o["items"]:
+                self.assertIsInstance(it["order_item_id"], int)
+        for cid, acc in manifest["accounts"].items():
+            self.assertRegex(cid, r"^C-\d+$")
+            self.assertIn(acc["role"], ("legal", "attacker"))
+            for oid in acc["orders"].values():
+                self.assertIn(oid, manifest["orders"])
 
     def test_manifest_roundtrip_and_real_rows(self):
         r = self._deploy()

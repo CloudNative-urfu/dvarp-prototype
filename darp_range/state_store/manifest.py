@@ -4,13 +4,14 @@
 эпизоды привязываются к реальным строкам базы заказов (консистентность с
 R1–R7 и ground truth, не фиктивные id). Манифест — детерминированный JSON
 рядом с БД/снимком: хеши сида, разбивка аккаунтов по архетипам (разметка ролей
-живет вне БД, FR-1.3) и фактические id заказов/позиций, прочитанные из БД.
+живет вне БД, FR-1.3) и фактические id заказов/позиций.
 
-Манифест не пишется в БД и не входит в её логический хеш: он выводится из тех
-же строк, поэтому расхождение с БД невозможно по построению, а
-`verify_manifest` дополнительно сверяет логический хеш и существование/поля
-каждой ссылки. Потребитель — генератор легального трафика (traffic-svc, #36)
-и оркестратор. Только стандартная библиотека.
+Ядро привязки (accounts/orders) строит генератор из тех же строк и включает
+в `dataset_hash` (`state_store.generator.ShopData.manifest`) — манифест и
+снимок не могут разойтись по построению (issue #38). `verify_manifest`
+дополнительно сверяет логический хеш и существование/поля каждой ссылки.
+Потребитель — генератор легального трафика (traffic-svc, #36) и оркестратор.
+Только стандартная библиотека.
 """
 
 from __future__ import annotations
@@ -29,10 +30,32 @@ class ManifestError(ValueError):
 
 
 def build_manifest(db_path: str | Path, spec: ShopSpec) -> dict[str, Any]:
-    """Собирает манифест из БД и ShopSpec (аккаунты/архетипы — вне БД)."""
+    """Собирает манифест: ядро привязки из генератора (`spec.manifest`, входит в
+    `dataset_hash` — issue #38) + хеши и модельное время БД. Если ядро отсутствует
+    (спека старого формата), реконструируется из БД и `spec.accounts`."""
     conn = connect(db_path, readonly=True)
     try:
         meta = dict(conn.execute("SELECT key, value FROM meta"))
+    finally:
+        conn.close()
+    core = spec.manifest or _reconstruct_core(db_path, spec)
+    return {
+        "format": MANIFEST_FORMAT,
+        "seed": spec.seed,
+        "params": spec.params,
+        "dataset_hash": spec.dataset_hash,
+        "state_hash": state_hash(db_path),
+        "now": meta.get("now"),
+        "accounts": core["accounts"],
+        "orders": core["orders"],
+    }
+
+
+def _reconstruct_core(db_path: str | Path, spec: ShopSpec) -> dict[str, Any]:
+    """Ядро привязки из БД (fallback для спек без `manifest`): те же данные, что
+    кладет генератор, — проверка согласованности архетипов по пути."""
+    conn = connect(db_path, readonly=True)
+    try:
         items: dict[int, list[dict[str, Any]]] = {}
         for r in conn.execute(
                 "SELECT id, order_id, sku, price_cents, qty, final_sale "
@@ -60,17 +83,9 @@ def build_manifest(db_path: str | Path, spec: ShopSpec) -> dict[str, Any]:
             raise ManifestError(f"аккаунты ссылаются на отсутствующие заказы: {sorted(archetype)}")
     finally:
         conn.close()
-    return {
-        "format": MANIFEST_FORMAT,
-        "seed": spec.seed,
-        "params": spec.params,
-        "dataset_hash": spec.dataset_hash,
-        "state_hash": spec.state_hash,
-        "now": meta.get("now"),
-        "accounts": {cid: {"role": acc["role"], "orders": acc["orders"]}
-                     for cid, acc in sorted(spec.accounts.items())},
-        "orders": orders,
-    }
+    return {"accounts": {cid: {"role": acc["role"], "orders": acc["orders"]}
+                         for cid, acc in sorted(spec.accounts.items())},
+            "orders": orders}
 
 
 def write_manifest(manifest: dict[str, Any], path: str | Path) -> Path:

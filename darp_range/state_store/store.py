@@ -67,13 +67,15 @@ def _remove_db_files(path: Path) -> None:
 
 @dataclass
 class ShopSpec:
-    """Результат сборки базовой БД: путь, seed, хеши и разметка аккаунтов (вне БД)."""
+    """Результат сборки базовой БД: путь, seed, хеши, разметка аккаунтов и
+    манифест привязки (вне БД)."""
     path: str
     seed: int
     params: dict[str, Any]
     dataset_hash: str
     state_hash: str
     accounts: dict[str, dict[str, Any]] = field(default_factory=dict)
+    manifest: dict[str, Any] = field(default_factory=dict)
 
     def to_json(self) -> dict[str, Any]:
         return asdict(self)
@@ -97,7 +99,8 @@ def build_database(path: str | Path, seed: int, params: ShopParams | None = None
     finally:
         conn.close()
     return ShopSpec(path=str(path), seed=seed, params=data.params.as_dict(),
-                    dataset_hash=data.dataset_hash(), state_hash=h, accounts=data.accounts)
+                    dataset_hash=data.dataset_hash(), state_hash=h, accounts=data.accounts,
+                    manifest=data.manifest)
 
 
 # ---------------------------------------------------------------- состояние и хеш

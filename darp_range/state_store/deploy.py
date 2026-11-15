@@ -16,8 +16,8 @@ from typing import Any
 from .generator import ShopParams
 from .manifest import build_manifest, verify_manifest, write_manifest
 from .store import (
-    ShopSpec, Snapshot, StoreError, apply_schema_version, build_database, check_integrity,
-    connect, state_hash, take_snapshot,
+    ShopSpec, Snapshot, StoreError, apply_schema_version, assert_synthetic, build_database,
+    check_integrity, connect, state_hash, take_snapshot,
 )
 
 SUPPORTED_DEPLOY_SCHEMA_VERSIONS = (1, 2, 3)
@@ -44,6 +44,9 @@ def deploy_database(out_path: str | Path, seed: int, *,
             spec.state_hash = state_hash(conn)
         finally:
             conn.close()
+    # обязательные проверки выходного артефакта (issue #38, п. 2): синтетичность
+    # и запрещённые колонки — после миграций, на финальной схеме
+    assert_synthetic(out_path)
     result: dict[str, Any] = {"out": str(out_path), "seed": seed,
                               "schema_version": schema_version,
                               "dataset_hash": spec.dataset_hash,
