@@ -169,7 +169,7 @@ class TestSpecs(unittest.TestCase):
 
     def test_spec_fingerprint_stable(self):
         self.assertEqual(hash_obj(tools_spec()), hash_obj(tools_spec()))
-        self.assertEqual(tools_spec()["version"], "refund-tools-1")
+        self.assertEqual(tools_spec()["version"], "refund-tools-2")
 
     def test_parse_call(self):
         p = parse_call("finalize_case", {"decision": "refuse", "reason_code": "outside_window"})
@@ -193,8 +193,11 @@ class TestSpecs(unittest.TestCase):
         self.assertEqual(p.args["amount_cents"], 1999.5)
         self.assertEqual(p.coerced, ())
         p = parse_call("ask_customer", {"question_code": "item"})
-        self.assertEqual((p.op, p.args, p.question), ("request_info", {"question_code": "item"},
-                                                      QUESTION_TEXTS["item"]))
+        # текст вопроса идёт исполнителю как question_text (задача #39: v3-поле аудита)
+        self.assertEqual((p.op, p.args, p.question),
+                         ("request_info", {"question_code": "item",
+                                           "question_text": QUESTION_TEXTS["item"]},
+                          QUESTION_TEXTS["item"]))
         self.assertIsNotNone(parse_call("ask_customer", {"question_code": "item",
                                                          "question": "x" * 501}).error)
         self.assertIsNotNone(parse_call("ask_customer", {"question_code": "item",

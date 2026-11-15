@@ -1,9 +1,9 @@
 {
   "control_of": null,
   "defender": "agent",
-  "executor_boundary": "955561c084ad57a95d4b6b01e04aa38126105db4d311347046205bea08b09fee",
+  "executor_boundary": "8e46eeb0bbeb37c007f60ecb01f733fa16281d130c9fabf40b89ae3b4515c8bd",
   "family": "g_proc",
-  "fingerprint": "cb67940c76c30a1a46bdea048f628ad2ffed08b691e2a6478ebe0f582fe5face",
+  "fingerprint": "3b2ba3a86956ba70c65531235dcdec25653dad82028686d6ae4228e22eb59ad8",
   "guards": [],
   "name": "g_proc",
   "notes": "g0 + process rules: dedup, per-customer quota, round/clarification/token limits, typed finalization (R1/R2/R5); fair-share manual queue.",

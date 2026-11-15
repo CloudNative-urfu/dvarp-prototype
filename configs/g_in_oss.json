@@ -1,9 +1,9 @@
 {
   "control_of": null,
   "defender": "agent",
-  "executor_boundary": "955561c084ad57a95d4b6b01e04aa38126105db4d311347046205bea08b09fee",
+  "executor_boundary": "8e46eeb0bbeb37c007f60ecb01f733fa16281d130c9fabf40b89ae3b4515c8bd",
   "family": "guarded",
-  "fingerprint": "2652c29b3d9b68f03224ab2fdd940f483f3acaa62bb25ed964679b147b869f4e",
+  "fingerprint": "fe02764222a70fef5b0dcadbbe8327cda26331139a2616d8e40526ec5ed520e8",
   "guards": [
     {
       "id": "deberta-pi-v2",

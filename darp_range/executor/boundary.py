@@ -31,14 +31,19 @@ BOUNDARY_VERSION = "executor-boundary-1"
 # Роли вызывающего кода. Агент действует через инструменты (роль `simple_baseline` — бывшая
 # g_simple, исключённая каноном; роль оставлена, чтобы не менять отпечатки границ); политика
 # гвардрейлов исполняет реакции (эскалация, безопасное завершение, уточнение); `process` — правила g_proc;
-# `harness` — транспорт канала, записывающий реплики в историю обращения.
-ROLES = ("agent", "simple_baseline", "policy", "process", "harness")
+# `harness` — транспорт канала, записывающий реплики в историю обращения. `operator` — закрытие
+# эскалированных обращений (`resolve_review`, задача #39): право по роли, не по владению —
+# операторская сессия создаётся оркестратором с customer_id владельца тикета.
+ROLES = ("agent", "simple_baseline", "policy", "process", "harness", "operator")
 
 READ_OPS = ("read_order", "read_ticket", "read_policy")
-WRITE_OPS = ("request_info", "create_refund", "refuse", "assign_manual_review", "record_message")
+WRITE_OPS = ("request_info", "create_refund", "refuse", "assign_manual_review", "record_message",
+             "resolve_review")
 OPS = READ_OPS + WRITE_OPS
 # Операции, завершающие рассмотрение обращения (инструмент 5 FR-1.11): ровно одна на обращение.
 FINALIZING_OPS = ("create_refund", "refuse", "assign_manual_review")
+# Закрытие ручной проверки оператором — не завершение агентом (не входит в FINALIZING_OPS
+# и не считается попыткой агента финализировать).
 
 _BUSINESS = frozenset(READ_OPS + ("request_info",) + FINALIZING_OPS)
 ROLE_OPS = MappingProxyType({
@@ -47,6 +52,7 @@ ROLE_OPS = MappingProxyType({
     "policy": frozenset({"request_info", "refuse", "assign_manual_review"}),
     "process": frozenset({"refuse", "assign_manual_review"}),
     "harness": frozenset({"record_message"}),
+    "operator": frozenset({"resolve_review"}),
 })
 
 # Коды решений по ролям. Агент не знает о гвардрейлах (FR-1.9) и не может выдать своё решение
@@ -60,6 +66,7 @@ REFUSAL_CODES_BY_ROLE = MappingProxyType({
     "policy": frozenset({"safe_terminate"}),
     "process": frozenset({"policy_violation"}),
     "harness": frozenset(),
+    "operator": frozenset(),
 })
 REVIEW_REASONS_BY_ROLE = MappingProxyType({
     "agent": _BUSINESS_REVIEWS,
@@ -67,6 +74,7 @@ REVIEW_REASONS_BY_ROLE = MappingProxyType({
     "policy": frozenset({"guard_escalation"}),
     "process": frozenset({"process_limit"}),
     "harness": frozenset(),
+    "operator": frozenset(),
 })
 
 # Коды отказа исполнителя (внутренние, в БД не пишутся: таблица `refusals` — это решение
@@ -221,8 +229,10 @@ CHECKS_V2R = CHECKS_V2 + (
                               "final:<ticket>, in the same BEGIN IMMEDIATE; no refund_requests"),
     ("authorizer_depth", "executor connection: no writes to refund_policy/orders/order_items/"
                          "customers/meta/trusted tables; no UPDATE/DELETE on refund_requests/"
-                         "manual_reviews/refusals/ops_ledger/info_requests/ticket_messages; "
-                         "tickets: UPDATE only status/clarifications, no INSERT/DELETE; no DDL"),
+                         "refusals/ops_ledger/info_requests/ticket_messages; manual_reviews: "
+                         "UPDATE only decided_at/decision/decided_by (operator resolve_review); "
+                         "tickets: UPDATE only status/clarifications/closed_at, no INSERT/DELETE; "
+                         "no DDL"),
 )
 # Карта отличий v2 → v2r (дублируется в artifacts/production-readiness.md).
 BOUNDARY_V2_TO_V2R = MappingProxyType({

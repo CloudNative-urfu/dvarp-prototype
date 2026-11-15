@@ -41,6 +41,14 @@
 и TEMP-триггеры BEFORE UPDATE/DELETE с RAISE(ABORT) на таблицах истории (ловят неявное удаление при
 `INSERT OR REPLACE`, которое авторизатору не сообщается); авторизатор дополнительно запрещает
 ATTACH/DETACH и прагмы, кроме allow-list читающих (`READ_PRAGMAS`).
+
+Задача #39 (запись в v3-поля аудита): на схеме v3 (`user_version >= 3`) исполнитель пишет
+`info_requests.question_text` (`_op_request_info`, текст уточнения от слоя тулов), payload операции
+в `ops_ledger.detail_json`, `tickets.closed_at` при финализации и исход ручной проверки — новая
+операция `resolve_review` роли `operator` (`manual_reviews.decided_at/decision/decided_by`).
+На схемах v1/v2 эти поля не пишутся (колонок нет) — поведение прежнее. Авторизатор разрешает
+UPDATE `manual_reviews` только решённых колонок (`REVIEW_DECIDED_COLUMNS`), TEMP-триггер
+`manual_reviews` на v3 пропускает только их; `tickets` — UPDATE status/clarifications/closed_at.
 """
 
 from __future__ import annotations
@@ -94,14 +102,23 @@ _SIGNATURES: dict[str, tuple[tuple[str, type, bool], ...]] = {
     "read_order": (("order_id", str, True),),
     "read_ticket": (("ticket_id", str, False),),
     "read_policy": (),
-    "request_info": (("question_code", str, True),),
+    "request_info": (("question_code", str, True), ("question_text", str, False)),
     "create_refund": (("order_item_id", int, True), ("amount_cents", int, True),
                       ("reason_code", str, True)),
     "refuse": (("reason_code", str, True),),
     "assign_manual_review": (("reason_code", str, True),),
     "record_message": (("author", str, True), ("body", str, True)),
+    "resolve_review": (("decision", str, True),),
 }
+# Лимит текста уточнения — как MAX_QUESTION_CHARS слоя тулов (tools/specs.py);
+# executor не может импортировать tools (tools импортирует executor).
+_MAX_QUESTION_TEXT_CHARS = 500
 MAX_BODY_CHARS = 8000
+
+# Исходы ручной проверки: закрытый словарь, пишет только роль `operator`
+# (операция `resolve_review`, задача #39).
+REVIEW_DECISIONS = ("approved", "rejected")
+REVIEW_DECIDED_BY = "operator"
 
 
 class ExecutorError(RuntimeError):
@@ -174,6 +191,9 @@ class Executor:
             raise ExecutorError("нужен писатель журнала компонента 'executor'")
         self._conn = connect(db_path)
         self._conn.isolation_level = None  # транзакции управляются явно
+        # v3-поля аудита пишутся только на схеме v3 (issue #39): на v1/v2 их нет,
+        # поведение прежнее (парити #19)
+        self._v3 = self._conn.execute("PRAGMA user_version").fetchone()[0] >= 3
         self._session = session
         self._writer = writer
         self._episode_id = episode_id
@@ -290,9 +310,17 @@ class Executor:
             (self._session.ticket_id,)).fetchone()
         return status, order_id
 
-    def _ledger(self, key: str, kind: str) -> None:
-        self._conn.execute("INSERT INTO ops_ledger(op_key, ticket_id, kind, created_at) "
-                           "VALUES (?, ?, ?, ?)", (key, self._session.ticket_id, kind, self._now()))
+    def _ledger(self, key: str, kind: str, detail: dict[str, Any] | None = None) -> None:
+        if detail is not None and self._v3:
+            self._conn.execute(
+                "INSERT INTO ops_ledger(op_key, ticket_id, kind, created_at, detail_json) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (key, self._session.ticket_id, kind, self._now(),
+                 json.dumps(detail, sort_keys=True)))
+        else:
+            self._conn.execute("INSERT INTO ops_ledger(op_key, ticket_id, kind, created_at) "
+                               "VALUES (?, ?, ?, ?)", (key, self._session.ticket_id, kind,
+                                                       self._now()))
 
     def _final_key(self) -> str:
         return f"final:{self._session.ticket_id}"
@@ -307,8 +335,13 @@ class Executor:
             raise _Denied("ticket_not_open")
 
     def _set_ticket_status(self, status: str) -> None:
-        self._conn.execute("UPDATE tickets SET status = ? WHERE id = ?",
-                           (status, self._session.ticket_id))
+        if self._v3:
+            # closed_at — момент закрытия тикета (design §2.3); все вызывающие — финализация
+            self._conn.execute("UPDATE tickets SET status = ?, closed_at = ? WHERE id = ?",
+                               (status, self._now(), self._session.ticket_id))
+        else:
+            self._conn.execute("UPDATE tickets SET status = ? WHERE id = ?",
+                               (status, self._session.ticket_id))
 
     # ------------------------------------------------------------------ чтение
 
@@ -327,11 +360,31 @@ class Executor:
                      "SELECT i.id, i.sku, i.title, i.category, i.price_cents, i.qty, i.final_sale, "
                      "r.id IS NOT NULL FROM order_items i LEFT JOIN refund_requests r "
                      "ON r.order_item_id = i.id WHERE i.order_id = ? ORDER BY i.id", (o[0],))]
+        # история покупок/возвратов клиента (канон-заявка 001, вариант 2 — расширение
+        # read_order): все заказы сессии-клиента с флагом заявки по каждой позиции —
+        # агент проверяет «клиент реально покупал» и повторы возвратов без шестого тула.
+        # Только свои данные (R6), без ролей и PII (FR-1.3, NFR-2.13).
+        history: dict[str, dict[str, Any]] = {}
+        for r in self._conn.execute(
+                "SELECT o.id, o.status, o.delivered_at, o.total_cents, i.id, i.sku, "
+                "i.price_cents, i.qty, i.final_sale, r.id IS NOT NULL "
+                "FROM orders o JOIN order_items i ON i.order_id = o.id "
+                "LEFT JOIN refund_requests r ON r.order_item_id = i.id "
+                "WHERE o.customer_id = ? ORDER BY o.id, i.id", (self._session.customer_id,)):
+            entry = history.setdefault(r[0], {
+                "order_id": r[0], "status": r[1], "delivered_at": r[2], "total_cents": r[3],
+                "items": []})
+            entry["items"].append({"order_item_id": r[4], "sku": r[5], "price_cents": r[6],
+                                   "qty": r[7], "final_sale": bool(r[8]),
+                                   "refund_requested": bool(r[9])})
         context = [{"provenance": o[6], "text": o[5]}] if o[5] else []
         return ({"order": {"order_id": o[0], "placed_at": o[1], "delivered_at": o[2],
-                           "status": o[3], "total_cents": o[4]},
-                 "items": items, "context": context},
-                "R6 ownership: order belongs to session customer")
+                           "status": o[3], "total_cents": o[4],
+                           "note_provenance": o[6]},
+                 "items": items,
+                 "purchase_history": [history[k] for k in sorted(history)],
+                 "context": context},
+                 "R6 ownership: order belongs to session customer")
 
     def _op_read_ticket(self, role: str, ticket_id: str | None = None) -> tuple[dict, str]:
         s = self._session
@@ -358,17 +411,31 @@ class Executor:
 
     # ------------------------------------------------------------------ изменения
 
-    def _op_request_info(self, role: str, question_code: str) -> ExecResult:
+    def _op_request_info(self, role: str, question_code: str,
+                         question_text: str | None = None) -> ExecResult:
         if question_code not in QUESTION_CODES:
             raise _Denied("invalid_argument", "question_code")
+        if question_text is not None:
+            if not isinstance(question_text, str):    # на всякий случай: тип проверен и в _check_args
+                raise _Denied("invalid_argument", "question_text")
+            question_text = question_text.strip()
+            if not question_text or len(question_text) > _MAX_QUESTION_TEXT_CHARS:
+                raise _Denied("invalid_argument",
+                              f"question_text: 1..{_MAX_QUESTION_TEXT_CHARS} chars")
         self._require_open()
         tid = self._session.ticket_id
         n = self._conn.execute("SELECT clarifications FROM tickets WHERE id = ?",
                                (tid,)).fetchone()[0] + 1
-        self._conn.execute("INSERT INTO info_requests(ticket_id, question_code, created_at) "
-                           "VALUES (?, ?, ?)", (tid, question_code, self._now()))
+        if question_text is not None and self._v3:
+            self._conn.execute(
+                "INSERT INTO info_requests(ticket_id, question_code, question_text, created_at) "
+                "VALUES (?, ?, ?, ?)", (tid, question_code, question_text, self._now()))
+        else:
+            self._conn.execute("INSERT INTO info_requests(ticket_id, question_code, created_at) "
+                               "VALUES (?, ?, ?)", (tid, question_code, self._now()))
         self._conn.execute("UPDATE tickets SET clarifications = ? WHERE id = ?", (n, tid))
-        self._ledger(f"info:{tid}:{n}", "info_request")
+        self._ledger(f"info:{tid}:{n}", "info_request",
+                     detail={"question_code": question_code, "question_text": question_text})
         # лимит R7 здесь не применяется: это правило процесса (агент / g_proc), не право
         return ExecResult(op="request_info", role=role, status="ok", code=None,
                           basis=f"ticket open; clarification #{n}",
@@ -434,25 +501,35 @@ class Executor:
         if amount_cents > limit:
             raise _Denied("amount_exceeds_price", f"{amount_cents} > {limit}")
         rules_basis = ""
+        # статус заявки: 'approved', когда R5-порог покрыт доверенным одобрением оператора
+        # (boundary-2/2r, схема v3); иначе 'created' — как раньше (расширенный словарь
+        # статусов есть только в схеме v3, design §2.5)
+        refund_status = "created"
         if self.boundary == BOUNDARY_V2_VERSION:
-            rules_basis = "; " + self._check_rules_v2(order_item_id, item[2], limit, amount_cents,
-                                                      reason_code)
+            basis, refund_status = self._check_rules_v2(order_item_id, item[2], limit,
+                                                        amount_cents, reason_code)
+            rules_basis = "; " + basis
         elif self.boundary == BOUNDARY_V2R_VERSION:
             try:
-                rules_basis = "; " + self._check_rules_v2(order_item_id, item[2], limit,
-                                                          amount_cents, reason_code)
+                basis, refund_status = self._check_rules_v2(order_item_id, item[2], limit,
+                                                            amount_cents, reason_code)
+                rules_basis = "; " + basis
             except _Denied as d:
                 if d.route is None:
                     raise                       # жёсткий отказ остаётся отказом
                 return self._route_review(role, d)
+        if refund_status != "created" and not self._v3:
+            refund_status = "created"           # расширенный словарь только в схеме v3
         try:
             cur = self._conn.execute(
                 "INSERT INTO refund_requests(ticket_id, order_item_id, customer_id, amount_cents, "
                 "reason_code, status, created_by, created_at) "
-                "VALUES (?, ?, ?, ?, ?, 'created', 'executor', ?)",
+                "VALUES (?, ?, ?, ?, ?, ?, 'executor', ?)",
                 (s.ticket_id, order_item_id, s.customer_id, amount_cents, reason_code,
-                 self._now()))
-            self._ledger(f"refund:item:{order_item_id}", "refund")
+                 refund_status, self._now()))
+            self._ledger(f"refund:item:{order_item_id}", "refund",
+                         detail={"order_item_id": order_item_id, "amount_cents": amount_cents,
+                                 "reason_code": reason_code, "status": refund_status})
         except sqlite3.IntegrityError:
             raise _Denied("duplicate_request", "unique constraint") from None
         self._ledger(self._final_key(), "refund")
@@ -472,10 +549,12 @@ class Executor:
             "SELECT rule_id, params_json FROM refund_policy")}
 
     def _check_rules_v2(self, item_id: int, order_id: str, full_cents: int, amount_cents: int,
-                        reason_code: str) -> str:
+                        reason_code: str) -> tuple[str, str]:
         """R1, R2, R5 внутри уже открытой транзакции `BEGIN IMMEDIATE` (без TOCTOU): состояние,
         по которому принято решение, — то же, в которое пишется заявка. Пороги — только из
-        доверенной `refund_policy`. Возвращает основание; нарушение — `_Denied`."""
+        доверенной `refund_policy`. Возвращает (основание, статус заявки): статус 'approved',
+        когда R5-порог покрыт доверенным одобрением оператора, иначе 'created' (design §2.5).
+        Нарушение — `_Denied`."""
         try:
             prm = self._policy_params()
             window = int(prm["R1"]["window_days"])
@@ -509,6 +588,7 @@ class Executor:
                               else None)
             basis.append("R2 final sale with verified defect_evidence")
         # R5: стоимость позиции выше порога или повтор по заказу в окне → нужно одобрение
+        refund_status = "created"
         cutoff = fmt_ts(parse_ts(self._now()) - timedelta(days=repeat_days))
         repeat = self._conn.execute(
             "SELECT COUNT(*) FROM refund_requests r JOIN order_items i ON i.id = r.order_item_id "
@@ -524,10 +604,11 @@ class Executor:
                 raise _Denied("requires_manual_review",
                               f"{why.strip()}; approval {appr} for amount {amount_cents}",
                               route="high_value" if high else "repeat_refund")
+            refund_status = "approved"
             basis.append(f"R5 {why.strip()} approved by operator up to {appr}")
         else:
             basis.append(f"R5 value {full_cents} <= {threshold}, no repeat in {repeat_days} days")
-        return "; ".join(basis)
+        return "; ".join(basis), refund_status
 
     def _route_review(self, role: str, d: _Denied) -> ExecResult:
         """boundary-2r: отказ по правилу-маршруту → серверная ручная проверка в той же транзакции
@@ -538,7 +619,8 @@ class Executor:
         now = self._now()
         self._conn.execute("INSERT INTO manual_reviews(ticket_id, reason_code, enqueued_at) "
                            "VALUES (?, ?, ?)", (self._session.ticket_id, reason, now))
-        self._ledger(self._final_key(), "manual_review")
+        self._ledger(self._final_key(), "manual_review",
+                     detail={"routed_reason": reason, "routed_by": SERVER_ROUTING_ROLE})
         self._set_ticket_status("escalated")
         return ExecResult(op="create_refund", role=role, status="ok", code=None,
                           basis=f"server routing by role {SERVER_ROUTING_ROLE}: {d.code} "
@@ -558,7 +640,7 @@ class Executor:
             return replay
         self._conn.execute("INSERT INTO refusals(ticket_id, reason_code, created_at) "
                            "VALUES (?, ?, ?)", (self._session.ticket_id, reason_code, self._now()))
-        self._ledger(self._final_key(), "refusal")
+        self._ledger(self._final_key(), "refusal", detail={"reason_code": reason_code})
         self._set_ticket_status("refused")
         return ExecResult(op="refuse", role=role, status="ok", code=None,
                           basis=f"ticket open; refusal code {reason_code} permitted for {role}",
@@ -576,12 +658,45 @@ class Executor:
         now = self._now()
         self._conn.execute("INSERT INTO manual_reviews(ticket_id, reason_code, enqueued_at) "
                            "VALUES (?, ?, ?)", (self._session.ticket_id, reason_code, now))
-        self._ledger(self._final_key(), "manual_review")
+        self._ledger(self._final_key(), "manual_review", detail={"reason_code": reason_code})
         self._set_ticket_status("escalated")
         return ExecResult(op="assign_manual_review", role=role, status="ok", code=None,
                           basis=f"ticket open; one manual review per ticket; reason {reason_code}",
                           data={"reason_code": reason_code, "enqueued_at": now},
                           changes={"manual_reviews": 1, "ops_ledger": 1, "tickets": 1})
+
+    def _op_resolve_review(self, role: str, decision: str) -> ExecResult:
+        """Исход ручной проверки (задача #39): роль `operator` закрывает эскалированное
+        обращение решением 'approved'/'rejected'. Идентичность сессии проверяется как у
+        всех операций (операторская сессия создаётся оркестратором с customer_id
+        владельца тикета); право — по роли, не по владению: оператор не клиент."""
+        if decision not in REVIEW_DECISIONS:
+            raise _Denied("invalid_argument", "decision")
+        if not self._v3:
+            raise _Denied("invalid_argument", "resolve_review requires schema v3 "
+                                              "(manual_reviews.decided_at/decision/decided_by)")
+        status, _ = self._ticket()
+        review = self._conn.execute(
+            "SELECT reason_code FROM manual_reviews WHERE ticket_id = ?",
+            (self._session.ticket_id,)).fetchone()
+        if review is None:
+            raise _Denied("invalid_argument", "no manual review on this ticket")
+        if status != "escalated":
+            raise _Denied("ticket_not_open")
+        now = self._now()
+        self._conn.execute(
+            "UPDATE manual_reviews SET decided_at = ?, decision = ?, decided_by = ? "
+            "WHERE ticket_id = ?", (now, decision, REVIEW_DECIDED_BY, self._session.ticket_id))
+        # тикет закрывается исходом оператора: approved -> resolved, rejected -> refused
+        self._set_ticket_status("resolved" if decision == "approved" else "refused")
+        self._ledger(f"review:{self._session.ticket_id}", "manual_review",
+                     detail={"decision": decision, "decided_by": REVIEW_DECIDED_BY,
+                             "reason_code": review[0]})
+        return ExecResult(
+            op="resolve_review", role=role, status="ok", code=None,
+            basis=f"manual review {review[0]} {decision} by {REVIEW_DECIDED_BY}; ticket closed",
+            data={"decision": decision, "reason_code": review[0], "decided_at": now},
+            changes={"manual_reviews": 1, "tickets": 1, "ops_ledger": 1})
 
     def _op_record_message(self, role: str, author: str, body: str) -> ExecResult:
         if author not in ("customer", "agent"):
@@ -610,7 +725,11 @@ _WRITE_ACTIONS = frozenset({sqlite3.SQLITE_INSERT, sqlite3.SQLITE_UPDATE, sqlite
 READ_ONLY_TABLES = frozenset({"refund_policy", "orders", "order_items", "customers", "meta"})
 APPEND_ONLY_TABLES = frozenset({"refund_requests", "manual_reviews", "refusals", "ops_ledger",
                                 "info_requests", "ticket_messages"})
-TICKET_UPDATABLE_COLUMNS = frozenset({"status", "clarifications"})
+# Задача #39: исходы ручной проверки — единственные колонки `manual_reviews`, которые
+# соединение исполнителя может UPDATE-ить (операция `resolve_review` роли `operator`);
+# вставка/удаление строк и все прочие колонки остаются неизменяемыми.
+REVIEW_DECIDED_COLUMNS = frozenset({"decided_at", "decision", "decided_by"})
+TICKET_UPDATABLE_COLUMNS = frozenset({"status", "clarifications", "closed_at"})
 _DDL_ACTIONS = frozenset(getattr(sqlite3, n) for n in (
     "SQLITE_CREATE_INDEX", "SQLITE_CREATE_TABLE", "SQLITE_CREATE_TEMP_INDEX",
     "SQLITE_CREATE_TEMP_TABLE", "SQLITE_CREATE_TEMP_TRIGGER", "SQLITE_CREATE_TEMP_VIEW",
@@ -633,6 +752,11 @@ def _deny_trusted_writes(action: int, arg1: Any, arg2: Any, dbname: Any, source:
         return sqlite3.SQLITE_DENY
     if action in _WRITE_ACTIONS and arg1 in READ_ONLY_TABLES:
         return sqlite3.SQLITE_DENY
+    # Задача #39: UPDATE `manual_reviews` разрешён только решённым колонкам
+    # (операция `resolve_review`); остальное — под общим append-only запретом ниже.
+    if action == sqlite3.SQLITE_UPDATE and arg1 == "manual_reviews" \
+            and arg2 in REVIEW_DECIDED_COLUMNS:
+        return sqlite3.SQLITE_OK
     if action in (sqlite3.SQLITE_UPDATE, sqlite3.SQLITE_DELETE) and arg1 in APPEND_ONLY_TABLES:
         return sqlite3.SQLITE_DENY
     if arg1 == "tickets" and (action in (sqlite3.SQLITE_INSERT, sqlite3.SQLITE_DELETE) or (
@@ -670,10 +794,24 @@ def _install_append_only_triggers(conn: sqlite3.Connection) -> None:
     конфликтующей строки ему не сообщается (проба критика rev7). Триггер BEFORE DELETE срабатывает
     на такое удаление только при `recursive_triggers=ON` (sqlite.org/lang_conflict.html, REPLACE).
     Триггеры живут в схеме `temp` соединения исполнителя: постоянная схема и `main.sqlite_master`
-    (логический хеш `dump_state`) не меняются; снять их нельзя — авторизатор запрещает DDL и прагмы."""
+    (логический хеш `dump_state`) не меняются; снять их нельзя — авторизатор запрещает DDL и прагмы.
+
+    Задача #39: на схеме v3 UPDATE-триггер `manual_reviews` пропускает только изменение
+    решённых колонок (`decided_at/decision/decided_by` — операция `resolve_review`) и
+    прерывает любые прочие изменения; на v1/v2 (колонок нет) — прежний полный запрет."""
     conn.execute("PRAGMA recursive_triggers = ON")
+    version = conn.execute("PRAGMA user_version").fetchone()[0]
     for t in sorted(APPEND_ONLY_TABLES):
         for ev, tag in (("UPDATE", "upd"), ("DELETE", "del")):
+            if t == "manual_reviews" and ev == "UPDATE" and version >= 3:
+                conn.execute(
+                    "CREATE TEMP TRIGGER IF NOT EXISTS darp_append_only_upd_manual_reviews "
+                    "BEFORE UPDATE ON main.manual_reviews "
+                    "WHEN NEW.id IS NOT OLD.id OR NEW.ticket_id IS NOT OLD.ticket_id "
+                    "OR NEW.reason_code IS NOT OLD.reason_code "
+                    "OR NEW.enqueued_at IS NOT OLD.enqueued_at "
+                    "BEGIN SELECT RAISE(ABORT, 'append-only: manual_reviews'); END")
+                continue
             conn.execute(f"CREATE TEMP TRIGGER IF NOT EXISTS darp_append_only_{tag}_{t} "
                          f"BEFORE {ev} ON main.{t} BEGIN "
                          f"SELECT RAISE(ABORT, 'append-only: {t}'); END")

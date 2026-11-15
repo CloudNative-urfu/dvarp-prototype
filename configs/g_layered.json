@@ -1,9 +1,9 @@
 {
   "control_of": null,
   "defender": "agent",
-  "executor_boundary": "955561c084ad57a95d4b6b01e04aa38126105db4d311347046205bea08b09fee",
+  "executor_boundary": "8e46eeb0bbeb37c007f60ecb01f733fa16281d130c9fabf40b89ae3b4515c8bd",
   "family": "guarded",
-  "fingerprint": "79d7365ae5bf1ea65cb1638e3bc24af9568cde58fac311826ec030b6e7951739",
+  "fingerprint": "4689f99999d3e2e4f43f7ca37d72d616974ae4be41c102ac4d323116f2443eb7",
   "guards": [
     {
       "id": "input-filter",
