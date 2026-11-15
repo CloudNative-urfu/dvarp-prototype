@@ -5,7 +5,7 @@
 The refund service database is being tuned as a product (team-lead decision
 2026-11-14, issue #38). The design doc `docs/refund-db-design.md` (issue #37,
 PR #41) fixed the target schema v3 and the "required vs present" gap list
-(§8) with the frozen-code unfreeze list (§8.1). Without this change:
+(§8) with the defense-code edit list (§8.1). Without this change:
 
 - the operator queue is not observable from the database: `manual_reviews`
   has only `enqueued_at`, so the canon metrics E(g)/Q(g) and
@@ -27,8 +27,8 @@ PR #41) fixed the target schema v3 and the "required vs present" gap list
   is extended with `approved | rejected | cancelled` (table rebuild, columns
   and constraints otherwise as v1); five indexes (design §3).
 - Schema-only policy: values for the new columns and the new status outcomes
-  are written by frozen code later (unfreeze list §8.1, sanction requested
-  separately); in this change only the schema appears.
+  are written by defense code later (defense-code list §8.1, implemented in
+  #39); in this change only the schema appears.
 - CSV seed (`state_store/seed_csv.py`, `state_store/seed/*.csv`) replaces
   only the data sources `CATALOG`/`_BENIGN_NOTES`; generator logic,
   determinism and seeds are unchanged; same seed + same CSV yield the same
@@ -42,7 +42,7 @@ PR #41) fixed the target schema v3 and the "required vs present" gap list
   diverge by construction; `verify_manifest` additionally checks the logical
   hash and the existence/fields of every referenced row; consumers bind
   episodes to real rows only.
-- Not changed: the five agent tools, frozen executor/tools/configs, episode
+- Not changed: the five agent tools, defense executor/tools/configs, episode
   DB v1/v2 logical hashes, frozen corpus (bound to the DB only via
   archetypes, `corpus/schema.py:3`), parity contract #19 (episode DBs stay
   unmigrated by default; `schema_version=3` is an explicit opt-in).
@@ -60,13 +60,14 @@ behavior (same seed → same logical hash) -->
 
 ## Impact
 
-- `darp_range/state_store/` only (not frozen): new `migrate_v3.py`,
+- `darp_range/state_store/` only (outside defense code): new `migrate_v3.py`,
   `seed_csv.py`, `manifest.py`, `deploy.py`, `seed/*.csv`, `README.md`;
   edits in `generator.py` (manifest core, optional catalog/notes),
   `store.py` (`apply_schema_version`, `ShopSpec.manifest`),
   `__init__.py`/`__main__.py` (exports, CLI).
 - New tests `tests/test_state_store_deploy.py`.
-- Frozen-code unfreeze list (design §8.1, items 1–4) is attached to the PR;
-  no frozen file is edited in this change.
-- Sanction alignment with spec `svc-decomposition` (#19): episode DB
+- Defense-code edit list (design §8.1, items 1–4) is attached to the PR;
+  the writes are implemented in #39 (freeze is deferred until prototype
+  finalization, issue #45); no defense file is edited in this change.
+- Alignment with spec `svc-decomposition` (#19): episode DB
   snapshots regenerate only for explicitly deployed v3 databases.
