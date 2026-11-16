@@ -6,7 +6,7 @@
 - [x] authorizer-depth Authorizer allows UPDATE `manual_reviews` only for decided columns; `tickets` updatable columns gain `closed_at`; TEMP trigger on v3 aborts any other `manual_reviews` change; DELETE/INSERT still forbidden
 - [x] tool-spec-and-prompt `refund-tools-2` (read_order description covers purchase_history), `refund-agent-prompt-5` (verification step), toolbox passes `question_text` to the executor
 - [x] access-rights-doc `darp_range/state_store/README.md` gains "Права доступа" section (session identity, roles, operator, append-only, trusted tables, v3-conditional writes)
-- [ ] pr-opened PR to `develop`, `Closes #39`, issue #39 board status updated (blocked: commits/pushes withheld on request)
+- [x] pr-opened PR to `develop`, `Closes #39`, issue #39 board status updated
 
 ## Notes
 
