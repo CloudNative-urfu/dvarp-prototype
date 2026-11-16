@@ -4,13 +4,16 @@
         [--entries atk-01,ctl-01] [--blocks K] [--n-legal N] [--w-a 0.2] [--attack-mode D|A]
         [--attack-strategy corpus|llm|template|random] [--agent-mode stub|live]
         [--replay none|first_block|all] [--research] [--allow-code-drift]
+    python3 -m darp_range.runner svc --out DIR [--configs g0,g_in] [--seed N] [--entries ...]
+        [--blocks K] [--n-legal N] [--agent-mode stub|live] [--research] [--allow-code-drift]
     python3 -m darp_range.runner schedule [--seed N] [--split dev] [--blocks K]
     python3 -m darp_range.runner demo [--out FILE]
 
 `run` — прогон конфигураций из замороженного набора `configs/` (дрейф кода защиты — ошибка,
 если не указан `--allow-code-drift`; такой прогон помечается в манифесте). `--agent-mode live`
 ходит в модель через RESEARCH_LLM_* с жёсткими лимитами клиента `llm`; по умолчанию — офлайн-
-заглушка. `demo` — короткий офлайн-прогон с проверками PASS/FAIL (код 1 при FAIL).
+заглушка. `svc` — сервисный режим (issue #19): защищаемая сторона каждой конфигурации — процесс
+`defender_svc`, только легальный трафик, файлы `run.json`, `results/`, `logs/`, `svc/`. `demo` — короткий офлайн-прогон с проверками PASS/FAIL (код 1 при FAIL).
 """
 
 from __future__ import annotations
@@ -60,6 +63,25 @@ def cmd_run(a: argparse.Namespace) -> int:
     print(f"run_id={rr.run_id} manifest={s['manifest_fingerprint'][:16]} defects={s['defects']}"
           f" out={a.out}")
     return 0
+
+
+def cmd_svc(a: argparse.Namespace) -> int:
+    from .legal_traffic import CorpusTraffic
+    from .svc import SvcRunner
+    s = SvcRunner(_plan(a), a.out, traffic_port=CorpusTraffic,
+                  allow_code_drift=a.allow_code_drift).run(
+        a.configs.split(",") if a.configs else None)
+    for n, c in s["configs"].items():
+        if c["status"] == "refused":
+            print(f"{n:38} REFUSED {c['error'][:120]}")
+            continue
+        t = c["defender_borne_transport"]
+        print(f"{n:38} legal_ok {c['legal_completed']:>3}/{c['legal_episodes']:<3} "
+              f"esc {c['legal_escalated']:>3} svc_err {c['svc_errors']:>2} "
+              f"transport {t['requests']} req {t['wall_ms']:.0f} ms")
+    print(f"run_id={s['run_id']} out={a.out}")
+    bad = [n for n, c in s["configs"].items() if c["status"] != "ok" or c["svc_errors"]]
+    return 1 if bad else 0
 
 
 def cmd_schedule(a: argparse.Namespace) -> int:
@@ -154,7 +176,7 @@ def cmd_demo(a: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python3 -m darp_range.runner")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    for name in ("run", "schedule"):
+    for name in ("run", "svc", "schedule"):
         p = sub.add_parser(name)
         p.add_argument("--seed", type=int, default=7)
         p.add_argument("--split", choices=("dev", "holdout"))
@@ -170,14 +192,14 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--mean-gap", type=float, default=3.0)
         p.add_argument("--service-mode", choices=("fast", "base", "slow"), default="base")
         p.add_argument("--operators", type=int, default=1)
-        if name == "run":
+        if name in ("run", "svc"):
             p.add_argument("--out", type=Path, required=True)
             p.add_argument("--configs")
             p.add_argument("--allow-code-drift", action="store_true")
     p = sub.add_parser("demo")
     p.add_argument("--out", type=Path)
     a = ap.parse_args(argv)
-    return {"run": cmd_run, "schedule": cmd_schedule, "demo": cmd_demo}[a.cmd](a)
+    return {"run": cmd_run, "svc": cmd_svc, "schedule": cmd_schedule, "demo": cmd_demo}[a.cmd](a)
 
 
 if __name__ == "__main__":

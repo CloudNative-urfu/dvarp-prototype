@@ -39,23 +39,23 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
-from darp_range.attackers import AttackLimits, brief_from_episode, make_attacker, run_campaign
-from darp_range.attackers.attacker import model_limits
-from darp_range.channel import ExecutorTranscript, ResponsiveUser, TextChannel
-from darp_range.configs import (
-    ConfigSpec, FreezeGuard, FrozenConfigError, ProcessLedger, assemble_defender,
-)
-from darp_range.corpus import bind, pick_accounts
+from darp_range.channel import TextChannel
+from darp_range.configs import ConfigSpec, FreezeGuard
 from darp_range.evaluator import EpisodeTruth, capture_start, evaluate, finalize_pair, record
 from darp_range.event_log import EventLog, summarize
-from darp_range.executor import Executor, Session
-from darp_range.llm import ChatModel
-from darp_range.repro import compare_trajectories, derive_seed, hash_obj, trajectory_fingerprint
+from darp_range.repro import compare_trajectories, hash_obj, trajectory_fingerprint
 from darp_range.state_store import EpisodeStateManager, apply_fixture, connect, state_hash, verify_snapshot
 
 from .plan import BlockSchedule, FlowSlot, RunnerError, RunPlan
+from .ports import DefenderPort, EpisodeInvite, TrafficPort
 
-ModelFactory = Callable[[EventLog, int], ChatModel]
+ModelFactory = Callable[[EventLog, int], Any]   # (журнал, seed) → llm.ChatModel
+PortFactory = Callable[["FlowContext"], Any]
+
+# Адаптеры по умолчанию — in-process эталон (`inproc`, `legal_traffic`, `attack`); их
+# регистрирует корень сборки `runner/__init__.py`. Ядро потока знает только контракты `ports`
+# (issue #19): внутрянку защищаемой стороны и трафика оно не импортирует.
+DEFAULT_PORTS: dict[str, Callable[..., Any]] = {}
 
 
 # ------------------------------------------------------------------ записи результата
@@ -165,11 +165,11 @@ class FlowContext:
     mgr: EpisodeStateManager
     entries: Mapping[str, Mapping[str, Any]]
     log: EventLog
-    model_factory: ModelFactory
+    model_factory: ModelFactory | None = None
     freeze_guard: FreezeGuard | None = None
     db_prefix: str = ""
-    model: ChatModel | None = None
-    ledger: ProcessLedger | None = None
+    model: Any = None              # llm.ChatModel потока (in-process; ставит `inproc`)
+    ledger: Any = None             # configs.ProcessLedger потока (in-process; ставит `inproc`)
     # Модель атакующего режима A (ревизия 1): в живом прогоне — та же модель на общем
     # счётчике запросов/токенов; None — атакующий создаёт модель сам (заглушка офлайн).
     attacker_model_factory: ModelFactory | None = None
@@ -177,12 +177,16 @@ class FlowContext:
     # None — прежний in-process атакующий (исторический путь, метка in_process_research).
     # `isolation.sandbox.AttackerFactory` создаёт атакующего в процессе под bubblewrap.
     attacker_factory: Callable[..., Any] | None = None
+    # Порты (issue #19): фабрики `ctx -> DefenderPort | TrafficPort` и обработчик атакующего
+    # слота; None — адаптеры по умолчанию (`DEFAULT_PORTS`, in-process эталон).
+    defender_port: PortFactory | None = None
+    traffic_port: PortFactory | None = None
+    attack_slot: Callable[..., Any] | None = None
 
     def __post_init__(self):
         self.runner = self.log.writer("runner")
-        self.model = self.model_factory(self.log, self.seed)
-        if self.cfg.process is not None:
-            self.ledger = ProcessLedger(self.cfg.process)   # квоты и дубли — состояние потока
+        self.defender_side: DefenderPort = (self.defender_port or DEFAULT_PORTS["defender"])(self)
+        self.traffic: TrafficPort = (self.traffic_port or DEFAULT_PORTS["traffic"])(self)
         self.channel_mode = "research" if self.plan.research_mode else "main"
 
 
@@ -211,61 +215,47 @@ class _EpisodeRun:
         if not ok:
             log.end_episode(self.eid, error="restore_mismatch")
             raise RunnerError(f"{self.eid}: восстановленное состояние не совпало со снимком")
-        kind = self.entry["kind"]
-        self.actor, victim = pick_accounts(ctx.mgr.spec.accounts, kind, entry_index)
+        # Привязка обращения к реальным строкам снимка — трафик (`TrafficPort.bind`); строки
+        # фикстуры развёртывает оркестратор до открытия эпизода.
+        self.binding = ctx.traffic.bind(self.entry, entry_index, self.db, episode_id=self.eid,
+                                        traffic=traffic)
+        self.actor, self.bound = self.binding.actor_id, self.binding.handle
         conn = connect(self.db)
         try:
-            self.bound = bind(self.entry, conn, ctx.mgr.spec.accounts, actor_id=self.actor,
-                              victim_id=victim, ticket_id=f"T-{self.eid}")
-            fx = self.bound.defender_fixture()
-            if ctx.plan.trusted_mode == "gt_rev6":
-                # исторический режим rev6 (только воспроизведение прогонов boundary-2 rev6)
-                fx = dict(fx, trusted=trusted_fixture_gt_rev6(conn, self.bound, traffic))
-            elif ctx.plan.trusted_mode == "declared":
-                fx = dict(fx, trusted=trusted_fixture(conn, self.bound))
-            apply_fixture(conn, fx)
+            apply_fixture(conn, self.binding.fixture)
         finally:
             conn.close()
         self.start = capture_start(self.db)
-        self.ex = Executor(self.db, Session(self.actor, self.bound.ticket_id, self.eid),
-                           log.writer("executor"), episode_id=self.eid,
-                           boundary=ctx.plan.boundary)
+        # Исполнитель и БД эпизода — внутри защищаемой стороны (единственный писатель БД).
+        self.dsess = ctx.defender_side.open(EpisodeInvite(
+            episode_id=self.eid, db_path=str(self.db), actor_id=self.actor,
+            ticket_id=self.binding.ticket_id, t_arrival=t_arrival,
+            order_id=self.binding.order_id))
+        self.ex = getattr(self.dsess, "executor", None)   # in-process: исполнитель (для проверок)
         self.truth = EpisodeTruth.from_bound(self.bound, self.eid,
                                              kind="legal" if traffic == "legal" else None)
-        self.bundle = None
         self.session = None
         self.error: str | None = None
         self.verdict = None
-
-    def defender(self):
-        ctx = self.ctx
-        order_id = self.bound.fixture["tickets"][0].get("order_id")
-        self.bundle = assemble_defender(ctx.cfg, log=ctx.log, executor=self.ex, db_path=self.db,
-                                        episode_id=self.eid, model=ctx.model, ledger=ctx.ledger,
-                                        arrival_min=self.t_arrival, order_id=order_id)
-        if ctx.freeze_guard is not None:
-            ctx.freeze_guard.check(ctx.cfg, self.bundle)
-        return self.bundle.defender
 
     def play(self, user) -> Any:
         try:
             # Канал — свой экземпляр на эпизод: номер сессии в журнале не зависит от того,
             # сколько эпизодов (в т. ч. атакующих) было в потоке до этого.
             channel = TextChannel(self.ctx.log, mode=self.ctx.channel_mode)
-            self.session = channel.run_session(self.eid, user, self.defender(),
-                                               transcript=ExecutorTranscript(self.ex))
-        except (RunnerError, FrozenConfigError):
-            self.ex.close()     # прогон останавливается: защита не заморожена / нет начальных условий
+            self.session = channel.run_session(self.eid, user, self.dsess.defender(),
+                                               transcript=self.dsess)
+        except (RunnerError, *self.ctx.defender_side.fatal_errors):
+            self.dsess.close()  # прогон останавливается: защита не заморожена / нет начальных условий
             raise
         except Exception as exc:  # noqa: BLE001 — сбой эпизода фиксируется, прогон идёт дальше
             self.error = f"{type(exc).__name__}: {exc}"
         finally:
-            if self.bundle is not None:
-                self.bundle.close()
+            self.dsess.release()
         return self.session
 
     def evaluate(self) -> None:
-        self.ex.close()
+        self.dsess.close()
         self.verdict = evaluate(self.truth, self.start, self.db, self.ctx.log.events,
                                 version=self.ctx.plan.evaluator_version)
 
@@ -276,7 +266,11 @@ class _EpisodeRun:
             self.evaluate()
         final = state_hash(self.db)
         s = self.session
-        status = s.status if s is not None else "error"
+        # fail-closed (issue #19): сбой сервиса защищаемой стороны — эпизод `svc-error`
+        svc_error = getattr(self.dsess, "svc_error", None)
+        if svc_error:
+            self.error = svc_error
+        status = "svc-error" if svc_error else (s.status if s is not None else "error")
         ctx.log.end_episode(self.eid, final_hash=final, session_status=status,
                             error=self.error)
         traj = ctx.log.trajectory(self.eid)
@@ -337,17 +331,8 @@ def trusted_fixture_gt_rev6(conn, bound, traffic: str) -> list[dict[str, Any]]:
 
 # ------------------------------------------------------------------ поток
 
-def legal_user(ep: "_EpisodeRun") -> ResponsiveUser:
-    """Легальный клиент режима D: первая реплика корпуса, далее ответы на уточнения агента
-    по смыслу вопроса из фактов клиента (ревизия 1; раньше — `ScriptedUser`, который не
-    отвечал на вопросы живой модели и превращал легальные сюжеты в `lost`).
-    Ревизия 6: режим ответа на просьбу подтвердить — из плана (`facts` по умолчанию)."""
-    return ResponsiveUser(ep.bound.turns, ep.bound.customer_facts,
-                          confirm_mode=ep.ctx.plan.legal_confirm)
-
-
 def _play_legal(ep: "_EpisodeRun") -> EpisodeRecord:
-    user = legal_user(ep)
+    user = ep.ctx.traffic.client(ep.binding)
     ep.play(user)
     # Сведения harness о клиенте (без текста): пишутся после сессии, защищаемая сторона их
     # не видит; нужны метрикам, чтобы отделить lost из-за исчерпания сценария от отказа.
@@ -368,11 +353,9 @@ def run_single_legal(cfg: ConfigSpec, entry_id: str, workdir: Path, model_factor
     """Один легальный эпизод записи корпуса тем же путём, что и в потоке (`_legal`): снимок,
     фикстура, защищаемая сторона конфигурации, отвечающий клиент, оценщик. Для адресных
     регрессий и живых проб без расписания потока."""
-    from darp_range.corpus import load_corpus
-    from darp_range.state_store import EpisodeStateManager
-    entries, _ = load_corpus()
-    emap = {e["id"]: e for e in entries}
     plan = RunPlan(master_seed=seed, entries=(entry_id,))
+    entries, _ = plan.load_corpus()
+    emap = {e["id"]: e for e in entries}
     slot = FlowSlot(case_id="legal-000", traffic="legal", t_arrival=0.0, index=0,
                     entry_id=entry_id, entry_index=list(emap).index(entry_id))
     block = BlockSchedule(block=0, flow_seed=seed, slots=(slot,))
@@ -381,52 +364,6 @@ def run_single_legal(cfg: ConfigSpec, entry_id: str, workdir: Path, model_factor
     ctx = FlowContext(cfg=cfg, plan=plan, seed=seed, block=block, variant="base", mgr=mgr,
                       entries=emap, log=log, model_factory=model_factory)
     return _legal(ctx, slot)
-
-
-def _attack(ctx: FlowContext, slot: FlowSlot) -> tuple[list[EpisodeRecord], dict[str, Any]]:
-    """Атакующий слот: кампания атакующего (режим D — одна попытка, A — до лимита попыток);
-    каждая попытка — отдельный эпизод со своим восстановленным снимком и временем прибытия."""
-    plan = ctx.plan
-    first = _EpisodeRun(ctx, case_id=slot.case_id, traffic="attack", entry_id=slot.entry_id,
-                        entry_index=slot.entry_index, t_arrival=slot.t_arrival)
-    eps: dict[str, _EpisodeRun] = {first.eid: first}
-    done: list[EpisodeRecord] = []
-    limits = AttackLimits(max_attempts=1 if plan.attack_mode == "D" else plan.attack_max_attempts)
-    aseed = derive_seed(ctx.seed, "runner", "attacker")
-    amodel = (ctx.attacker_model_factory(ctx.log, aseed, model_limits(limits))
-              if ctx.attacker_model_factory is not None and plan.attack_strategy == "llm" else None)
-    factory = ctx.attacker_factory or make_attacker
-    attacker = factory(brief_from_episode(first.bound), ctx.log, mode=plan.attack_mode,
-                             strategy=plan.attack_strategy, limits=limits, seed=aseed,
-                             model_mode=plan.agent_mode, model=amodel)
-
-    def episode_id_for(n: int) -> str:
-        if n == 1:
-            return first.eid
-        t = slot.t_arrival + sum(r.auto_minutes for r in done)
-        ep = _EpisodeRun(ctx, case_id=slot.case_id, traffic="attack", entry_id=slot.entry_id,
-                         entry_index=slot.entry_index, t_arrival=t, attempt=n)
-        eps[ep.eid] = ep
-        return ep.eid
-
-    def play(att):
-        ep = eps[att.episode_id]
-        ep.play(att)
-        if ep.session is None:
-            raise RunnerError(f"{ep.eid}: сессия канала не состоялась: {ep.error}")
-        ep.evaluate()
-        return ep.session
-
-    def after(rec):
-        done.append(eps[rec.episode_id].finish())
-
-    try:
-        res = run_campaign(attacker, play, episode_id_for, after=after)
-    finally:
-        close = getattr(attacker, "close", None)   # процесс атакующего (sandbox)
-        if callable(close):
-            close()
-    return done, res.to_json()
 
 
 def _reference_control(ctx: FlowContext, pair_id: str) -> EpisodeRecord:
@@ -525,13 +462,18 @@ def _run_flow(ctx: FlowContext, log_path: str | None) -> FlowResult:
                                  "slots": len(slots)})
     episodes: list[EpisodeRecord] = []
     campaigns: list[dict[str, Any]] = []
+    attack = ctx.attack_slot or DEFAULT_PORTS.get("attack")
     for slot in slots:
         if slot.traffic == "legal":
             episodes.append(_legal(ctx, slot))
         else:
-            eps, camp = _attack(ctx, slot)
+            if attack is None:
+                raise RunnerError(f"{slot.case_id}: атакующий слот, а атакующая сторона не "
+                                  "подключена (issue #19: оркестратор гоняет легальный трафик)")
+            eps, camp = attack(ctx, slot)
             episodes.extend(eps)
             campaigns.append(dict(camp, case_id=slot.case_id, entry_id=slot.entry_id))
+    ctx.traffic.close()
     _finalize_pairs(ctx, episodes)
     ev_w = log.writer("evaluator")
     for e in episodes:
@@ -545,6 +487,11 @@ def _run_flow(ctx: FlowContext, log_path: str | None) -> FlowResult:
                     t_sim=e.t_arrival + e.auto_minutes)
     events = log.events
     costs = summarize(events)
+    transport = getattr(ctx.defender_side, "transport", None)
+    if transport is not None:
+        # накладные HTTP-хопов к defender-svc: отдельная строка defender-borne, не в затратах
+        # гвардов/агента и не в сравнении паритета (issue #19)
+        costs["defender_borne_transport"] = transport()
     for e in episodes:
         c = costs["episodes"].get(e.episode_id, {})
         e.costs = {"defender": c.get("defender", {}), "attacker": c.get("attacker", {}),

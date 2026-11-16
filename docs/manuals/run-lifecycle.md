@@ -1,7 +1,8 @@
 # Мануал: Жизненный цикл прогона и замера
 
-> **Статус актуальности:** срез `origin/develop` `2fd02e3` (post-#29/#32), 2026-11-13.
-> **Устареет при** распиле на сервисы (#19) и metrics-svc (#33): переписывание логики меняет пути и потоки — после их мержа актуализировать по новым путям (см. правило в `AGENTS.md`, «Трейс для полигона»).
+> **Статус актуальности:** срез `origin/develop` `2fd02e3` (post-#29/#32), 2026-11-13; раздел 3
+> (эпизод) актуализирован по распилу #19 (ветка `refactor/19-svc-decomposition`), 2026-11-16.
+> **Устареет при** metrics-svc (#33) и traffic-svc (#36): переписывание логики меняет пути и потоки — после их мержа актуализировать по новым путям (см. правило в `AGENTS.md`, «Трейс для полигона»).
 > Это документ-инструкция для будущего агента авторазметки процессов в полигоне: образец того, как описывается механика системы. Внутренний документ репозитория, в полигон переезжает как образец.
 
 Внутренняя карта замера: как устроен прогон — от конфигурации до верификации.
@@ -44,22 +45,25 @@
 1. База: генератор от seed (state_store/store.py:82-100, integrity-проверки :156-204); полный
    снимок (backup API + JSON + логический хеш `dump_state`/`state_hash` :131-153, :237-261).
 2. Восстановление: `prepare()` → `restore_snapshot` (store.py:298-308), сверка хеша до и
-   после; событие `runner.restore`, отказ при расхождении (runner/flow.py:204-213, NFR-2.1);
-   перед потоком повторная проверка `verify_snapshot` (flow.py:518).
-3. Фикстура корпуса: `pick_accounts` + `corpus.bind` (flow.py:214-219); доверенные факты
-   (flow.py:221-226, 302-335); `apply_fixture` (state_store/fixtures.py:23-49) — разрешены
+   после; событие `runner.restore`, отказ при расхождении (runner/flow.py:206-217, NFR-2.1);
+   перед потоком повторная проверка `verify_snapshot` (flow.py:455).
+3. Фикстура корпуса: привязка — `TrafficPort.bind` (flow.py:220-222; in-process адаптер
+   `pick_accounts` + `corpus.bind`, runner/legal_traffic.py:35-66); доверенные факты
+   (legal_traffic.py:50-56, flow.py:296-331); развёртывание оркестратором (flow.py:223-227) `apply_fixture` (state_store/fixtures.py:23-49) — разрешены
    только ключи tickets/order_notes/trusted.
-4. `capture_start` (flow.py:229) — стартовое состояние для оценщика; `Executor(self.db,
-   Session(...), boundary=plan.boundary)` (flow.py:230-232) — **одна граница для всех
+4. `capture_start` (flow.py:228) — стартовое состояние для оценщика; эпизод защищаемой
+   стороны `DefenderPort.open` (flow.py:229-234): `Executor(db, Session(...),
+   boundary=plan.boundary)` (defender_svc/core.py:62-68; in-process — `runner/inproc.py`,
+   сервисный режим — `defender_svc`, см. [defender-svc.md](defender-svc.md)) — **одна граница для всех
    конфигураций**; идемпотентность повторов executor.py:15-17.
 5. `assemble_defender` (configs/build.py:74-114): конвейер гвардрейлов (:87-90), `ProcessGate`
    для g_proc (:94-101), `Toolbox` с перехватчиком (:102-103), агент фабрикой, обёртки
    `GuardedDefender`/`ProcessDefender` (:106-109); runtime-отпечатки (:57-66).
-6. `FreezeGuard.check` перед эпизодом (flow.py:240-247; freeze.py:216-232) — сверка
+6. `FreezeGuard.check` перед эпизодом (defender_svc/core.py:72-87; freeze.py:216-232) — сверка
    конфигурации и реально собранных отпечатков с lock.
 7. Канал: `TextChannel` (channel/channel.py:1-95) — текстовый барьер, проверка протокола
    реплик (:43-55), нарушение → `protocol_violation` + конец сессии (NFR-2.11); канал свой
-   на эпизод (flow.py:250-256).
+   на эпизод (flow.py:241-255).
 8. Агент: цикл «модель → инструменты → ответ» (agent/agent.py:15-32); лимиты
    `max_steps_per_turn=8`, `max_tool_calls_per_step=4`, `max_reply_chars=4000` (agent.py:66-84);
    агент не знает о гвардрейлах (:7-13, FR-1.9).
@@ -68,15 +72,16 @@
    finalize-операции (:344-347). Реакции политики исполняются её кодом
    (guard_policy/pipeline.py:67-71): clarify → `request_info`, escalate →
    `assign_manual_review{guard_escalation}`, terminate → `refuse{safe_terminate}`.
-10. Оценка: `ep.evaluate()` (flow.py:267-270); финальный хеш + закрытие (flow.py:272-299);
+10. Оценка: `ep.evaluate()` (flow.py:257-260); финальный хеш + закрытие, статус `svc-error` (flow.py:262-293);
     finalize slow/burn решается против парного чистого контроля той же pair_id
-    (flow.py:444-461; evaluator.finalize_pair evaluator.py:254-278).
-11. `run_paired` (flow.py:612-623); `compare_pair` (flow.py:585-603) — легальные ключи и
+    (flow.py:381-398; evaluator.finalize_pair evaluator.py:254-278).
+11. `run_paired` (flow.py:559-570); `compare_pair` (flow.py:532-550) — легальные ключи и
     траектории обязаны совпасть (дефекты = нарушение NFR-2.8);
-    `attack_induced` = Δ расхода defender_borne (attacked − base) + self_limited (:606-622).
-12. После эпизодов потока (`_run_flow` flow.py:516-561): вердикты в журнал
-    (`evaluator.record` :537-538), эскалации → `manual_queue.enqueue` (:539-545), затраты
-    `event_log.summarize` (:547), проверки раздельного учёта (:464-486).
+    `attack_induced` = Δ расхода defender_borne (attacked − base) + self_limited (:553-569).
+12. После эпизодов потока (`_run_flow` flow.py:453-508): вердикты в журнал
+    (`evaluator.record` :479-480), эскалации → `manual_queue.enqueue` (:481-487), затраты
+    `event_log.summarize` (:489), строка транспорта сервисного режима (:490-494), проверки
+    раздельного учёта (:401-423).
 
 ## 4. Где рождается каждая метрика
 

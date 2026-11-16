@@ -313,7 +313,7 @@ def main(argv=None, *, inner_transport=None, environ=None) -> int:
     from darp_range.event_log import EventLog
     from darp_range.report_cli.live import LiveBudget, RunMeter, live_model_factory, live_settings
     from darp_range.runner import BlockSchedule, FlowContext, FlowSlot, RunPlan
-    from darp_range.runner import flow as flow_mod
+    from darp_range.runner.attack import run_attack_slot
     from darp_range.state_store import EpisodeStateManager
 
     ap = argparse.ArgumentParser()
@@ -538,7 +538,7 @@ def main(argv=None, *, inner_transport=None, environ=None) -> int:
                 attacker_factory=attacker_factory,
             )
             try:
-                recs, camp = flow_mod._attack(ctx, slot)
+                recs, camp = run_attack_slot(ctx, slot)
                 err = None
             except Exception as exc:  # провайдер/бюджет: попытка сохраняется
                 recs, camp, err = [], None, f"{type(exc).__name__}: {exc}"[:300]
