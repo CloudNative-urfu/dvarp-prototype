@@ -326,11 +326,13 @@ class TestRoleRights(_Base):
                                  op in {"read_order", "read_ticket", "read_policy", "request_info",
                                         "create_refund", "refuse", "assign_manual_review"}
                                  and role in ("agent", "simple_baseline")
-                                 or (role, op) in {("policy", "request_info"), ("policy", "refuse"),
+                                or (role, op) in {("policy", "request_info"), ("policy", "refuse"),
                                                    ("policy", "assign_manual_review"),
                                                    ("process", "refuse"),
                                                    ("process", "assign_manual_review"),
-                                                   ("harness", "record_message")}, (role, op))
+                                                   ("harness", "record_message"),
+                                                   # задача #39: оператор закрывает ручную проверку
+                                                   ("operator", "resolve_review")}, (role, op))
         self.assertNotIn("safe_terminate", REFUSAL_CODES_BY_ROLE["agent"])
         self.assertNotIn("guard_escalation", REVIEW_REASONS_BY_ROLE["agent"])
 

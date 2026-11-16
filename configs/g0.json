@@ -1,9 +1,9 @@
 {
   "control_of": null,
   "defender": "agent",
-  "executor_boundary": "955561c084ad57a95d4b6b01e04aa38126105db4d311347046205bea08b09fee",
+  "executor_boundary": "8e46eeb0bbeb37c007f60ecb01f733fa16281d130c9fabf40b89ae3b4515c8bd",
   "family": "g0",
-  "fingerprint": "818fcae1c23e80a78957377bfa939aff93bc6db3f3e4f577b64ee7bc42e00adf",
+  "fingerprint": "003c1c16264ee4af1127d831d23ef2cd2af817eecafc9f135761917fa03b9242",
   "guards": [],
   "name": "g0",
   "notes": "Agent + executor, no guardrails: reference point (FR-1.14).",

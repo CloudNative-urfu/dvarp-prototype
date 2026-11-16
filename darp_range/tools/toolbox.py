@@ -186,6 +186,10 @@ def parse_call(name: str, args: Any) -> _Parsed:
         code = raw.get("question_code")
         default = QUESTION_TEXTS.get(code) if isinstance(code, str) else None
         question = q or default
+        # текст уточнения попадает в executor: на схеме v3 он пишется в
+        # info_requests.question_text (задача #39); вне лимита исполнителя — отказ
+        if question:
+            raw["question_text"] = question
     else:
         op = TOOL_OPS[name][0]
     assert op in TOOL_OPS[name]

@@ -25,7 +25,7 @@ from ..executor import FINALIZING_OPS, REFUSAL_CODES_BY_ROLE, REVIEW_REASONS_BY_
 from ..llm.types import ToolSpec
 from ..state_store.schema import QUESTION_CODES, REASON_CODES
 
-SPEC_VERSION = "refund-tools-1"
+SPEC_VERSION = "refund-tools-2"
 
 # Решение инструмента 5 → операция исполнителя.
 DECISIONS = MappingProxyType({
@@ -58,7 +58,10 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
         "read_order",
         "Read an order of the current customer: order status, delivery date, items with "
         "order_item_id, price_cents, quantity, final sale flag and whether a refund was already "
-        "requested. Only orders of the current customer are visible.",
+        "requested. The response also includes purchase_history: every order of this customer "
+        "with its items and refund flags - use it to verify that the customer really bought "
+        "what they claim and to check previous refunds before deciding. Only orders of the "
+        "current customer are visible.",
         {"type": "object",
          "properties": {"order_id": {"type": "string", "description": "Order id, e.g. O-1001."}},
          "required": ["order_id"], "additionalProperties": False},
