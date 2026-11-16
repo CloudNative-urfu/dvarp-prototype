@@ -3,7 +3,7 @@
     python3 scripts/dev_smoke.py
 
 Явный список модулей (без discover): executor, channel, guard_policy, guard_contract,
-state_store, evaluator, metrics, tools, defender_svc (паритет с in-process, issue #19). Полный набор — `python3 -m unittest discover -s tests
+state_store, evaluator, metrics, tools, defender_svc (паритет с in-process, issue #19), metrics_svc (#33). Полный набор — `python3 -m unittest discover -s tests
 -t .`; этот скрипт его не заменяет и не меняет. Замер 2026-11-12: ~2 мин суммарно (самый
 долгий — test_metrics, ~70 с), поэтому тяжёлые классы не исключаются — модули идут целиком.
 """
@@ -28,6 +28,7 @@ MODULES = (
     "tests.test_metrics",
     "tests.test_tools",
     "tests.test_defender_svc",
+    "tests.test_metrics_svc",
 )
 BUDGET_S = 300.0
 

@@ -75,7 +75,7 @@ def cmd_offline(a: argparse.Namespace) -> int:
     seeds = tuple(int(x) for x in a.seeds.split(","))
     res = run_offline(a.out, _plan(a, live=False), seeds=seeds,
                       configs=a.configs.split(",") if a.configs else None,
-                      l_viol=_floats(a.l_viol))
+                      l_viol=_floats(a.l_viol), metrics_svc=a.metrics_svc)
     res["out"] = str(a.out)
     _print(res)
     return 0 if res["ok"] else 1
@@ -88,7 +88,8 @@ def cmd_live(a: argparse.Namespace) -> int:
                         timeout_s=a.timeout_s)
     res = run_live(a.out, _plan(a, live=True), budget,
                    configs=(a.configs or LIVE_DEFAULT_CONFIGS).split(","),
-                   l_viol=_floats(a.l_viol), in_process_research=a.in_process_research)
+                   l_viol=_floats(a.l_viol), in_process_research=a.in_process_research,
+                   metrics_svc=a.metrics_svc)
     res["out"] = str(a.out)
     _print(res)
     m = res["live"]["meter"]
@@ -128,6 +129,8 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--service-mode", choices=("fast", "base", "slow"), default="base",
                        help="время обслуживания оператора: 4 / 8 / 15 мин")
         p.add_argument("--operators", type=int, default=1)
+        p.add_argument("--metrics-svc", action="store_true",
+                       help="метрики через metrics-svc на 127.0.0.1 (issue #33)")
         p.add_argument("--attack-mode", choices=("D", "A"), default="D",
                        help="D — корпус; A — адаптивный LLM-атакующий (живой: та же модель и "
                             "общий бюджет запросов)")
