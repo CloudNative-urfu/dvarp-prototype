@@ -353,11 +353,9 @@ def run_single_legal(cfg: ConfigSpec, entry_id: str, workdir: Path, model_factor
     """Один легальный эпизод записи корпуса тем же путём, что и в потоке (`_legal`): снимок,
     фикстура, защищаемая сторона конфигурации, отвечающий клиент, оценщик. Для адресных
     регрессий и живых проб без расписания потока."""
-    from darp_range.corpus import load_corpus
-    from darp_range.state_store import EpisodeStateManager
-    entries, _ = load_corpus()
-    emap = {e["id"]: e for e in entries}
     plan = RunPlan(master_seed=seed, entries=(entry_id,))
+    entries, _ = plan.load_corpus()
+    emap = {e["id"]: e for e in entries}
     slot = FlowSlot(case_id="legal-000", traffic="legal", t_arrival=0.0, index=0,
                     entry_id=entry_id, entry_index=list(emap).index(entry_id))
     block = BlockSchedule(block=0, flow_seed=seed, slots=(slot,))

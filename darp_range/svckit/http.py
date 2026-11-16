@@ -125,13 +125,14 @@ class JSONHandler(BaseHTTPRequestHandler):
 
     server: ServiceServer
     protocol_version = "HTTP/1.1"
+    max_body = MAX_BODY   # предел тела запроса; сервис может поднять (defender_svc — события)
 
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002 — тишина в stderr
         return
 
     def _read_body(self) -> Any:
         n = int(self.headers.get("Content-Length") or 0)
-        if n > MAX_BODY:
+        if n > self.max_body:
             raise HTTPError(413, "body_too_large")
         raw = self.rfile.read(n) if n else b""
         if not raw:
