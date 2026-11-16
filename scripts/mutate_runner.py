@@ -15,6 +15,7 @@ from pathlib import Path
 
 PL = "darp_range/runner/plan.py"
 FL = "darp_range/runner/flow.py"
+AT = "darp_range/runner/attack.py"
 RP = "darp_range/runner/replay.py"
 OR = "darp_range/runner/orchestrator.py"
 MUTANTS = [
@@ -40,7 +41,7 @@ MUTANTS = [
      "            escalated=bool(reviews),", "            escalated=False,"),
     ("время автоматической обработки не учитывается", FL,
      "auto_minutes=rounds * ctx.plan.minutes_per_round,", "auto_minutes=0.0,"),
-    ("попытки режима A приходят одновременно", FL,
+    ("попытки режима A приходят одновременно", AT,
      "        t = slot.t_arrival + sum(r.auto_minutes for r in done)", "        t = slot.t_arrival"),
     ("slow/burn не решаются парой", FL,
      '        if e.traffic != "attack" or not e.verdict.pending:', "        if True:"),
