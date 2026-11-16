@@ -10,6 +10,7 @@ from .http import (
     Drop, JSONHandler, HTTPError, LoopbackUnavailable, ServiceServer, TransportError, call,
     read_ready, write_json_atomic,
 )
+from .proc import ServiceProcess, ServiceRefused
 
 __all__ = ["Drop", "JSONHandler", "HTTPError", "LoopbackUnavailable", "ServiceServer", "TransportError",
-           "call", "read_ready", "write_json_atomic"]
+           "call", "read_ready", "write_json_atomic", "ServiceProcess", "ServiceRefused"]

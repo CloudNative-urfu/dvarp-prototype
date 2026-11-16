@@ -24,8 +24,6 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import subprocess
-import sys
 import time
 from pathlib import Path
 from types import SimpleNamespace
@@ -36,7 +34,9 @@ from darp_range.configs import ConfigSpec, config_seed, load_frozen
 from darp_range.event_log import EventLog
 from darp_range.repro import hash_obj
 from darp_range.state_store import EpisodeStateManager
-from darp_range.svckit import TransportError, call, read_ready, write_json_atomic
+from darp_range.svckit import (
+    ServiceProcess, ServiceRefused, TransportError, call, write_json_atomic,
+)
 
 from .flow import FlowContext, FlowResult, abort_log, run_flow
 from .plan import RunnerError, RunPlan
@@ -91,71 +91,30 @@ class DefenderService:
         registry: Path | None = None,
     ):
         self.name, self.configs_dir, self.workdir = cfg_name, Path(configs_dir), Path(workdir)
-        self.allow_code_drift, self.root, self.registry = allow_code_drift, Path(root), registry
-        self.proc: subprocess.Popen | None = None
-        self.port: int | None = None
+        self.allow_code_drift = allow_code_drift
+        args = ["--config-dir", str(self.workdir / "configs"), "--config", cfg_name,
+                "--requests-log", str(self.workdir / "requests.jsonl")]
+        if allow_code_drift:
+            args.append("--allow-code-drift")
+        self.process = ServiceProcess("darp_range.defender_svc", args, self.workdir,
+                                      name=cfg_name, root=root, registry=registry,
+                                      ready_timeout=READY_TIMEOUT_S)
         self._req = 0
 
+    @property
+    def port(self) -> int | None:
+        return self.process.port if self.process.popen is not None else None
+
     def start(self) -> "DefenderService":
-        staged = stage_configs(self.configs_dir, self.workdir / "configs")
-        ready = self.workdir / "ready.json"
-        cmd = [
-            sys.executable,
-            "-m",
-            "darp_range.defender_svc",
-            "--config-dir",
-            str(staged),
-            "--config",
-            self.name,
-            "--ready",
-            str(ready),
-            "--requests-log",
-            str(self.workdir / "requests.jsonl"),
-        ]
-        if self.allow_code_drift:
-            cmd.append("--allow-code-drift")
-        err = (self.workdir / "stderr.log").open("w", encoding="utf-8")
-        self.proc = subprocess.Popen(
-            cmd, cwd=self.root, stdout=subprocess.DEVNULL, stderr=err, start_new_session=True
-        )
-        err.close()
-        deadline = time.monotonic() + READY_TIMEOUT_S
-        while True:
-            info = read_ready(ready)
-            if info is not None:
-                self.port = int(info["port"])
-                break
-            rc = self.proc.poll()
-            if rc is not None or time.monotonic() > deadline:
-                self.stop()
-                tail = (self.workdir / "stderr.log").read_text(encoding="utf-8")[-600:].strip()
-                raise SvcRefused(f"defender-svc {self.name}: не стартовал (код {rc}): {tail}")
-            time.sleep(0.05)
-        self._register(self.proc.pid)
+        stage_configs(self.configs_dir, self.workdir / "configs")
+        try:
+            self.process.start()
+        except ServiceRefused as exc:
+            raise SvcRefused(f"defender-svc {exc}") from None
         return self
 
-    def _register(self, pid: int | None) -> None:
-        if self.registry is None:
-            return
-        reg = read_ready(self.registry) or {}
-        if pid is None:
-            reg.pop(self.name, None)
-        else:
-            reg[self.name] = pid
-        write_json_atomic(self.registry, reg)
-
     def stop(self) -> None:
-        p, self.proc = self.proc, None
-        if p is None:
-            return
-        if p.poll() is None:
-            p.terminate()
-            try:
-                p.wait(5)
-            except subprocess.TimeoutExpired:
-                p.kill()
-                p.wait()
-        self._register(None)
+        self.process.stop()
 
     def __enter__(self) -> "DefenderService":
         return self
@@ -171,7 +130,7 @@ class DefenderService:
 
     def call(self, path: str, body: dict[str, Any], stats: dict[str, Any]) -> tuple[dict, bool]:
         """Вызов с одним явным повтором при сбое транспорта. Возвращает (ответ, был_повтор)."""
-        if self.port is None or self.proc is None:
+        if self.port is None:
             raise SvcError("сервис не запущен")
         self._req += 1
         body = dict(body, req=self._req)
