@@ -89,6 +89,7 @@ def run_legal_episode(*, corpus: str, entry_id: str, foundation: str = "v2r",
     from darp_range.event_log import EventLog
     from darp_range.runner import BlockSchedule, FlowContext, FlowSlot, RunPlan
     from darp_range.runner import flow as flow_mod
+    from darp_range.runner import legal_traffic
     from darp_range.state_store import EpisodeStateManager
 
     root = Path(root) if root else Path(__file__).resolve().parents[2]
@@ -104,7 +105,7 @@ def run_legal_episode(*, corpus: str, entry_id: str, foundation: str = "v2r",
     user_cls = ResponsiveUser if max_nudges is None else functools.partial(
         ResponsiveUser, max_nudges=max_nudges)
     with tempfile.TemporaryDirectory(prefix="darp-rev8-patient-", dir=workdir) as td, \
-            mock.patch.object(flow_mod, "ResponsiveUser", user_cls):
+            mock.patch.object(legal_traffic, "ResponsiveUser", user_cls):
         mgr = EpisodeStateManager(Path(td) / "shop", seed=seed, schema_version=plan.schema_version)
         case = f"{wrapper or 'stub'}-{entry_id}"
         slot = FlowSlot(case_id=case, traffic="legal", t_arrival=0.0, index=0, entry_id=entry_id,
