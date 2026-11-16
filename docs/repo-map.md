@@ -24,6 +24,7 @@ report_cli ──► runner ──► channel ◄──► agent + tools ──�
 | Модуль | Что делает | Тест | Docstring |
 | --- | --- | --- | --- |
 | `runner` | Оркестрация: `RunPlan` → эпизоды и потоки; восстановление снимка с проверкой хеша, парный прогон «без атак / с атаками» (`run_paired`), повтор для поиска расхождений, `Runner` по всем конфигурациям с `FreezeGuard`. | `tests/test_runner.py` | `darp_range/runner/__init__.py`, `flow.py`, `orchestrator.py` |
+| `defender_svc` | Защищаемая сторона как HTTP-сервис на 127.0.0.1 (issue #19): стадированный замороженный конфиг, гварды, политика, правила процесса, агент, LLM-клиент, исполнитель с БД эпизода; наружу — только сырые события; общий с in-process путём `core`. | `tests/test_defender_svc.py` | `darp_range/defender_svc/core.py`, `server.py`, `darp_range/runner/ports.py`, `svc.py` |
 | `channel` | Единственный текстовый канал между сторонами (`TextChannel.run_session`), барьер интерфейса: атакующий видит только `Observation`, защита — только текст. Отдельно маркированный research-mode. | `tests/test_channel.py` | `darp_range/channel/__init__.py` |
 | `agent` + `tools` | `RefundAgent.respond(text)`: цикл «модель → инструменты → ответ», о гвардрейлах не знает (FR-1.9). Ровно 5 инструментов: `read_order`, `read_ticket`, `get_refund_policy`, `ask_customer`, `finalize_case` (assert в `tools/specs.py`). `Toolbox.call` — разбор → перехват конвейером (`ToolInterceptor`) → исполнитель. | `tests/test_agent.py`, `tests/test_tools.py` | `darp_range/agent/__init__.py`, `darp_range/tools/__init__.py` |
 | `executor` | Граница безопасности `g0`: роли, права, принадлежность заказа, разовые операции, транзакции с откатом. Декларации границы `boundary_spec` (v1), `boundary_spec_v2`, `boundary_spec_v2r` в `boundary.py`; основа выбирается флагом `--foundation v1|v2|v2r`. | `tests/test_executor.py`; v2r — `tests/test_rev10_v2r.py`, `tests/test_review_routing_v2r.py` | `darp_range/executor/__init__.py`, `boundary.py` |
@@ -142,8 +143,10 @@ darp_range/tools/
 допилки. Полная верификация из чистой копии отложена с обоснованием — см.
 `openspec/changes/repo-cleanup/tasks.md` (раздел Notes) и issue #2.
 
-> `Runner`/`report_cli offline` — legacy in-process путь; решение оставить/выпилить отложено
-> до пилота скриптового оркестратора.
+> `Runner`/`report_cli offline` — legacy in-process путь (парный base/attacked с атакующим):
+> эталон паритета для сервисного режима (#19, `tests/test_defender_svc.py`); новый
+> оркестратор — `python3 -m darp_range.runner svc` (defender-svc, только легальный трафик).
+> Решение выпилить legacy — после интеграции атакующей стороны и metrics-svc (#33).
 
 ## 8. Гарантированно рабочие команды
 
