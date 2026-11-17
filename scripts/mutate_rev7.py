@@ -40,10 +40,12 @@ GROUPS: dict[str, dict] = {
             ("2r не вставляет manual_reviews", EX,
              '        self._conn.execute("INSERT INTO manual_reviews(ticket_id, reason_code, enqueued_at) "\n'
              '                           "VALUES (?, ?, ?)", (self._session.ticket_id, reason, now))\n'
-             '        self._ledger(self._final_key(), "manual_review")\n'
+             '        self._ledger(self._final_key(), "manual_review",\n'
+             '                     detail={"routed_reason": reason, "routed_by": SERVER_ROUTING_ROLE})\n'
              '        self._set_ticket_status("escalated")\n'
              '        return ExecResult(op="create_refund"',
-             '        self._ledger(self._final_key(), "manual_review")\n'
+             '        self._ledger(self._final_key(), "manual_review",\n'
+             '                     detail={"routed_reason": reason, "routed_by": SERVER_ROUTING_ROLE})\n'
              '        self._set_ticket_status("escalated")\n'
              '        return ExecResult(op="create_refund"'),
             ("2r маршрутизирует жёсткий отказ (R1, final sale с иной причиной)", EX,
@@ -59,10 +61,12 @@ GROUPS: dict[str, dict] = {
              "        reason = d.route\n        assert reason in MANUAL_REVIEW_REASONS, reason\n"
              '        self._conn.execute("COMMIT")\n'),
             ("2r не ставит обращению escalated", EX,
-             '        self._ledger(self._final_key(), "manual_review")\n'
+             '        self._ledger(self._final_key(), "manual_review",\n'
+             '                     detail={"routed_reason": reason, "routed_by": SERVER_ROUTING_ROLE})\n'
              '        self._set_ticket_status("escalated")\n'
              '        return ExecResult(op="create_refund"',
-             '        self._ledger(self._final_key(), "manual_review")\n'
+             '        self._ledger(self._final_key(), "manual_review",\n'
+             '                     detail={"routed_reason": reason, "routed_by": SERVER_ROUTING_ROLE})\n'
              '        return ExecResult(op="create_refund"'),
             ("NonRecoveringAgent восстанавливается после отказа", LS,
              "    def after_refusal(self) -> None:\n        self.stopped = True\n\n\n"
@@ -86,8 +90,8 @@ GROUPS: dict[str, dict] = {
              "action == sqlite3.SQLITE_UPDATE and arg2 not in TICKET_UPDATABLE_COLUMNS",
              "False"),
             ("пере-строгий: UPDATE tickets.clarifications запрещён", EX,
-             'TICKET_UPDATABLE_COLUMNS = frozenset({"status", "clarifications"})',
-             'TICKET_UPDATABLE_COLUMNS = frozenset({"status"})'),
+             'TICKET_UPDATABLE_COLUMNS = frozenset({"status", "clarifications", "closed_at"})',
+             'TICKET_UPDATABLE_COLUMNS = frozenset({"status", "closed_at"})'),
         ],
     },
     "trusted_declared": {
@@ -111,7 +115,7 @@ GROUPS: dict[str, dict] = {
              'if r["evaluator_outcome"] == "executed" or r.get("violation") is True:',
              "if False:"),
             ("not_measured получает executed по БД", LV,
-             'r["outcome"] = None          # попытки не было: не «ignored»',
+             'r["outcome"] = None  # попытки не было: не «ignored»',
              'r["outcome"] = "executed" if r["evaluator_outcome"] == "executed" else None'),
         ],
     },
