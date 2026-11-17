@@ -26,13 +26,20 @@ denial as before (no existence oracle) and SHALL NOT include any history.
 - **THEN** that item's `refund_requested` flag in `purchase_history` is true
 
 ### Requirement: Executor writes v3 audit fields only on schema v3
-On `user_version >= 3` the executor SHALL write:
+When every v3 audit column is present (`migrate_v3.has_v3_columns`; not
+`user_version`, #57) the executor SHALL write:
 `info_requests.question_text` (validated, 1..500 chars) in `request_info`;
 `ops_ledger.detail_json` payloads in ledger entries;
 `tickets.closed_at` at every finalization; and `refund_requests.status`
 `approved` when the R5 threshold is covered by trusted operator approval,
 otherwise `created`. On v1/v2 schemas the executor SHALL keep its previous
 behavior (no new columns written).
+
+#### Scenario: Version 3 without the audit columns
+- **WHEN** the database has `user_version = 3` from the rev11 contour's slice
+  migration but no state_store v3 audit columns
+- **THEN** the executor keeps the v1/v2 behavior: high-value refunds are routed
+  to manual review instead of failing with `internal_error` (#57)
 
 #### Scenario: Question text recorded
 - **WHEN** `request_info` is called with a `question_text` on a v3 database

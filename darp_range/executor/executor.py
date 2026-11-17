@@ -42,7 +42,7 @@
 `INSERT OR REPLACE`, которое авторизатору не сообщается); авторизатор дополнительно запрещает
 ATTACH/DETACH и прагмы, кроме allow-list читающих (`READ_PRAGMAS`).
 
-Задача #39 (запись в v3-поля аудита): на схеме v3 (`user_version >= 3`) исполнитель пишет
+Задача #39 (запись в v3-поля аудита): на схеме v3 (все колонки аудита на месте, #57) исполнитель пишет
 `info_requests.question_text` (`_op_request_info`, текст уточнения от слоя тулов), payload операции
 в `ops_ledger.detail_json`, `tickets.closed_at` при финализации и исход ручной проверки — новая
 операция `resolve_review` роли `operator` (`manual_reviews.decided_at/decision/decided_by`).
@@ -65,6 +65,7 @@ from ..event_log import ComponentWriter
 from ..state_store import connect
 from ..state_store.schema import QUESTION_CODES, REASON_CODES, REFUSAL_CODES, MANUAL_REVIEW_REASONS
 from ..state_store.generator import fmt_ts, parse_ts
+from ..state_store.migrate_v3 import has_v3_columns
 from ..state_store.schema import TRUSTED_TABLES
 from .boundary import (
     BOUNDARY_V2R_VERSION, SERVER_ROUTING_ROLE, SERVER_RULE_BOUNDARIES,
@@ -191,9 +192,10 @@ class Executor:
             raise ExecutorError("нужен писатель журнала компонента 'executor'")
         self._conn = connect(db_path)
         self._conn.isolation_level = None  # транзакции управляются явно
-        # v3-поля аудита пишутся только на схеме v3 (issue #39): на v1/v2 их нет,
-        # поведение прежнее (парити #19)
-        self._v3 = self._conn.execute("PRAGMA user_version").fetchone()[0] >= 3
+        # v3-поля аудита пишутся только при наличии колонок (issue #39): на v1/v2 их нет,
+        # поведение прежнее (парити #19). По колонкам, не по user_version: слайсовая v3
+        # контура rev11 ставит тройку без этих колонок (#57)
+        self._v3 = has_v3_columns(self._conn)
         self._session = session
         self._writer = writer
         self._episode_id = episode_id
@@ -800,10 +802,10 @@ def _install_append_only_triggers(conn: sqlite3.Connection) -> None:
     решённых колонок (`decided_at/decision/decided_by` — операция `resolve_review`) и
     прерывает любые прочие изменения; на v1/v2 (колонок нет) — прежний полный запрет."""
     conn.execute("PRAGMA recursive_triggers = ON")
-    version = conn.execute("PRAGMA user_version").fetchone()[0]
+    v3 = has_v3_columns(conn)   # тот же признак, что у исполнителя (#57)
     for t in sorted(APPEND_ONLY_TABLES):
         for ev, tag in (("UPDATE", "upd"), ("DELETE", "del")):
-            if t == "manual_reviews" and ev == "UPDATE" and version >= 3:
+            if t == "manual_reviews" and ev == "UPDATE" and v3:
                 conn.execute(
                     "CREATE TEMP TRIGGER IF NOT EXISTS darp_append_only_upd_manual_reviews "
                     "BEFORE UPDATE ON main.manual_reviews "
