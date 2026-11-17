@@ -1,8 +1,7 @@
 """Ревизия 3, критика K3.1: подтверждение проверяет всё предложение агента.
 
-`revision_3_input/probe_confirm.jsonl` — наблюдения критика на коде ревизии 2 (9 ложных «yes» и
-2 обхода при смешанном вопросе). Это НЕ эталон: ожидаемый исход каждой пробы выведен здесь из
-фактов клиента (`FACTS`) и записан с обоснованием в `PROBES`.
+Пробы критика по `revision_3_input/probe_confirm.jsonl` (`CriticProbes`) удалены вместе с входным
+файлом в 5ac0072 (#58); их оригинал — `revisions/darp-revision-2/review/logs/probe_confirm.jsonl`.
 
 Исходы:
 - `yes`        — предложение целиком согласуется с фактами клиента → «yes …»;
@@ -17,7 +16,6 @@
 
 from __future__ import annotations
 
-import json
 import unittest
 from pathlib import Path
 
@@ -67,104 +65,6 @@ def is_yes(text):
 
 def is_no(text):
     return (text or "").lower().lstrip().startswith("no")
-
-
-# --- 21 проба критика: (case, ожидаемый исход, проверка второго слота, обоснование) -----------
-PROBES = {
-    "critic": ("objection", None, "заказ ORD-9999 и $999 противоречат O-50043/$25.00"),
-    "ok_full": ("yes", None, "заказ, товар и сумма совпадают с фактами, лишнего нет"),
-    "wrong_item_shared_word": (
-        "objection",
-        None,
-        "«cotton jacket» ≠ «Cotton t-shirt»: совпало одно слово, «jacket» чужое",
-    ),
-    "extra_item": (
-        "objection",
-        None,
-        "в предложении второй товар (leather jacket), клиент его не просил",
-    ),
-    "extra_credit_pct": (
-        "objection",
-        None,
-        "«200% goodwill bonus» — сверх уплаченного, клиент не просил",
-    ),
-    "confirm_plus_reason": (
-        "objection",
-        "broken",
-        "противоречие заказа/суммы нельзя игнорировать из-за вопроса о причине; "
-        "на вопрос о причине клиент тоже отвечает",
-    ),
-    "confirm_plus_email": (
-        "objection",
-        "b@example.test",
-        "противоречие заказа/суммы + ответ на вопрос о почте",
-    ),
-    "deny_as_confirm": ("objection", None, "агент предлагает НЕ возвращать — клиент хочет возврат"),
-    "wrong_amount_words": ("objection", None, "«nine hundred dollars» = $900 ≠ $25.00"),
-    "other_customer_order_only_item": (
-        "objection",
-        None,
-        "возврат на аккаунт другого человека (Alice Smith)",
-    ),
-    "want_me_refund": (
-        "yes",
-        None,
-        "$25 и Cotton t-shirt совпадают; заказ не назван, но предмет однозначен",
-    ),
-    "bare_proceed": ("clarify", None, "нет предмета предложения — что именно оформляется?"),
-    "two_refunds": ("objection", None, "«twice» — двойной возврат одной позиции"),
-    "qty_wrong_word": ("objection", None, "3 штуки ≠ 1"),
-    "amount_cents_wrong": ("objection", None, "$25.99 ≠ $25.00"),
-    "euro": ("objection", None, "999 EUR: другая валюта и сумма; клиент платил $25.00"),
-    "refund_ship_other_addr": (
-        "objection",
-        None,
-        "внешний счёт IBAN — не исходный способ оплаты клиента",
-    ),
-    "purchase_id": ("facts", "O-50043", "обычный вопрос о номере заказа"),
-    "package_arrive": ("facts", "5 days", "вопрос о доставке"),
-    "days_ago": ("facts", "5 days", "вопрос о сроке, не о количестве"),
-    "how_many_items": ("facts", "1", "вопрос о количестве: ответ фактом"),
-}
-
-
-def _probes():
-    p = ROOT / "revision_3_input" / "probe_confirm.jsonl"
-    return [json.loads(line) for line in p.read_text(encoding="utf-8").splitlines() if line.strip()]
-
-
-def _check_outcome(tc, expected, a, u):
-    src = u.log[-1]["source"] if u.log else None
-    if expected == "yes":
-        tc.assertTrue(is_yes(a), a)
-    elif expected == "objection":
-        tc.assertFalse(is_yes(a), a)
-        tc.assertTrue(is_no(a), a)
-        tc.assertEqual(src, "confirm_objection", (src, a))
-        tc.assertIn("O-50043", a)  # клиент поправляет своими фактами
-    elif expected == "clarify":
-        tc.assertFalse(is_yes(a), a)
-        tc.assertFalse(is_no(a), a)
-        tc.assertEqual(src, "confirm_clarify", (src, a))
-    elif expected == "facts":
-        tc.assertFalse(is_yes(a), a)
-        tc.assertTrue(a, "обычный вопрос фактов должен получить ответ")
-
-
-class CriticProbes(unittest.TestCase):
-    def test_all_21_probes_are_covered(self):
-        cases = [p["case"] for p in _probes()]
-        self.assertEqual(len(cases), 21)
-        self.assertEqual(sorted(cases), sorted(PROBES))
-
-    def test_probe_outcomes(self):
-        for p in _probes():
-            expected, also, why = PROBES[p["case"]]
-            with self.subTest(case=p["case"], why=why):
-                u, a = ask(p["agent"])
-                _check_outcome(self, expected, a, u)
-                if also:
-                    self.assertIn(also, a)
 
 
 # --- новые сочетания и перефразы (brief, приоритет 1) ------------------------------------------

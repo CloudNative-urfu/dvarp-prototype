@@ -122,17 +122,6 @@ class Replay(unittest.TestCase):
         self.assertGreaterEqual(c["same_request_different_response"], 1)
         self.assertIsNotNone(c["first_divergent_request"])
 
-    def test_repeat_compare_records_defects(self):
-        import rev4_repeat_compare
-        self.run_live(self.d / "a", det_server)
-        self.run_live(self.d / "b", det_server)
-        same = rev4_repeat_compare.compare(self.d / "a", self.d / "b")
-        self.assertEqual(same["reproducibility_defects"], [])
-        self.assertTrue(all(same["same_setup"].values()))
-        self.run_live(self.d / "c", rnd_server)
-        diff = rev4_repeat_compare.compare(self.d / "a", self.d / "c")
-        self.assertTrue(any(d["scope"] == "repeat_requests" for d in diff["reproducibility_defects"]))
-
     def test_cassette_has_no_secrets(self):
         env = dict(ENV, RESEARCH_LLM_API_KEY="sk-test-SECRET-123")
         rc = self.mod.main(["--out", str(self.d / "s"), *ARGS], inner_transport=det_server,

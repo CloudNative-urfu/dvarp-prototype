@@ -1,6 +1,7 @@
 """Ревизия 10, v2r-primary-table: главный прогон verify — на основе v2r; приёмка FR-1.24
 проверяет статусы break-even по правилам §9.2, а не знак эффекта."""
 
+import ast
 import copy
 import json
 import shutil
@@ -41,9 +42,19 @@ class PrimaryFoundationTest(unittest.TestCase):
         import verify
 
         self.assertEqual(verify.PRIMARY_FOUNDATION, "v2r")
-        src = (ROOT / "scripts/verify.py").read_text(encoding="utf-8")
-        self.assertIn('"--foundation", PRIMARY_FOUNDATION', src)
-        self.assertIn('"e2e_offline"', src)
+        # аргументы шага e2e_offline по AST, а не по тексту: ruff format переносит строки (#58)
+        tree = ast.parse((ROOT / "scripts/verify.py").read_text(encoding="utf-8"))
+        args = next(
+            n.args[1]
+            for n in ast.walk(tree)
+            if isinstance(n, ast.Call)
+            and getattr(n.func, "attr", None) == "run"
+            and n.args
+            and isinstance(n.args[0], ast.Constant)
+            and n.args[0].value == "e2e_offline"
+        )
+        i = next(k for k, e in enumerate(args.elts) if getattr(e, "value", None) == "--foundation")
+        self.assertEqual(getattr(args.elts[i + 1], "id", None), "PRIMARY_FOUNDATION")
 
 
 class StatusRulesTest(unittest.TestCase):
