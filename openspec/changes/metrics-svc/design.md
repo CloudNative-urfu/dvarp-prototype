@@ -28,6 +28,10 @@
   counts as FP): a *false interrupt* is a legal episode of a clean (`base`) flow in which the
   reaction policy chose `isolate`, `escalate` or `terminate`. Rate per config with Wilson 95 %
   CI; the gate passes when the rate ≤ τ = 5 %; a failing config is *marked*, not excluded.
+  An escalation on the customer's explicit request is an ordinary action, not an FP: the gate
+  reads only `component=policy` events, and `assign_manual_review` with
+  `reason_code=customer_request` comes from the agent. The outcome of an escalation (what it
+  led to, `manual_reviews.decision`, #39) is a separate layer, out of scope here.
 - **Honest accounting.** Per config: every flow's split-accounting checks pass; both sides
   reported; base flows carry no attacker cost; the defender-svc transport line
   (`defender_borne_transport`, #19), when present, is complete and not inside `defender_borne`.

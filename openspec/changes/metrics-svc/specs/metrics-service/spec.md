@@ -27,6 +27,11 @@ and the independent L* recomputation with the §9.2 status rules.
 - **WHEN** a config's false-interrupt rate exceeds 5 %
 - **THEN** it is listed in `marked_g_tau` and remains in all metric tables
 
+#### Scenario: Escalation requested by the customer
+- **WHEN** the agent escalates a legal case on the customer's explicit request
+  (`assign_manual_review`, `reason_code=customer_request`)
+- **THEN** it is not counted as a false interrupt; only `component=policy` decisions count
+
 ### Requirement: СС calls the service
 `report_cli offline|live --metrics-svc` SHALL run the instrument smoke and send the telemetry
 to a metrics-svc process on 127.0.0.1, writing the returned files into the seed's `metrics/`.
