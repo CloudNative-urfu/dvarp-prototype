@@ -100,6 +100,12 @@ def has_schema_v3(conn: sqlite3.Connection) -> bool:
     return conn.execute("PRAGMA user_version").fetchone()[0] == V3_SCHEMA_VERSION
 
 
+def has_v3_columns(conn: sqlite3.Connection) -> bool:
+    """Все колонки аудита v3 на месте. Писатели v3-полей (исполнитель, #57) смотрят на колонки, а
+    не на `user_version`: тройку ставит и слайсовая миграция контура (`shop_svc/migrate.py`)."""
+    return not _missing_columns(conn)
+
+
 def _missing_columns(conn: sqlite3.Connection) -> list[tuple[str, str, str]]:
     missing: list[tuple[str, str, str]] = []
     for table, col, typ in V3_COLUMNS:
