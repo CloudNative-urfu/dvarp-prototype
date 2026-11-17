@@ -10,6 +10,8 @@
   потерю ответа до/после принятия операции;
 - каждый запрос пишется строкой JSONL (`requests.jsonl` рядом с ready.json) с корреляционными
   id, которые обработчик вернул в `corr` (ticket_id, refund_request_id, idempotency_key).
+- необработанное исключение обработчика → клиенту `500 internal_error` с именем типа; текст
+  исключения — полем `exception` в `requests.jsonl`, traceback — в stderr сервиса (#62).
 
 Клиент `call` различает ответ сервера (любой HTTP-код) и сбой транспорта (`TransportError`:
 отказ соединения, обрыв без ответа, тайм-аут): только по второму вызывающий не знает исхода.
@@ -21,8 +23,10 @@ import http.client
 import json
 import os
 import socket
+import sys
 import threading
 import time
+import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Mapping
@@ -159,6 +163,9 @@ class JSONHandler(BaseHTTPRequestHandler):
             obj.pop("_corr", None)
         except Exception as exc:  # noqa: BLE001 — ответ 500, не падение процесса
             status, obj = 500, {"error": "internal_error", "detail": type(exc).__name__}
+            # клиенту — кратко; причина — в requests.jsonl и traceback в stderr сервиса (#62)
+            corr = {**corr, "exception": f"{type(exc).__name__}: {exc}"[:500]}
+            traceback.print_exc(file=sys.stderr)
         self.server.log_request_line({
             "ts": round(t0, 4), "svc": self.server.name, "method": method, "path": u.path,
             "query": query or None, "status": None if dropped else status, "dropped": dropped,
