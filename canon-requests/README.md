@@ -51,3 +51,6 @@
 | № | Заявка | Статус |
 | --- | --- | --- |
 | 001 | [FR-1.11 — тул проверки по внутренней БД](001-fr-1-11-db-verification-tool.md) | accepted |
+| 002 | [G-τ — операциональное определение ложных прерываний](002-g-tau-false-interrupt-definition.md) | open |
+| 003 | [Ручная проверка: роль оператора и исходы (resolve_review)](003-operator-review-resolution.md) | open |
+| 004 | [Контракт СС↔полигон: привязка §11 к реализации](004-ss-polygon-contract.md) | open |
