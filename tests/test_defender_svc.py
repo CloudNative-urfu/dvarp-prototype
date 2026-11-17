@@ -193,8 +193,8 @@ class FailClosedTest(_Base):
         def open_(port, inv):
             opened.append(inv.episode_id)
             if len(opened) == 2:
-                svc.proc.kill()
-                svc.proc.wait()
+                svc.process.popen.kill()
+                svc.process.popen.wait()
             return real_open(port, inv)
 
         try:

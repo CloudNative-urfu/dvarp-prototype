@@ -21,12 +21,13 @@ from __future__ import annotations
 
 import ast
 import json
-import math
 from collections import Counter
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from darp_range.executor.boundary import BOUNDARY_FINGERPRINT
+# Независимый пересчёт L* уехал в metrics-svc (issue #33); приёмка зовёт его оттуда.
+from darp_range.metrics_svc.gates import lstar_check, recompute_lstar  # noqa: F401
 
 KEY_REQUIREMENTS = (
     "FR-1.2",
@@ -218,27 +219,6 @@ def package_imports(pkg_dir: Path, *, skip: Iterable[str] = ("__main__.py",)) ->
                 elif node.level >= 2 and mod:
                     found.add(mod.split(".")[0])
     return found
-
-
-def recompute_lstar(
-    cfg: Mapping[str, Any], ref: Mapping[str, Any], prices: Mapping[str, float], w_a: float
-) -> float | None:
-    """L* по §9.2 из составляющих metrics.json (база цен); None при V(g0) − V(g) ≤ 0 или
-    нестабильной очереди (аналитическая Q не определена)."""
-    w_l = 1.0 - w_a
-    dv = ref["safety"]["V"] - cfg["safety"]["V"]
-    qc, qr = cfg["continuity"], ref["continuity"]
-    if dv <= 0 or qc["Q"] is None or qr["Q"] is None:
-        return None
-    num = (
-        w_l * (cfg["utility"]["R"] - ref["utility"]["R"]) * prices["C_refuse"]
-        + w_l * (qc["Q"] - qr["Q"]) * prices["C_queue"]
-        + w_l * (qc["P_sla_L"] - qr["P_sla_L"]) * prices.get("C_sla", 0.0)
-        + (cfg["economics"]["C_ep"] - ref["economics"]["C_ep"]) * w_a
-        + cfg["economics"]["C_guard"]
-        + (cfg["continuity"]["E"] - ref["continuity"]["E"]) * prices["C_manual"]
-    )
-    return num / (w_a * dv)
 
 
 # ----------------------------------------------------------------------------- проверки
@@ -776,51 +756,8 @@ def _fr_1_19(rv: RunView, r: _Req) -> None:
     )
 
 
-_EPS = 1e-12
-
-
 def _fr_1_24(rv: RunView, r: _Req) -> None:
-    m = rv.metrics
-    ref = m["configs"][m["reference"]]
-    base = {k: v["base"] for k, v in m["price_ranges"].items()}
-    w_a = ref["w_A"]
-    rows, bad, rule_bad = {}, [], []
-    for c, cfg in m["configs"].items():
-        if c == m["reference"] or not cfg.get("same_flow_as_reference", True):
-            continue
-        mine = recompute_lstar(cfg, ref, base, w_a)
-        got = cfg["break_even"]["L_star"]
-        status = cfg["break_even"]["bounds"]["base"]["status"]
-        final = cfg["break_even"]["status"]
-        rows[c] = {"recomputed": mine, "reported": got, "status": status, "final": final}
-        dv = ref["safety"]["V"] - cfg["safety"]["V"]
-        # ревизия dvarp#18: при ρ ≥ 1 очередь нестабильна — недопустима при любом L_viol
-        unstable = cfg["continuity"]["Q"] is None or ref["continuity"]["Q"] is None
-        if unstable:
-            if got is not None or status != "queue_unstable":
-                bad.append(c)
-        elif dv <= 0:
-            if got is not None or status not in ("no_safety_gain", "more_violations"):
-                bad.append(c)
-        elif got is None or not math.isclose(mine, got, rel_tol=1e-6, abs_tol=1e-9):
-            bad.append(c)
-        # ревизия 10 (v2r-primary-table): статус следует правилам §9.2, знак эффекта не важен:
-        # ΔV=0 → no_safety_gain; ΔV<0 → more_violations; ΔV>0 → threshold/pays_at_any_price;
-        # итог может быть unresolved только с причинами (ДИ ΔV содержит 0 / шум seed)
-        if unstable:
-            want = ("queue_unstable",)
-        elif abs(dv) <= _EPS:
-            want = ("no_safety_gain",)
-        elif dv < 0:
-            want = ("more_violations",)
-        else:
-            want = ("threshold", "pays_at_any_price")
-        if (
-            status not in want
-            or final not in (*want, "unresolved")
-            or (final == "unresolved" and not cfg["break_even"].get("unresolved_reasons"))
-        ):
-            rule_bad.append({"config": c, "dV": dv, "formula": status, "final": final})
+    rows, bad, rule_bad = lstar_check(rv.metrics)
     r.check(
         "L* per config equals an independent recomputation of §9.2 at base prices",
         bool(rows) and not bad,

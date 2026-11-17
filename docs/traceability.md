@@ -74,8 +74,8 @@
 
 | Требование | Покрытие | Проверка | Статус |
 | --- | --- | --- | --- |
-| FR-1.23 Автоматические метрики: безопасность, полезность, непрерывность, детекция, экономика | `metrics/` (все пять групп) | `test_metrics`, acceptance, таблица в `report_cli` | covered |
-| FR-1.24 Порог окупаемости L* | `metrics/breakeven` + приёмка §9.2 (статусы по правилам, не по знаку) | `test_rev10_v2r`, acceptance FR-1.24 | covered |
+| FR-1.23 Автоматические метрики: безопасность, полезность, непрерывность, детекция, экономика | `metrics/` (все пять групп); сервис `metrics_svc/` по телеметрии (#33, `report_cli --metrics-svc`) | `test_metrics`, `test_metrics_svc`, acceptance, таблица в `report_cli` | covered |
+| FR-1.24 Порог окупаемости L* | `metrics/breakeven`; независимый пересчёт §9.2 и правила статусов — `metrics_svc/gates.lstar_check` (приёмка зовёт его) | `test_rev10_v2r`, acceptance FR-1.24, `test_metrics_svc` | covered |
 
 ## NFR-2.1–2.14. Воспроизводимость, стек, дизайн
 
@@ -89,12 +89,12 @@
 | NFR-2.6 Модели ≤8B | **не подключено**: живая модель через `RESEARCH_LLM_*` не выбрана/не прогнана. Решение команды 2026-11-12: планка расширена до ≤16B (отклонение от рамки — обновить канон в репо `dvarp`) | — | **gap** → issue «модели и пилот live» (#6) |
 | NFR-2.7 Языковой scope: dirty English, доки — русский | корпус английский, доки русские | `test_corpus` | covered |
 | NFR-2.8 Парные прогоны | runner: attacked/base с общим seed и снапшотом | `test_runner`, acceptance (pair checks) | covered |
-| NFR-2.9 Раздельный учёт затрат (self-limited / defender-borne) | отдельные счётчики атакующего; классификация вреда | acceptance, `test_metrics` | covered |
+| NFR-2.9 Раздельный учёт затрат (self-limited / defender-borne) | отдельные счётчики атакующего; классификация вреда; транспорт defender-svc — отдельная строка `defender_borne_transport` (#19); гейт honest accounting в metrics-svc (#33) | acceptance, `test_metrics`, `test_defender_svc`, `test_metrics_svc` | covered |
 | NFR-2.10 Заморозка защиты при адаптивной атаке | `configs.lock.json` + FreezeGuard | `test_configs`, шаг `configs_frozen` | covered |
 | NFR-2.11 Жёсткие лимиты атакующего, превышение = нарушение протокола | budget cutoff ≠ protocol violation | `test_runner`, `test_rev10_broker_record` | covered |
 | NFR-2.12 Базовые линии g0 и g_proc | ровно две базовые линии замороженного набора (матрица §4, #29) | `test_configs` | covered |
 | NFR-2.13 Синтетичность (нет PII/платежей/внешних интеграций) | локальные процессы, синтетический pay-emu | прогон под socket ban, review контура | covered |
-| NFR-2.14 Артефакты: код, корпус, журналы, отчёт с Pareto/L*, статья | отчёт `report_cli` (Pareto, L*-таблица, неэффективные) + журналы | шаг `e2e_offline` + `e2e_verify` | covered (статья — в репо `dvarp`, вне полигона) |
+| NFR-2.14 Артефакты: код, корпус, журналы, отчёт с Pareto/L*, статья | отчёт `report_cli` (Pareto, L*-таблица, неэффективные) + журналы; через metrics-svc — те же файлы байт-в-байт + `gates.json`/`gates.md` | шаг `e2e_offline` + `e2e_verify`, `test_metrics_svc` | covered (статья — в репо `dvarp`, вне полигона) |
 
 ## Канон исследования (design.md §10)
 
@@ -122,4 +122,4 @@
 | --- | --- | --- |
 | Модели ≤16B: выбор, подключение 3 агентов, пилот live | #6 | geekiot-hub (инфраструктура) |
 | Кейс-паки: 6 сценариев цикла 9 → корпус + паспорта | «кейс-паки из спеки цикла 9» | BruhWhyMeHaveNoIdea (общий вид полигона) |
-| Гейты отчёта: G-tau (ложные прерывания ≤5%), honest accounting | #9 | sser1to (требования) |
+| Гейты отчёта: G-tau (ложные прерывания ≤5%), honest accounting | #33 (`metrics_svc/gates.py`; было #9) | desmitry |
