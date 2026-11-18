@@ -614,14 +614,9 @@ def _run_seed(
     out: Path,
     names: Sequence[str],
     l_viol: Sequence[float] | None,
-    *,
-    defer_metrics: bool = False,
-    **runner_kw: Any,
 ):
     p = replace(plan, master_seed=seed)
-    rr = Runner(p, out / f"seed-{seed}" / "run", **runner_kw).run(names)
-    if defer_metrics:   # metrics-svc зовётся по 127.0.0.1 уже после блока запрета сети
-        return rr, None, None
+    rr = Runner(p, out / f"seed-{seed}" / "run").run(names)
     return (rr, *_metrics(rr, out / f"seed-{seed}", l_viol))
 
 
@@ -632,29 +627,19 @@ def run_offline(
     seeds: Sequence[int] = (7,),
     configs: Sequence[str] | None = None,
     l_viol: Sequence[float] | None = None,
-    metrics_svc: bool = False,
 ) -> dict[str, Any]:
-    """Офлайн-конвейер под запретом сети (заглушка модели, режим D или A-заглушка).
-    `metrics_svc` — метрики через metrics-svc на 127.0.0.1 (после блока запрета сети)."""
+    """Офлайн-конвейер: заглушка модели и метрики в процессе, без loopback-сервисов."""
     if plan.agent_mode != "stub":
         raise PipelineError("офлайн-прогон только с заглушкой модели (agent_mode=stub)")
     out = Path(out)
     started = time.monotonic()
-    cs, names = _prepare(out, plan, configs, seeds)
-    runs = {}
-    svc = _metrics_service(metrics_svc)
     with no_network() as net:
-        for s in seeds:
-            runs[s] = _run_seed(plan, s, out, names, l_viol, defer_metrics=svc is not None)
-    if svc is not None:
-        with svc:
-            for s in seeds:
-                rr = runs[s][0]
-                runs[s] = (rr, *_metrics(rr, out / f"seed-{s}", l_viol, svc))
-    contour = contour_report(
-        [cs[n] for n in names], mode="offline", network=net.to_json(), endpoint=None
-    )
-    return _finish(out, "offline", seeds, names, runs, contour, started)
+        cs, names = _prepare(out, plan, configs, seeds)
+        runs = {s: _run_seed(plan, s, out, names, l_viol) for s in seeds}
+        contour = contour_report(
+            [cs[n] for n in names], mode="offline", network=net.to_json(), endpoint=None
+        )
+        return _finish(out, "offline", seeds, names, runs, contour, started)
 
 
 def run_live(

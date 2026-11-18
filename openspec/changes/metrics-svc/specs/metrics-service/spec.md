@@ -33,8 +33,10 @@ and the independent L* recomputation with the §9.2 status rules.
 - **THEN** it is not counted as a false interrupt; only `component=policy` decisions count
 
 ### Requirement: СС calls the service
-`report_cli offline|live --metrics-svc` SHALL run the instrument smoke and send the telemetry
+`report_cli live --metrics-svc` SHALL run the instrument smoke and send the telemetry
 to a metrics-svc process on 127.0.0.1, writing the returned files into the seed's `metrics/`.
+`report_cli offline` SHALL calculate metrics in process and reject `--metrics-svc`; the
+network guard SHALL remain active through report generation without a loopback exception.
 
 #### Scenario: Instrument smoke stays in the СС
 - **WHEN** an episode lacks the evaluator's state-diff verdict or a log chain is broken

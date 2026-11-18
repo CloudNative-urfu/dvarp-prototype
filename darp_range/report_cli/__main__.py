@@ -75,7 +75,7 @@ def cmd_offline(a: argparse.Namespace) -> int:
     seeds = tuple(int(x) for x in a.seeds.split(","))
     res = run_offline(a.out, _plan(a, live=False), seeds=seeds,
                       configs=a.configs.split(",") if a.configs else None,
-                      l_viol=_floats(a.l_viol), metrics_svc=a.metrics_svc)
+                      l_viol=_floats(a.l_viol))
     res["out"] = str(a.out)
     _print(res)
     return 0 if res["ok"] else 1
@@ -129,8 +129,6 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--service-mode", choices=("fast", "base", "slow"), default="base",
                        help="время обслуживания оператора: 4 / 8 / 15 мин")
         p.add_argument("--operators", type=int, default=1)
-        p.add_argument("--metrics-svc", action="store_true",
-                       help="метрики через metrics-svc на 127.0.0.1 (issue #33)")
         p.add_argument("--attack-mode", choices=("D", "A"), default="D",
                        help="D — корпус; A — адаптивный LLM-атакующий (живой: та же модель и "
                             "общий бюджет запросов)")
@@ -151,6 +149,8 @@ def main(argv: list[str] | None = None) -> int:
         if name == "offline":
             p.add_argument("--seeds", default="7", help="master seed'ы через запятую")
         else:
+            p.add_argument("--metrics-svc", action="store_true",
+                           help="метрики через metrics-svc на 127.0.0.1 (issue #33)")
             p.add_argument("--seed", type=int, default=7)
             p.add_argument("--max-requests", type=int, default=60)
             p.add_argument("--max-tokens", type=int, default=150_000)

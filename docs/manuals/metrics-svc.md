@@ -37,9 +37,9 @@
 - Адаптер `metrics_svc/client.py`: `MetricsService` (:23-81) запускает сервис через
   `svckit.ServiceProcess` (`svckit/proc.py`, `PYTHONHASHSEED=0`), шлёт каталог прогона
   (`compute`, :54-81), `write_report` (:83-…) кладёт файлы в `seed-N/metrics`.
-- `report_cli offline|live --metrics-svc`: `report_cli/pipeline.py` — `_metrics` (:175-188),
-  `_metrics_service` (:191-199); в офлайне прогоны идут под запретом сети, расчёт — после него
-  (:645-652).
+- `report_cli live --metrics-svc` передаёт телеметрию локальному сервису. В `report_cli offline`
+  метрики считаются в процессе; TCP/UDP запрещены даже для `127.0.0.1`, исключений по портам нет.
+  Для отдельного запуска defender-svc используется `python3 -m darp_range.runner svc`.
 - Смоук «прибор исправен» до отправки: `instrument_smoke` (pipeline.py:153-172) — журналы
   целы и закрыты, у каждого эпизода вердикт оценщика с диффом состояния БД.
 
