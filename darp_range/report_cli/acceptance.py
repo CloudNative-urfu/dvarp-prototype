@@ -25,7 +25,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
-from darp_range.executor.boundary import BOUNDARY_FINGERPRINT
+from darp_range.boundary_contract import BOUNDARY_FINGERPRINT, BOUNDARY_FINGERPRINTS
 # Независимый пересчёт L* уехал в metrics-svc (issue #33); приёмка зовёт его оттуда.
 from darp_range.metrics_svc.gates import lstar_check, recompute_lstar  # noqa: F401
 
@@ -519,7 +519,6 @@ def _fr_1_14(rv: RunView, r: _Req) -> None:
     short = {e["data"]["boundary"] for _, _, e in rv.all_events() if e["kind"] == "exec_request"}
     # ревизия 10 (v2r-primary-table): основа прогона задаёт ОДНУ границу исполнителя для всех
     # конфигураций (v1 — boundary-1, v2r — boundary-2r); гвардрейлы её не меняют
-    from darp_range.executor import BOUNDARY_FINGERPRINTS
     from darp_range.runner.plan import FOUNDATIONS
 
     fnd = rv.run["plan"].get("foundation", "v1")

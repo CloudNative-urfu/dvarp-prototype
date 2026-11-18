@@ -25,6 +25,7 @@ from typing import Any, Callable
 from darp_range.channel import MAX_MESSAGE_CHARS, Observation, SessionResult
 from darp_range.event_log import ComponentWriter, EventLog
 from darp_range.llm import ChatModel, LimitExceeded, Limits, make_chat_model
+from darp_range.plan_contract import MODE_STRATEGIES
 
 from .composers import (
     ComposeContext, Composed, Composer, CorpusComposer, LLMComposer, SearchComposer,
@@ -35,9 +36,6 @@ from .types import (
     MODES, STRATEGIES, AttackerBrief, AttackerError, AttackerProtocolViolation, AttackLimits,
     AttemptRecord, CampaignResult, MemoryItem, Turn,
 )
-
-MODE_STRATEGIES = {"D": ("corpus",), "A": ("llm", "template", "random")}
-
 
 def _violation_code(exc: LimitExceeded) -> str:
     return "model_token_budget" if exc.limit_name.startswith("max_tokens") else "model_request_limit"

@@ -4,6 +4,11 @@
 `runner/flow.py` SHALL reach the defender side only through `DefenderPort`/`DefenderSession`
 (+ `ToolPort`) and the legal traffic only through `TrafficPort` (`runner/ports.py`). Default
 adapters SHALL be the in-process reference, wired by `runner/__init__.py`.
+Importing `RunPlan` SHALL NOT load the attacker implementation. The traffic adapter
+owns the seeded scheduling algorithm; `plan.build_schedule` remains a compatibility entry point.
+Importing `ConfigSpec` and `load_frozen` SHALL NOT assemble or import the defender runtime.
+Parsing frozen definitions still performs the full validation. Measurement code SHALL use
+the published boundary identifiers without importing the executor for those identifiers.
 
 #### Scenario: Orchestrator imports only contracts
 - **WHEN** the architecture test reads the imports of `runner/flow.py`, `ports.py`, `svc.py`

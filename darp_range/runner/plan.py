@@ -17,9 +17,8 @@ import math
 from dataclasses import asdict, dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
 
-from darp_range.attackers import MODE_STRATEGIES
-from darp_range.manual_queue import SERVICE_MODES, attack_count, build_flow
-from darp_range.repro import check_seed, derive_seed, hash_obj, make_rng
+from darp_range.plan_contract import MODE_STRATEGIES, SERVICE_MODES
+from darp_range.repro import check_seed, hash_obj
 
 SPLITS = (None, "dev", "holdout")
 AGENT_MODES = ("stub", "live")
@@ -266,34 +265,9 @@ def select_entries(entries: Sequence[Mapping[str, Any]], plan: RunPlan) -> list[
 
 def build_schedule(seed: int, plan: RunPlan, entries: Sequence[Mapping[str, Any]]) -> Schedule:
     """Расписание блоков потока для seed конфигурации."""
-    check_seed(seed)
-    sel = select_entries(entries, plan)
-    order = {e["id"]: i for i, e in enumerate(entries)}
-    controls = [e["id"] for e in sel if e["kind"] == "control"]
-    attacks = [e["id"] for e in sel if e["kind"] == "attack"]
-    n_legal = plan.n_legal or len(controls)
-    per_block = attack_count(n_legal, plan.w_a) if attacks else 0
-    if attacks and per_block == 0:
-        raise RunnerError(f"при n_legal={n_legal} и w_A={plan.w_a} в блоке нет ни одной атаки")
-    blocks = plan.blocks or (math.ceil(len(attacks) / per_block) if attacks else 1)
-    att_perm = list(attacks)
-    make_rng(seed, "runner", "attack-order").shuffle(att_perm)
-    out: list[BlockSchedule] = []
-    for b in range(blocks):
-        fseed = derive_seed(seed, "runner", "flow", b)
-        ctl_perm = list(controls)
-        make_rng(seed, "runner", "legal-order", b).shuffle(ctl_perm)
-        raw = build_flow(fseed, n_legal, plan.w_a, plan.mean_gap, with_attacks=bool(attacks))
-        slots = []
-        for s in raw:
-            if s.traffic == "legal":
-                eid = ctl_perm[s.index % len(ctl_perm)]
-            else:
-                eid = att_perm[(b * per_block + s.index) % len(att_perm)]
-            slots.append(FlowSlot(s.case_id, s.traffic, s.t_arrival, s.index, eid, order[eid]))
-        out.append(BlockSchedule(b, fseed, tuple(slots)))
-    return Schedule(seed, tuple(e["id"] for e in sel), tuple(controls), tuple(attacks), n_legal,
-                    per_block, tuple(out))
+    from .legal_traffic import build_schedule as schedule
+
+    return schedule(seed, plan, entries)
 
 
 def blocks_to_replay(plan: RunPlan, schedule: Schedule) -> list[int]:

@@ -32,10 +32,9 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Iterable, Mapping
 
 from darp_range.event_log import TRAFFIC_CLASSES, ComponentWriter
+from darp_range.plan_contract import SERVICE_MODES
 from darp_range.repro import hash_obj, make_rng
 
-# Режимы чувствительности времени обслуживания, мин (допущение decomposition, база 8).
-SERVICE_MODES: dict[str, float] = {"fast": 4.0, "base": 8.0, "slow": 15.0}
 OPERATOR_LEVELS: tuple[int, ...] = (1, 2)
 DISCIPLINES = ("fifo", "fair_share")
 SERVICE_DISTS = ("fixed", "exponential")

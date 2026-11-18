@@ -28,16 +28,16 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import TYPE_CHECKING, Any, Mapping
 
-import darp_range.guard_plugins  # noqa: F401 — регистрация встроенных плагинов в реестре
-from darp_range.executor import BOUNDARY_FINGERPRINT
-from darp_range.guard_contract import STAGES, GuardContractError, GuardSet
-from darp_range.guard_policy import POLICY_VERSION, PolicyError, ReactionPolicy
-from darp_range.manual_queue import DISCIPLINES
-from darp_range.repro import hash_obj
+from darp_range.boundary_contract import BOUNDARY_FINGERPRINT
+from darp_range.repro import derive_seed, hash_obj
 
-from .process import PROCESS_VERSION, ProcessError, ProcessSpec
+if TYPE_CHECKING:
+    from darp_range.guard_contract import GuardSet
+    from darp_range.guard_policy import ReactionPolicy
+
+    from .process import ProcessSpec
 
 # Ревизия 2 (K2.4): выключенные по умолчанию OSS-адаптеры допускаются в конфигурации только
 # если для них есть lock с ревизией и SHA-256 весов и кэш оценок живого вывода (офлайн-verify
@@ -46,6 +46,7 @@ MEASURED_ADAPTERS = ("deberta-pi-v2",)
 
 
 def _allow_measured(guards_spec: list) -> bool:
+    import darp_range.guard_plugins  # noqa: F401 — populate DEFAULT_REGISTRY
     from darp_range.guard_contract import DEFAULT_REGISTRY
     ids = [e.get("id") for e in guards_spec if isinstance(e, Mapping)]
     disabled = [i for i in ids if i in DEFAULT_REGISTRY
@@ -81,6 +82,8 @@ def _req_str(v: Any, name: str, pattern: re.Pattern | None = None) -> str:
 def operational_definition(policy: ReactionPolicy, guards: GuardSet) -> list[str]:
     """Явное операционное определение конфигурации: какой сигнал в какой точке во что
     превращается (Policy Is Not Capability: FP гвардрейла зависит от этого отображения)."""
+    from darp_range.guard_contract import STAGES
+
     lines = []
     for st in STAGES:
         plugins = [p.plugin_id for p in guards.at(st)]
@@ -118,6 +121,12 @@ class ConfigSpec:
     notes: str = ""
 
     def __post_init__(self):
+        from darp_range.guard_contract import GuardSet
+        from darp_range.guard_policy import ReactionPolicy
+        from darp_range.manual_queue import DISCIPLINES
+
+        from .process import ProcessSpec
+
         _req_str(self.name, "name", NAME_RE)
         if self.family not in FAMILIES:
             raise ConfigError(f"family {self.family!r} не из {FAMILIES}")
@@ -160,6 +169,8 @@ class ConfigSpec:
             raise ConfigError("guarded: нужен хотя бы один гвардрейл")
 
     def _check_policy_vs_guards(self) -> None:
+        from darp_range.guard_contract import STAGES
+
         if not self.guards:
             return
         installed = {st for st in STAGES if self.guards.at(st)}
@@ -189,6 +200,10 @@ class ConfigSpec:
     def resolved(self) -> dict[str, Any]:
         """Что фактически подставится в прогон: описания плагинов с параметрами по
         умолчанию, версии кода защиты, граница исполнителя (FR-1.14)."""
+        from darp_range.guard_policy import POLICY_VERSION
+
+        from .process import PROCESS_VERSION
+
         return {
             "guards": [{"stages": list(e["stages"]), "plugin": p.describe()}
                        for p, e in zip(self.guards.plugins, self.guards.spec)],
@@ -221,6 +236,11 @@ class ConfigSpec:
         """Конфигурация из JSON. Неизвестные поля — ошибка (в том числе любые настройки
         исполнителя, FR-1.14). Если в JSON есть вычисляемые поля, они сверяются с тем, что
         получается из текущего кода: расхождение — изменённая защита (NFR-2.10)."""
+        from darp_range.guard_contract import GuardContractError, GuardSet
+        from darp_range.guard_policy import POLICY_VERSION, PolicyError, ReactionPolicy
+
+        from .process import ProcessError, ProcessSpec
+
         if not isinstance(spec, Mapping):
             raise ConfigError("конфигурация — объект")
         extra = set(spec) - set(_INPUT_FIELDS) - set(_DERIVED_FIELDS)
@@ -274,3 +294,10 @@ def same_detector(a: ConfigSpec, b: ConfigSpec) -> bool:
     for t in (ta, tb):
         t.pop("name"), t.pop("detect_only")
     return a.guards.fingerprint() == b.guards.fingerprint() and ta == tb
+
+
+def config_seed(master_seed: int, cfg: ConfigSpec) -> int:
+    """Share the master seed across main configurations and derive a seed for repeats."""
+    if cfg.seed_label == "main":
+        return master_seed
+    return derive_seed(master_seed, "config-seed", cfg.seed_label)
