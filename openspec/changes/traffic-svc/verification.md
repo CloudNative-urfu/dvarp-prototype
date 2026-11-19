@@ -1,6 +1,7 @@
 # Verification — 2026-11-19
 
-Base: develop e3a3ef5; branch: Issue-#36. Python 3.12.16, Windows.
+Base: develop 91274e0 (documentation refresh over e3a3ef5); branch: Issue-#36.
+Python 3.12.16, Windows.
 Prepared for the issue #36 pull request into develop.
 
 | Check | Result |
@@ -39,7 +40,25 @@ Environment failures found and fixed before the final green runs:
 - Temporary read-only snapshots survived runner cleanup on Windows. Cleanup now retries
   removal after making only run-owned temporary files writable.
 
-Full `unittest discover` / `scripts/verify.py` are explicitly deferred to the project's
-Linux sandbox with bubblewrap before merge. This host is Windows; `wsl --list --quiet`
-reports only the managed Docker Desktop distribution. No Linux sandbox checks were
-disabled or reported as passed. No frozen defense files or historical runs were edited.
+## Full unit suite and baseline comparison
+
+`python -m unittest discover -s tests -t .` completed: **1001 tests in 2399.165 s**,
+**17 failures, 15 errors, 31 skips**. This result is not reported as green.
+No traffic-svc test failed. Full log: `runs/issue-36-validation/full-tests.log`.
+
+Every failing test method was rerun in a clean detached worktree at develop 91274e0:
+all **24 distinct failing methods** reproduced their failure there. Both failed-import
+modules (`test_rev11_payout_recovery`, `test_rev11_shop_slice`) also failed independently
+on clean develop with the same missing `signal.SIGKILL` error. No newly failing test
+method was identified relative to this baseline. Error totals can differ because one
+test can also fail during Windows temporary-file cleanup.
+
+The existing failures involve Windows open-file/read-only cleanup assumptions in corpus
+and append-only tests, frozen-corpus/hash checks, and legacy live/replay scenarios returning
+exit 2. These failures have not been fixed or skipped as part of #36. Baseline evidence:
+`runs/issue-36-validation/baseline-failures.log`; comparison script/result are alongside it.
+
+Full `scripts/verify.py` remains explicitly deferred to the project's Linux sandbox with
+bubblewrap before merge. This host is Windows; `wsl --list --quiet` reports only the managed
+Docker Desktop distribution. No Linux sandbox checks were disabled or reported as passed.
+No frozen defense files or historical runs were edited.
