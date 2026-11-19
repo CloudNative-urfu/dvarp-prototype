@@ -41,6 +41,8 @@ _TRUSTED_DEFAULT = {"v1": None, "v2": "gt_rev6", "v2r": "declared"}
 LEGAL_CONFIRM_MODES = ("facts", "grammar_rev5")
 # Ревизия 8 (`patient-legal-customer`): терпеливый клиент (facts + до K вопросов о статусе).
 LEGAL_CONFIRM_MODES = LEGAL_CONFIRM_MODES + ("facts_patient",)
+# Issue #76: природа легального клиента сервисного прогона (scripted — эталон оффлайна).
+CUSTOMER_MODES = ("scripted", "llm")
 
 
 class RunnerError(RuntimeError):
@@ -87,6 +89,9 @@ class RunPlan:
     # Ревизия 7: None — по умолчанию основы (v2: gt_rev6, v2r: declared); в отпечатке — только
     # если задано явно (отпечатки планов rev6 не меняются).
     trusted_facts: str | None = None
+    # Issue #76: легальный клиент сервисного прогона — "scripted" (эталон оффлайна) или
+    # "llm" (LLM по фактам клиента, живой пилот). В отпечатке — только если задан явно.
+    customer_mode: str = "scripted"
 
     @property
     def trusted_mode(self) -> str | None:
@@ -184,6 +189,8 @@ class RunPlan:
             )
         if self.legal_confirm not in LEGAL_CONFIRM_MODES:
             raise RunnerError(f"legal_confirm {self.legal_confirm!r} не из {LEGAL_CONFIRM_MODES}")
+        if self.customer_mode not in CUSTOMER_MODES:
+            raise RunnerError(f"customer_mode {self.customer_mode!r} не из {CUSTOMER_MODES}")
 
     def as_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -205,6 +212,8 @@ class RunPlan:
             )
         if self.legal_confirm == "grammar_rev5":
             d.pop("legal_confirm")
+        if self.customer_mode == "scripted":
+            d.pop("customer_mode")
         if self.trusted_facts is None:
             d.pop("trusted_facts")
         return d

@@ -37,6 +37,8 @@ class SvcTraffic:
             "manifest": build_manifest(ctx.mgr.snapshot.path, ctx.mgr.spec),
             "plan": asdict(ctx.plan),
             "entries": list(ctx.entries.values()),
+            # Клиент легального трафика (issue #76): scripted | llm — решение плана.
+            "client": {"kind": getattr(ctx.plan, "customer_mode", "scripted")},
         }
 
     def _start(self):

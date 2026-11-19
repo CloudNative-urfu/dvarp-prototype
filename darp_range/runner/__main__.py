@@ -49,6 +49,7 @@ def _plan(a: argparse.Namespace) -> RunPlan:
         mean_gap=a.mean_gap,
         service_mode=a.service_mode,
         operators=a.operators,
+        customer_mode=a.customer,
     )
 
 
@@ -269,6 +270,8 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--mean-gap", type=float, default=3.0)
         p.add_argument("--service-mode", choices=("fast", "base", "slow"), default="base")
         p.add_argument("--operators", type=int, default=1)
+        # Клиент легального трафика сервисного прогона (issue #76; для `run` игнорируется).
+        p.add_argument("--customer", choices=("scripted", "llm"), default="scripted")
         if name in ("run", "svc"):
             p.add_argument("--out", type=Path, required=True)
             p.add_argument("--configs")
