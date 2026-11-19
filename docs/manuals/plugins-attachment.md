@@ -1,7 +1,9 @@
 # Мануал: Плагины гвардрейлов и релевантность бизнес-процессу
 
-> **Статус актуальности:** срез `origin/develop` `2fd02e3` (post-#29/#32), 2026-11-13.
-> **Устареет при** распиле на сервисы (#19) и metrics-svc (#33): переписывание логики меняет пути и потоки — после их мержа актуализировать по новым путям (см. правило в `AGENTS.md`, «Трейс для полигона»).
+> **Статус актуальности:** срез `origin/develop` `e3a3ef5` (post-#68), 2026-11-18.
+> Механика навешивания плагинов не менялась при #19/#33/#68 (конвейер собирается в
+> `configs/build.assemble_defender`, сервисный режим — тот же код через `defender_svc/core`);
+> строковые якоря `registry.py`/`policy.py` сверены со срезом.
 > Это документ-инструкция для будущего агента авторазметки процессов в полигоне: образец того, как описывается механика системы. Внутренний документ репозитория, в полигон переезжает как образец.
 
 Как гвардрейлы-плагины встраиваются в процесс: контракт, точки подключения, параметры,
@@ -11,7 +13,7 @@
 ## 1. Матрица 24 конфигураций
 
 Заморожены одним lock: `configs.lock.json` (24 записи, locked_at 2026-11-13T06:54:52Z, note
-«issue #29 … owner-sanctioned refreeze»). Генерация — `configs/registry.py:196-216`.
+«issue #29 … owner-sanctioned refreeze»). Генерация — `configs/registry.py:211-233`.
 
 | Группа | Конфигурации | guards (stages) |
 | --- | --- | --- |
@@ -22,8 +24,8 @@
 | Чистый детектор | `g_in_detect_only` (control) | input-filter@input, исполнение всегда continue |
 | Leave-one-out | `g_layered_minus_{input_filter,context_provenance,tool_arg_validator,output_leak}` | layered минус один |
 
-Отображение «имя → плагин/точки» — `registry.py:33-40` (PLACEMENTS); «суффикс → политика» —
-`:31` (CANON_POLICIES). Параметры: во всех 24 конфигурациях `guards[].params: {}` — работают
+Отображение «имя → плагин/точки» — `registry.py:36-50` (PLACEMENTS); «суффикс → политика» —
+`:34` (CANON_POLICIES). Параметры: во всех 24 конфигурациях `guards[].params: {}` — работают
 умолчания плагинов. Эффективные значения (в resolved каждого JSON):
 - input-filter: flag_at 0.5, block_at 0.85, quote_discount 0.4, min_b64_len 16
 - context-provenance: flag_at 0.5, block_at 0.85, quote_discount 0.4, unknown_rule_weight 0.6, taint_score 0.6
@@ -31,12 +33,12 @@
 - output-leak: flag_score 0.6, check_internal true
 - deberta: threshold 0.5 (из карточки модели, по корпусу не подбирался), flag_signal "flag"
 
-Канонные пресеты — `guard_policy/policy.py:235-238`: **flag → isolate/escalate/terminate**
+Канонные пресеты — `guard_policy/policy.py:209-240`: **flag → isolate/escalate/terminate**
 (единственное различие политик), **block → terminate всегда**, **error → fail-open continue
 на input/context/output и fail-closed isolate на tool**. Пороги score_flag/score_block в
-матрице null (плагины отдают готовые сигналы; пороги к score — policy.py:79-96).
+матрице null (плагины отдают готовые сигналы; пороги к score — policy.py:82-99).
 `max_clarifications = 2` везде. Старые пресеты (input_escalate, tool_clarify и др.,
-policy.py:212-227) в матрице не используются.
+policy.py:216-231) в матрице не используются.
 
 ## 2. Механика интеграции
 
