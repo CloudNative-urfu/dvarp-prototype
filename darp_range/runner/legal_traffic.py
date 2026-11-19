@@ -52,8 +52,15 @@ def build_schedule(seed: int, plan: RunPlan, entries: Sequence[Mapping[str, Any]
                 eid = att_perm[(b * per_block + s.index) % len(att_perm)]
             slots.append(FlowSlot(s.case_id, s.traffic, s.t_arrival, s.index, eid, order[eid]))
         out.append(BlockSchedule(b, fseed, tuple(slots)))
-    return Schedule(seed, tuple(e["id"] for e in sel), tuple(controls), tuple(attacks), n_legal,
-                    per_block, tuple(out))
+    return Schedule(
+        seed,
+        tuple(e["id"] for e in sel),
+        tuple(controls),
+        tuple(attacks),
+        n_legal,
+        per_block,
+        tuple(out),
+    )
 
 
 class CorpusTraffic:
@@ -77,7 +84,7 @@ class CorpusTraffic:
     ) -> BoundEpisode:
         accounts = self.mgr.spec.accounts
         actor, victim = pick_accounts(accounts, entry["kind"], entry_index)
-        conn = connect(db_path)
+        conn = connect(db_path, readonly=True)
         try:
             b = bind(
                 entry, conn, accounts, actor_id=actor, victim_id=victim, ticket_id=f"T-{episode_id}"
@@ -95,7 +102,7 @@ class CorpusTraffic:
             ticket_id=b.ticket_id,
             order_id=b.fixture["tickets"][0].get("order_id"),
             fixture=fx,
-            truth=None,
+            truth=b.ground_truth,
             handle=b,
         )
 

@@ -23,6 +23,7 @@ import os
 import sys
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from darp_range.agent import make_agent_model
@@ -41,6 +42,8 @@ class State:
     def __init__(self, cfg: ConfigSpec, guard: FreezeGuard):
         self.cfg, self.guard = cfg, guard
         self.lock = threading.Lock()
+        # SQLite connections and all episode operations must share one OS thread.
+        self.worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="defender")
         self.flow: DefenderFlow | None = None
         self.episodes: dict[str, DefenderEpisode] = {}
         self.last: tuple[Any, dict] | None = None  # (req, ответ) — для явного retry
@@ -80,7 +83,7 @@ class Handler(JSONHandler):
             if st.last is not None and req is not None and st.last[0] == req:
                 return 200, st.last[1], {"req": req}
             t0 = time.perf_counter()
-            obj = self._call(st, path, body)
+            obj = st.worker.submit(self._call, st, path, body).result()
             obj["svc_ms"] = (time.perf_counter() - t0) * 1000.0
             st.last = (req, obj)
             return 200, obj, {"req": req}

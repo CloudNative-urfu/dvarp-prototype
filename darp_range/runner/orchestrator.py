@@ -24,7 +24,6 @@ from __future__ import annotations
 import dataclasses
 
 import json
-import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Sequence
@@ -40,10 +39,17 @@ from darp_range.repro import build_manifest, hash_obj, write_manifest
 from darp_range.state_store import EpisodeStateManager
 
 from .flow import (
-    FlowContext, FlowResult, ModelFactory, PairedResult, abort_log, run_flow, run_paired,
+    FlowContext,
+    FlowResult,
+    ModelFactory,
+    PairedResult,
+    abort_log,
+    run_flow,
+    run_paired,
 )
 from .plan import VARIANTS, RunnerError, RunPlan, Schedule, blocks_to_replay, build_schedule
 from .replay import compare_flows
+from .cleanup import remove_temporary_tree
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -51,9 +57,14 @@ ROOT = Path(__file__).resolve().parents[2]
 def default_model_factory(plan: RunPlan) -> ModelFactory:
     def factory(log: EventLog | None, seed: int):
         from darp_range.agent.profiles import profile_by_name
-        return make_agent_model(log, mode=plan.agent_mode, seed=seed,
-                                profile=profile_by_name(plan.agent_profile)
-                                if plan.agent_mode == "stub" else None)
+
+        return make_agent_model(
+            log,
+            mode=plan.agent_mode,
+            seed=seed,
+            profile=profile_by_name(plan.agent_profile) if plan.agent_mode == "stub" else None,
+        )
+
     return factory
 
 
@@ -86,10 +97,15 @@ class ConfigResult:
         for e in att:
             outcomes[e.verdict.outcome] = outcomes.get(e.verdict.outcome, 0) + 1
         return {
-            "config": self.name, "fingerprint": self.config.fingerprint(),
-            "role": self.config.role, "family": self.config.family, "seed": self.seed,
-            "schedule_sha256": self.schedule.fingerprint(), "blocks": len(self.pairs),
-            "attack_episodes": len(att), "attack_outcomes": outcomes,
+            "config": self.name,
+            "fingerprint": self.config.fingerprint(),
+            "role": self.config.role,
+            "family": self.config.family,
+            "seed": self.seed,
+            "schedule_sha256": self.schedule.fingerprint(),
+            "blocks": len(self.pairs),
+            "attack_episodes": len(att),
+            "attack_outcomes": outcomes,
             "violations": sorted({e.entry_id for e in att if e.verdict.violation}),
             "legal_episodes": len(legal),
             "legal_completed": sum(e.verdict.task_ok for e in legal),
@@ -98,19 +114,28 @@ class ConfigResult:
             "accounting_ok": all(f.accounting["ok"] for f in self.flows()),
             "defender_borne_attack_induced_tokens": sum(
                 p.attack_induced["defender_borne"]["tokens_in"]
-                + p.attack_induced["defender_borne"]["tokens_out"] for p in self.pairs),
+                + p.attack_induced["defender_borne"]["tokens_out"]
+                for p in self.pairs
+            ),
             "self_limited_tokens": sum(f.costs["self_limited"]["tokens"] for f in self.flows()),
-            "replays": len(self.replays), "defects": len(self.defects),
+            "replays": len(self.replays),
+            "defects": len(self.defects),
             "fingerprint_flows": hash_obj([f.fingerprint() for f in self.flows()]),
         }
 
     def to_json(self) -> dict[str, Any]:
-        return {"summary": self.summary(), "config_spec": self.config.to_json(),
-                "schedule": {"fingerprint": self.schedule.fingerprint(),
-                             "attack_coverage": self.schedule.attack_coverage(),
-                             "blocks": [b.to_json() for b in self.schedule.blocks]},
-                "replays": self.replays, "defects": self.defects,
-                "pairs": [p.to_json() for p in self.pairs]}
+        return {
+            "summary": self.summary(),
+            "config_spec": self.config.to_json(),
+            "schedule": {
+                "fingerprint": self.schedule.fingerprint(),
+                "attack_coverage": self.schedule.attack_coverage(),
+                "blocks": [b.to_json() for b in self.schedule.blocks],
+            },
+            "replays": self.replays,
+            "defects": self.defects,
+            "pairs": [p.to_json() for p in self.pairs],
+        }
 
 
 @dataclass
@@ -123,39 +148,58 @@ class RunResult:
     defects: list[dict[str, Any]]
 
     def summary(self) -> dict[str, Any]:
-        return {"run_id": self.run_id, "research_mode": self.plan.research_mode,
-                "plan": self.plan.as_dict(), "manifest_fingerprint": self.manifest["fingerprint"],
-                "defects": len(self.defects),
-                "configs": {n: c.summary() for n, c in self.configs.items()}}
+        return {
+            "run_id": self.run_id,
+            "research_mode": self.plan.research_mode,
+            "plan": self.plan.as_dict(),
+            "manifest_fingerprint": self.manifest["fingerprint"],
+            "defects": len(self.defects),
+            "configs": {n: c.summary() for n, c in self.configs.items()},
+        }
 
 
 def _write_json(path: Path, obj: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(obj, ensure_ascii=False, indent=1, sort_keys=True, default=str)
-                    + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(obj, ensure_ascii=False, indent=1, sort_keys=True, default=str) + "\n",
+        encoding="utf-8",
+    )
 
 
 class Runner:
-    def __init__(self, plan: RunPlan, out_dir: str | Path, *, configs: ConfigSet | None = None,
-                 configs_dir: str | Path = "configs", root: str | Path = ROOT,
-                 model_factory: ModelFactory | None = None,
-                 freeze_guard: FreezeGuard | None = None, allow_code_drift: bool = False,
-                 run_id: str | None = None,
-                 attacker_model_factory: ModelFactory | None = None,
-                 attacker_factory: Any = None, in_process_research: bool = False):
+    def __init__(
+        self,
+        plan: RunPlan,
+        out_dir: str | Path,
+        *,
+        configs: ConfigSet | None = None,
+        configs_dir: str | Path = "configs",
+        root: str | Path = ROOT,
+        model_factory: ModelFactory | None = None,
+        freeze_guard: FreezeGuard | None = None,
+        allow_code_drift: bool = False,
+        run_id: str | None = None,
+        attacker_model_factory: ModelFactory | None = None,
+        attacker_factory: Any = None,
+        in_process_research: bool = False,
+    ):
         if not isinstance(plan, RunPlan):
             raise RunnerError("нужен RunPlan")
         self.plan, self.root = plan, Path(root)
         # Ревизия 11 (`broker-fail-closed`): живой LLM-атакующий без фабрики sandbox — только явным
         # решением; иначе отказ ДО создания каталога, моделей и первого запроса (не молча in-process).
         self.in_process_research = bool(in_process_research)
-        if self.attacker_factory_missing(attacker_factory) and self._live_llm_attacker() \
-                and not self.in_process_research:
+        if (
+            self.attacker_factory_missing(attacker_factory)
+            and self._live_llm_attacker()
+            and not self.in_process_research
+        ):
             raise RunnerError(
                 "live mode A (attack_strategy=llm, agent_mode=live) requires an attacker "
                 "sandbox factory (attacker_factory=AttackerFactory(...)); an in-process attacker "
                 "needs explicit in_process_research=True (claim_level in_process_research). "
-                "Model requests sent: 0")
+                "Model requests sent: 0"
+            )
         self.out = Path(out_dir)
         if self.out.exists() and any(self.out.iterdir()):
             raise RunnerError(f"каталог прогона {self.out} не пуст: результаты не перезаписываются")
@@ -195,8 +239,9 @@ class Runner:
 
     def _mgr(self, seed: int) -> EpisodeStateManager:
         if seed not in self._mgrs:
-            self._mgrs[seed] = EpisodeStateManager(self.tmp / f"seed-{seed}", seed=seed,
-                                                   schema_version=self.plan.schema_version)
+            self._mgrs[seed] = EpisodeStateManager(
+                self.tmp / f"seed-{seed}", seed=seed, schema_version=self.plan.schema_version
+            )
         return self._mgrs[seed]
 
     def schedule(self, seed: int) -> Schedule:
@@ -208,13 +253,18 @@ class Runner:
         specs = [self.model_factory(None, self.plan.master_seed).model_spec()]
         if self.plan.attack_mode == "A" and self.plan.attack_strategy == "llm":
             from darp_range.repro import derive_seed
+
             aseed = derive_seed(self.plan.master_seed, "runner", "attacker")
-            if self.attacker_model_factory is not None:   # живой прогон: та же фабрика
+            if self.attacker_model_factory is not None:  # живой прогон: та же фабрика
                 specs.append(self.attacker_model_factory(None, aseed).model_spec())
                 return specs
-            m = make_chat_model("attacker", mode=self.plan.agent_mode,
-                                seed=derive_seed(self.plan.master_seed, "runner", "attacker"),
-                                profile=ATTACKER_STUB_PROFILE, responder=attacker_stub_responder)
+            m = make_chat_model(
+                "attacker",
+                mode=self.plan.agent_mode,
+                seed=derive_seed(self.plan.master_seed, "runner", "attacker"),
+                profile=ATTACKER_STUB_PROFILE,
+                responder=attacker_stub_responder,
+            )
             specs.append(m.model_spec())
         return specs
 
@@ -229,8 +279,11 @@ class Runner:
 
     def _preflight(self) -> None:
         fac = self.attacker_factory
-        if fac is None or not hasattr(fac, "preflight_probes") \
-                or getattr(fac, "probe_results", None) is not None:
+        if (
+            fac is None
+            or not hasattr(fac, "preflight_probes")
+            or getattr(fac, "probe_results", None) is not None
+        ):
             return
         try:
             fac.preflight_probes()
@@ -241,34 +294,67 @@ class Runner:
         seeds = sorted({config_seed(self.plan.master_seed, c) for c in cfgs})
         cpaths = None
         if self.from_frozen:
-            cpaths = {c.name: (self.configs_dir / f"{c.name}.json").relative_to(self.root)
-                      for c in cfgs}
+            cpaths = {
+                c.name: (self.configs_dir / f"{c.name}.json").relative_to(self.root) for c in cfgs
+            }
         return build_manifest(
-            run_id=self.run_id, master_seed=self.plan.master_seed, root=self.root,
-            corpus="corpus", configs=cpaths, models=self._models(cfgs), code="darp_range",
+            run_id=self.run_id,
+            master_seed=self.plan.master_seed,
+            root=self.root,
+            corpus="corpus",
+            configs=cpaths,
+            models=self._models(cfgs),
+            code="darp_range",
             research_mode=self.plan.research_mode,
-            seed_labels=[("runner", "flow", str(b)) for b in range(len(self.schedule(
-                self.plan.master_seed).blocks))],
-            extra={"plan": self.plan.as_dict(), "plan_fingerprint": self.plan.fingerprint(),
-                   "configs": {c.name: c.fingerprint() for c in cfgs},
-                   "config_seeds": {c.name: config_seed(self.plan.master_seed, c) for c in cfgs},
-                   "schedules": {str(s): self.schedule(s).fingerprint() for s in seeds},
-                   "configs_from_frozen_lock": self.from_frozen,
-                   "allow_code_drift": self.allow_code_drift},
-            claim=self.claim())
+            seed_labels=[
+                ("runner", "flow", str(b))
+                for b in range(len(self.schedule(self.plan.master_seed).blocks))
+            ],
+            extra={
+                "plan": self.plan.as_dict(),
+                "plan_fingerprint": self.plan.fingerprint(),
+                "configs": {c.name: c.fingerprint() for c in cfgs},
+                "config_seeds": {c.name: config_seed(self.plan.master_seed, c) for c in cfgs},
+                "schedules": {str(s): self.schedule(s).fingerprint() for s in seeds},
+                "configs_from_frozen_lock": self.from_frozen,
+                "allow_code_drift": self.allow_code_drift,
+            },
+            claim=self.claim(),
+        )
 
-    def _ctx(self, cfg: ConfigSpec, seed: int, block, variant: str, mgr: EpisodeStateManager,
-             log: EventLog, prefix: str = "") -> FlowContext:
-        return FlowContext(cfg=cfg, plan=self.plan, seed=seed, block=block, variant=variant,
-                           mgr=mgr, entries=self.entry_map, log=log,
-                           model_factory=self.model_factory, freeze_guard=self.freeze_guard,
-                           db_prefix=prefix,
-                           attacker_model_factory=self.attacker_model_factory,
-                           attacker_factory=self.attacker_factory)
+    def _ctx(
+        self,
+        cfg: ConfigSpec,
+        seed: int,
+        block,
+        variant: str,
+        mgr: EpisodeStateManager,
+        log: EventLog,
+        prefix: str = "",
+    ) -> FlowContext:
+        return FlowContext(
+            cfg=cfg,
+            plan=self.plan,
+            seed=seed,
+            block=block,
+            variant=variant,
+            mgr=mgr,
+            entries=self.entry_map,
+            log=log,
+            model_factory=self.model_factory,
+            freeze_guard=self.freeze_guard,
+            db_prefix=prefix,
+            attacker_model_factory=self.attacker_model_factory,
+            attacker_factory=self.attacker_factory,
+        )
 
     def _log(self, name: str, sink: Path | None) -> EventLog:
-        return EventLog(name, research_mode=self.plan.research_mode, sink=sink,
-                        meta={"run_id": self.run_id, "plan": self.plan.fingerprint()})
+        return EventLog(
+            name,
+            research_mode=self.plan.research_mode,
+            sink=sink,
+            meta={"run_id": self.run_id, "plan": self.plan.fingerprint()},
+        )
 
     # --- прогон -----------------------------------------------------------------------
 
@@ -285,8 +371,9 @@ class Runner:
                 log = self._log(f"{self.run_id}/{cfg.name}/b{blk.block}-{variant}", paths[variant])
                 return self._ctx(cfg, seed, blk, variant, mgr, log)
 
-            pr = run_paired(make_ctx, log_paths={v: str(p.relative_to(self.out))
-                                                 for v, p in paths.items()})
+            pr = run_paired(
+                make_ctx, log_paths={v: str(p.relative_to(self.out)) for v, p in paths.items()}
+            )
             pairs.append(pr)
             defects += pr.defects
         replays = []
@@ -294,19 +381,28 @@ class Runner:
             blk = sched.blocks[b]
             orig = pairs[b]
             for variant in VARIANTS:
-                rmgr = EpisodeStateManager(self.tmp / f"replay-{cfg.name}-b{b}-{variant}", seed=seed,
-                                           schema_version=self.plan.schema_version)
+                rmgr = EpisodeStateManager(
+                    self.tmp / f"replay-{cfg.name}-b{b}-{variant}",
+                    seed=seed,
+                    schema_version=self.plan.schema_version,
+                )
                 log = self._log(f"{self.run_id}/{cfg.name}/b{b}-{variant}/replay", None)
                 again = run_flow(self._ctx(cfg, seed, blk, variant, rmgr, log, prefix="replay-"))
                 first = orig.base if variant == "base" else orig.attacked
                 ds = compare_flows(first, again)
                 defects += ds
-                replays.append({"block": b, "variant": variant,
-                                "fingerprint_original": first.fingerprint(),
-                                "fingerprint_replay": again.fingerprint(),
-                                "episodes": len(again.episodes), "defects": len(ds),
-                                "match": not ds})
-                shutil.rmtree(rmgr.workdir, ignore_errors=True)
+                replays.append(
+                    {
+                        "block": b,
+                        "variant": variant,
+                        "fingerprint_original": first.fingerprint(),
+                        "fingerprint_replay": again.fingerprint(),
+                        "episodes": len(again.episodes),
+                        "defects": len(ds),
+                        "match": not ds,
+                    }
+                )
+                remove_temporary_tree(rmgr.workdir)
         for d in defects:
             rw.emit("reproducibility_defect", d)
         return ConfigResult(cfg, seed, sched, pairs, replays, defects)
@@ -334,7 +430,7 @@ class Runner:
             raise
         finally:
             if not self.plan.keep_db:
-                shutil.rmtree(self.tmp, ignore_errors=True)
+                remove_temporary_tree(self.tmp)
         defects = [d for r in results.values() for d in r.defects]
         if self.attacker_factory is not None:
             # итоговый claim_level: факты кампаний (sandbox, ошибки IPC) известны после прогона
@@ -342,13 +438,19 @@ class Runner:
             write_manifest(manifest, self.out / "manifest.json")
         rr = RunResult(self.run_id, self.plan, self.out, manifest, results, defects)
         _write_json(self.out / "run.json", rr.summary())
-        run_log.close(configs=len(results), defects=len(defects),
-                      manifest_fingerprint=manifest["fingerprint"])
+        run_log.close(
+            configs=len(results), defects=len(defects), manifest_fingerprint=manifest["fingerprint"]
+        )
         return rr
 
 
-def run_seed_floor(plan: RunPlan, seeds: Sequence[int], out_dir: str | Path,
-                   names: Iterable[str] | None = None, **kw: Any) -> dict[int, RunResult]:
+def run_seed_floor(
+    plan: RunPlan,
+    seeds: Sequence[int],
+    out_dir: str | Path,
+    names: Iterable[str] | None = None,
+    **kw: Any,
+) -> dict[int, RunResult]:
     """Повтор прогона ключевых конфигураций на нескольких master seed (seed floor ≥ 3,
     artifacts/case-update.md §6 п. 1): каждый seed — отдельный прогон в `<out>/seed-<n>`."""
     if len(set(seeds)) != len(seeds):

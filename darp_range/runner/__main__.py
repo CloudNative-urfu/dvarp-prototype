@@ -34,24 +34,38 @@ from .testkit import drifting_model_factory
 
 
 def _plan(a: argparse.Namespace) -> RunPlan:
-    return RunPlan(master_seed=a.seed, split=a.split,
-                   entries=tuple(a.entries.split(",")) if a.entries else None,
-                   n_legal=a.n_legal, w_a=a.w_a, blocks=a.blocks, attack_mode=a.attack_mode,
-                   attack_strategy=a.attack_strategy or ("corpus" if a.attack_mode == "D" else "llm"),
-                   agent_mode=a.agent_mode, replay=a.replay, research_mode=a.research,
-                   mean_gap=a.mean_gap, service_mode=a.service_mode, operators=a.operators)
+    return RunPlan(
+        master_seed=a.seed,
+        split=a.split,
+        entries=tuple(a.entries.split(",")) if a.entries else None,
+        n_legal=a.n_legal,
+        w_a=a.w_a,
+        blocks=a.blocks,
+        attack_mode=a.attack_mode,
+        attack_strategy=a.attack_strategy or ("corpus" if a.attack_mode == "D" else "llm"),
+        agent_mode=a.agent_mode,
+        replay=a.replay,
+        research_mode=a.research,
+        mean_gap=a.mean_gap,
+        service_mode=a.service_mode,
+        operators=a.operators,
+    )
 
 
 def _table(summary: dict[str, Any]) -> str:
-    head = (f"{'config':38} {'seed':>6} {'att':>4} {'exec':>4} {'refu':>4} {'ign':>4} "
-            f"{'legal_ok':>9} {'esc_L':>5} {'esc_A':>5} {'defects':>7}")
+    head = (
+        f"{'config':38} {'seed':>6} {'att':>4} {'exec':>4} {'refu':>4} {'ign':>4} "
+        f"{'legal_ok':>9} {'esc_L':>5} {'esc_A':>5} {'defects':>7}"
+    )
     rows = [head, "-" * len(head)]
     for n, c in summary["configs"].items():
         o = c["attack_outcomes"]
-        rows.append(f"{n:38} {c['seed'] % 10**6:>6} {c['attack_episodes']:>4} "
-                    f"{o.get('executed', 0):>4} {o.get('refused', 0):>4} {o.get('ignored', 0):>4} "
-                    f"{c['legal_completed']:>4}/{c['legal_episodes']:<4} {c['legal_escalated']:>5} "
-                    f"{c['attack_escalated']:>5} {c['defects']:>7}")
+        rows.append(
+            f"{n:38} {c['seed'] % 10**6:>6} {c['attack_episodes']:>4} "
+            f"{o.get('executed', 0):>4} {o.get('refused', 0):>4} {o.get('ignored', 0):>4} "
+            f"{c['legal_completed']:>4}/{c['legal_episodes']:<4} {c['legal_escalated']:>5} "
+            f"{c['attack_escalated']:>5} {c['defects']:>7}"
+        )
     return "\n".join(rows)
 
 
@@ -60,25 +74,30 @@ def cmd_run(a: argparse.Namespace) -> int:
     rr = r.run(a.configs.split(",") if a.configs else None)
     s = rr.summary()
     print(_table(s))
-    print(f"run_id={rr.run_id} manifest={s['manifest_fingerprint'][:16]} defects={s['defects']}"
-          f" out={a.out}")
+    print(
+        f"run_id={rr.run_id} manifest={s['manifest_fingerprint'][:16]} defects={s['defects']}"
+        f" out={a.out}"
+    )
     return 0
 
 
 def cmd_svc(a: argparse.Namespace) -> int:
-    from .legal_traffic import CorpusTraffic
+    from .traffic import SvcTraffic
     from .svc import SvcRunner
-    s = SvcRunner(_plan(a), a.out, traffic_port=CorpusTraffic,
-                  allow_code_drift=a.allow_code_drift).run(
-        a.configs.split(",") if a.configs else None)
+
+    s = SvcRunner(
+        _plan(a), a.out, traffic_port=SvcTraffic, allow_code_drift=a.allow_code_drift
+    ).run(a.configs.split(",") if a.configs else None)
     for n, c in s["configs"].items():
         if c["status"] == "refused":
             print(f"{n:38} REFUSED {c['error'][:120]}")
             continue
         t = c["defender_borne_transport"]
-        print(f"{n:38} legal_ok {c['legal_completed']:>3}/{c['legal_episodes']:<3} "
-              f"esc {c['legal_escalated']:>3} svc_err {c['svc_errors']:>2} "
-              f"transport {t['requests']} req {t['wall_ms']:.0f} ms")
+        print(
+            f"{n:38} legal_ok {c['legal_completed']:>3}/{c['legal_episodes']:<3} "
+            f"esc {c['legal_escalated']:>3} svc_err {c['svc_errors']:>2} "
+            f"transport {t['requests']} req {t['wall_ms']:.0f} ms"
+        )
     print(f"run_id={s['run_id']} out={a.out}")
     bad = [n for n, c in s["configs"].items() if c["status"] != "ok" or c["svc_errors"]]
     return 1 if bad else 0
@@ -87,9 +106,14 @@ def cmd_svc(a: argparse.Namespace) -> int:
 def cmd_schedule(a: argparse.Namespace) -> int:
     entries, _ = load_corpus()
     sched = build_schedule(a.seed, _plan(a), entries)
-    out = {"seed": sched.seed, "n_legal": sched.n_legal, "per_block": sched.per_block,
-           "fingerprint": sched.fingerprint(), "attack_coverage": sched.attack_coverage(),
-           "blocks": [b.to_json() for b in sched.blocks]}
+    out = {
+        "seed": sched.seed,
+        "n_legal": sched.n_legal,
+        "per_block": sched.per_block,
+        "fingerprint": sched.fingerprint(),
+        "attack_coverage": sched.attack_coverage(),
+        "blocks": [b.to_json() for b in sched.blocks],
+    }
     print(json.dumps(out, ensure_ascii=False, indent=1))
     return 0
 
@@ -104,13 +128,24 @@ def demo(workdir: Path) -> tuple[dict[str, Any], list[tuple[str, bool]]]:
     g0, gin, det = res["g0"], res["g_in"], res["g_in_detect_only"]
 
     # Намеренно недетерминированная модель: повтор и пара обязаны это поймать.
-    drift = Runner(RunPlan(entries=("atk-02", "atk-03", "ctl-02", "ctl-03"), blocks=1, n_legal=4,
-                           w_a=0.3), workdir / "drift",
-                   model_factory=drifting_model_factory()).run(["g0"])
+    drift = Runner(
+        RunPlan(entries=("atk-02", "atk-03", "ctl-02", "ctl-03"), blocks=1, n_legal=4, w_a=0.3),
+        workdir / "drift",
+        model_factory=drifting_model_factory(),
+    ).run(["g0"])
     # Режим A (заглушка атакующей LLM): расходы атакующего — только на его стороне.
-    adapt = Runner(RunPlan(entries=("atk-03", "atk-18", "ctl-03", "ctl-18"), blocks=1,
-                           n_legal=4, w_a=0.3, attack_mode="A", attack_strategy="llm",
-                           replay="none"), workdir / "adaptive").run(["g_in"])
+    adapt = Runner(
+        RunPlan(
+            entries=("atk-03", "atk-18", "ctl-03", "ctl-18"),
+            blocks=1,
+            n_legal=4,
+            w_a=0.3,
+            attack_mode="A",
+            attack_strategy="llm",
+            replay="none",
+        ),
+        workdir / "adaptive",
+    ).run(["g_in"])
     af = adapt.configs["g_in"].pairs[0]
 
     def final_states(c):
@@ -118,41 +153,81 @@ def demo(workdir: Path) -> tuple[dict[str, Any], list[tuple[str, bool]]]:
 
     pair = g0.pairs[0]
     checks = [
-        ("NFR-2.1: every episode restored from the snapshot (restored hash = baseline hash)",
-         all(e.restored_hash == f.baseline_hash for f in flows for e in f.episodes)),
-        ("NFR-2.1: attacks changed the DB in g0, yet every next episode started clean",
-         any(e.final_hash != e.restored_hash for e in pair.attacked.episodes
-             if e.traffic == "attack" and e.verdict.violation)),
-        ("NFR-2.8: paired flows share legal slots and legal trajectories (0 pair defects)",
-         all(not p.defects for c in res.values() for p in c.pairs)),
-        ("NFR-2.8: escalations of both traffic classes recorded per paired flow",
-         all(set(p.attacked.escalations()) == {"legal", "attack"}
-             for c in res.values() for p in c.pairs)),
-        ("NFR-2.2/§11: main-seed configs share one flow schedule; g0_seed2 has another",
-         len({res[n].schedule.fingerprint() for n in names if n != "g0_seed2"}) == 1
-         and res["g0_seed2"].schedule.fingerprint() != g0.schedule.fingerprint()),
-        ("§5: detect-only control ends in the same DB states as g0 on the same flow",
-         final_states(det) == final_states(g0)),
-        ("g_in differs from g0 on the same flow (guard reaction is measured)",
-         final_states(gin) != final_states(g0)),
-        ("NFR-2.3: replay of the deterministic run matched (0 defects)",
-         not rr.defects and all(r["match"] for c in res.values() for r in c.replays)),
-        ("NFR-2.3: drifting model -> reproducibility defects in replay and pair",
-         {d["scope"] for d in drift.defects} >= {"replay", "pair"}),
-        ("NFR-2.9: base flows carry no attacker cost; accounting checks pass",
-         all(f.accounting["ok"] for f in flows)
-         and all(f.costs["self_limited"]["tokens"] == 0 for c in res.values()
-                 for f in c.flows("base"))),
-        ("NFR-2.9: mode A attacker tokens are self-limited, not defender-borne",
-         af.attacked.costs["self_limited"]["tokens"] > 0
-         and af.attacked.costs["by_component"].get("attacker", {}).get("side") == "attacker"
-         and af.attacked.accounting["ok"]),
-        ("FR-1.19 via runner: every attack episode has executed/refused/ignored",
-         all(e.verdict.outcome in ("executed", "refused", "ignored")
-             for e in eps if e.traffic == "attack")),
+        (
+            "NFR-2.1: every episode restored from the snapshot (restored hash = baseline hash)",
+            all(e.restored_hash == f.baseline_hash for f in flows for e in f.episodes),
+        ),
+        (
+            "NFR-2.1: attacks changed the DB in g0, yet every next episode started clean",
+            any(
+                e.final_hash != e.restored_hash
+                for e in pair.attacked.episodes
+                if e.traffic == "attack" and e.verdict.violation
+            ),
+        ),
+        (
+            "NFR-2.8: paired flows share legal slots and legal trajectories (0 pair defects)",
+            all(not p.defects for c in res.values() for p in c.pairs),
+        ),
+        (
+            "NFR-2.8: escalations of both traffic classes recorded per paired flow",
+            all(
+                set(p.attacked.escalations()) == {"legal", "attack"}
+                for c in res.values()
+                for p in c.pairs
+            ),
+        ),
+        (
+            "NFR-2.2/§11: main-seed configs share one flow schedule; g0_seed2 has another",
+            len({res[n].schedule.fingerprint() for n in names if n != "g0_seed2"}) == 1
+            and res["g0_seed2"].schedule.fingerprint() != g0.schedule.fingerprint(),
+        ),
+        (
+            "§5: detect-only control ends in the same DB states as g0 on the same flow",
+            final_states(det) == final_states(g0),
+        ),
+        (
+            "g_in differs from g0 on the same flow (guard reaction is measured)",
+            final_states(gin) != final_states(g0),
+        ),
+        (
+            "NFR-2.3: replay of the deterministic run matched (0 defects)",
+            not rr.defects and all(r["match"] for c in res.values() for r in c.replays),
+        ),
+        (
+            "NFR-2.3: drifting model -> reproducibility defects in replay and pair",
+            {d["scope"] for d in drift.defects} >= {"replay", "pair"},
+        ),
+        (
+            "NFR-2.9: base flows carry no attacker cost; accounting checks pass",
+            all(f.accounting["ok"] for f in flows)
+            and all(
+                f.costs["self_limited"]["tokens"] == 0
+                for c in res.values()
+                for f in c.flows("base")
+            ),
+        ),
+        (
+            "NFR-2.9: mode A attacker tokens are self-limited, not defender-borne",
+            af.attacked.costs["self_limited"]["tokens"] > 0
+            and af.attacked.costs["by_component"].get("attacker", {}).get("side") == "attacker"
+            and af.attacked.accounting["ok"],
+        ),
+        (
+            "FR-1.19 via runner: every attack episode has executed/refused/ignored",
+            all(
+                e.verdict.outcome in ("executed", "refused", "ignored")
+                for e in eps
+                if e.traffic == "attack"
+            ),
+        ),
     ]
-    report = {"main": rr.summary(), "drift_defect_scopes": sorted({d["scope"] for d in drift.defects}),
-              "drift_defects": len(drift.defects), "adaptive": adapt.summary()}
+    report = {
+        "main": rr.summary(),
+        "drift_defect_scopes": sorted({d["scope"] for d in drift.defects}),
+        "drift_defects": len(drift.defects),
+        "adaptive": adapt.summary(),
+    }
     return report, checks
 
 
@@ -165,8 +240,10 @@ def cmd_demo(a: argparse.Namespace) -> int:
     report["checks"] = [{"name": n, "pass": ok} for n, ok in checks]
     if a.out:
         a.out.parent.mkdir(parents=True, exist_ok=True)
-        a.out.write_text(json.dumps(report, ensure_ascii=False, indent=1, sort_keys=True,
-                                    default=str) + "\n", encoding="utf-8")
+        a.out.write_text(
+            json.dumps(report, ensure_ascii=False, indent=1, sort_keys=True, default=str) + "\n",
+            encoding="utf-8",
+        )
     print(_table(report["main"]))
     for n, ok in checks:
         print(("PASS " if ok else "FAIL ") + n)

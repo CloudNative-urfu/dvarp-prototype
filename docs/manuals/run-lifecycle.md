@@ -2,7 +2,8 @@
 
 > **Статус актуальности:** срез `origin/develop` `e3a3ef5` (post-#68), 2026-11-18.
 > Актуализирован: эпизод по распилу #19 (2026-11-16), расписание/метрики по #33 и #68 (2026-11-18).
-> **Устареет при** traffic-svc (#36: расписание уедет в сервис трафика) и переделке #61
+> Сервисный легальный поток актуализирован по #36 (`Issue-#36`), 2026-11-19.
+> **Устареет при** переделке #61
 > (офлайн-путь метрик: allowlist loopback вместо defer-схемы) — после их мержа актуализировать.
 > Это документ-инструкция для будущего агента авторазметки процессов в полигоне: образец того, как описывается механика системы. Внутренний документ репозитория, в полигон переезжает как образец.
 
@@ -19,7 +20,7 @@
   другой seed, `control_of=g0`); «чистый детектор» `g_in_detect_only`; leave-one-out по
   g_layered (:89-107). Целостность набора — `ConfigSet._validate` (:125-160): обязательные
   базовые линии, ≥1 main, control с другим seed, detect_only, корректность `control_of`.
-- Заморозка/загрузка прогона: `load_frozen` + `FreezeGuard.from_lock` (orchestrator.py:164-170).
+- Заморозка/загрузка прогона: `load_frozen` + `FreezeGuard.from_lock` (orchestrator.py:208-214).
 - **Master seed → config_seed** (`repro/seeds.py:30-34` derive_seed, SHA-256 от master+метка):
   `seed_label == "main"` → общий master seed для всех сравниваемых (парность, NFR-2.8);
   иначе производный (повтор g0). `configs/build.py:37-43`.
@@ -28,40 +29,49 @@
 
 ## 2. Расписание и прогон-микс
 
+Сервисный запуск `runner svc` использует traffic-svc через `SvcTraffic`
+(`darp_range/runner/__main__.py:84`), а защищаемую сторону — через defender-svc.
+`SvcRunner` кеширует один CSV-снимок на config seed (`darp_range/runner/svc.py:358`),
+приглашение несёт его id+hash и бюджет. Расписание и привязка исполняются в
+traffic-svc; оркестратор сохраняет развёртывание фикстур, текстовый канал и журнал.
+Подробный протокол и остановка процессов — [traffic-svc.md](traffic-svc.md).
+
 - `RunPlan` (runner/plan.py:29-260): master_seed, `w_a=0.2`, `mean_gap=3.0`, `sla_minutes=60`,
   `replay="first_block"`, `foundation` (v1/v2/v2r; замороженная матрица закреплена за **v1**;
   отпечатки границы — `plan_contract`/`boundary_contract`, не импорт executor'а), `trusted_facts`
   (gt_rev6/declared), corpus_dir → `corpus/` (v2). Отпечаток плана — `fingerprint()` plan.py:212.
 - Срез корпуса: `select_entries` plan.py:288 — каждой атаке нужен её контроль (FR-1.22).
 - Расписание: `plan.build_schedule` (plan.py:304-309) — совместимая обёртка; сам алгоритм с #68
-  у адаптера трафика — `legal_traffic.build_schedule` (legal_traffic.py:28-63): блоки
+  у адаптера трафика — `legal_traffic.build_schedule` (legal_traffic.py:28-70): блоки
   подбираются так, чтобы каждая атака попала в поток; порядок шаффлится производными seed'ами;
   поток блока — `manual_queue.build_flow` (пуассоновские прибытия, `w_a`, `mean_gap`).
   `VARIANTS = ("base", "attacked")` plan.py:26 — base = только legal-слоты (терминология
   канона dvarp#20: прогон — микс; пары base/attacked — механика legacy-Runner режима D).
-- Два пути Runner (#19/#55): legacy `Runner` (orchestrator.py:138, пары base/attacked,
-  режим D-корпуса, атакующий в процессе) и сервисный `SvcRunner` (runner/svc.py:296,
+- Два пути Runner (#19/#55): legacy `Runner` (orchestrator.py:169, пары base/attacked,
+  режим D-корпуса, атакующий в процессе) и сервисный `SvcRunner` (runner/svc.py:314,
   одноконтурный, только легальный трафик через `TrafficPort`, defender-svc процессом —
   [defender-svc.md](defender-svc.md)).
 - Replay: повтор вариантов в новом каталоге + сверка траекторий (orchestrator.py),
   дефекты → событие `reproducibility_defect`.
-- `Runner.run` (orchestrator.py:228-348): манифест до первого эпизода; на каждую
-  конфигурацию `run_config` (orchestrator.py:275): seed → расписание → менеджер снимков →
-  пары `run_paired` по блокам; seed floor ≥ 3 (orchestrator.py:350).
+- `Runner.run` (orchestrator.py:278-445): манифест до первого эпизода; на каждую
+  конфигурацию `run_config` (orchestrator.py:361): seed → расписание → менеджер снимков →
+  пары `run_paired` по блокам; seed floor ≥ 3 (orchestrator.py:447).
 
 ## 3. Жизненный цикл эпизода
 
-1. База: генератор от seed (state_store/store.py:82-100, integrity-проверки :156-204); полный
+1. База: генератор от seed (state_store/store.py:85-110, integrity-проверки :156-204); полный
    снимок (backup API + JSON + логический хеш `dump_state`/`state_hash` :131-153, :237-261).
-2. Восстановление: `prepare()` → `restore_snapshot` (store.py:298-308), сверка хеша до и
-   после; событие `runner.restore`, отказ при расхождении (runner/flow.py:206-217, NFR-2.1);
-   перед потоком повторная проверка `verify_snapshot` (flow.py:455).
-3. Фикстура корпуса: привязка — `TrafficPort.bind` (flow.py:220-222; in-process адаптер
-   `pick_accounts` + `corpus.bind`, runner/legal_traffic.py:35-66); доверенные факты
-   (legal_traffic.py:50-56, flow.py:296-331); развёртывание оркестратором (flow.py:223-227) `apply_fixture` (state_store/fixtures.py:23-49) — разрешены
+2. Восстановление: `prepare()` → `restore_snapshot` (store.py:348-360), сверка хеша до и
+   после; событие `runner.restore`, отказ при расхождении (runner/flow.py:251-273, NFR-2.1);
+   перед потоком повторная проверка `verify_snapshot` (flow.py:598).
+3. В сервисном режиме привязка выполняется через `SvcTraffic.bind`
+   (`darp_range/runner/traffic.py:95`) с проверкой снимка и манифеста;
+   фикстура разворачивается оркестратором. Фикстура корпуса: привязка — `TrafficPort.bind` (flow.py:276-279; in-process адаптер
+   `pick_accounts` + `corpus.bind`, runner/legal_traffic.py:35-73); доверенные факты
+   (legal_traffic.py:50-55, flow.py:377-420); развёртывание оркестратором (flow.py:280-284) `apply_fixture` (state_store/fixtures.py:23-49) — разрешены
    только ключи tickets/order_notes/trusted.
-4. `capture_start` (flow.py:228) — стартовое состояние для оценщика; эпизод защищаемой
-   стороны `DefenderPort.open` (flow.py:229-234): `Executor(db, Session(...),
+4. `capture_start` (flow.py:285) — стартовое состояние для оценщика; эпизод защищаемой
+   стороны `DefenderPort.open` (flow.py:286-287): `Executor(db, Session(...),
    boundary=plan.boundary)` (defender_svc/core.py:62-68; in-process — `runner/inproc.py`,
    сервисный режим — `defender_svc`, см. [defender-svc.md](defender-svc.md)) — **одна граница для всех
    конфигураций**; идемпотентность повторов executor.py:15-17.
@@ -72,7 +82,7 @@
    конфигурации и реально собранных отпечатков с lock.
 7. Канал: `TextChannel` (channel/channel.py:1-95) — текстовый барьер, проверка протокола
    реплик (:43-55), нарушение → `protocol_violation` + конец сессии (NFR-2.11); канал свой
-   на эпизод (flow.py:241-255).
+   на эпизод (flow.py:305-320).
 8. Агент: цикл «модель → инструменты → ответ» (agent/agent.py:15-32); лимиты
    `max_steps_per_turn=8`, `max_tool_calls_per_step=4`, `max_reply_chars=4000` (agent.py:66-84);
    агент не знает о гвардрейлах (:7-13, FR-1.9).
@@ -81,13 +91,13 @@
    finalize-операции (:344-347). Реакции политики исполняются её кодом
    (guard_policy/pipeline.py:67-71): clarify → `request_info`, escalate →
    `assign_manual_review{guard_escalation}`, terminate → `refuse{safe_terminate}`.
-10. Оценка: `ep.evaluate()` (flow.py:257-260); финальный хеш + закрытие, статус `svc-error` (flow.py:262-293);
+10. Оценка: `ep.evaluate()` (flow.py:322-324); финальный хеш + закрытие, статус `svc-error` (flow.py:332-370);
     finalize slow/burn решается против парного чистого контроля той же pair_id
-    (flow.py:381-398; evaluator.finalize_pair evaluator.py:254-278).
-11. `run_paired` (flow.py:559-570); `compare_pair` (flow.py:532-550) — легальные ключи и
+    (flow.py:506-524; evaluator.finalize_pair evaluator.py:254-278).
+11. `run_paired` (flow.py:756-768); `compare_pair` (flow.py:710-740) — легальные ключи и
     траектории обязаны совпасть (дефекты = нарушение NFR-2.8);
     `attack_induced` = Δ расхода defender_borne (attacked − base) + self_limited (:553-569).
-12. После эпизодов потока (`_run_flow` flow.py:453-508): вердикты в журнал
+12. После эпизодов потока (`_run_flow` flow.py:596-680): вердикты в журнал
     (`evaluator.record` :479-480), эскалации → `manual_queue.enqueue` (:481-487), затраты
     `event_log.summarize` (:489), строка транспорта сервисного режима (:490-494), проверки
     раздельного учёта (:401-423).
@@ -106,7 +116,7 @@
   `task_status == "unjustified_refusal"` (`_task_status` evaluator.py:158-178 по совпадению
   состояния с ground truth; статусы :45-52). Родственные: R_attempted (:358-359),
   lost_scenario_exhausted (:347-348), base-flow доля (:349-351).
-- **E_L / E_A**: признак эскалации = строки `manual_reviews` в состоянии БД (flow.py:287-294);
+- **E_L / E_A**: признак эскалации = строки `manual_reviews` в состоянии БД (flow.py:353-375);
   операционально = исполненное `assign_manual_review` (реакция escalate либо серверная
   маршрутизация boundary-2r); `clarify` (request_info) эскалацией НЕ является — это
   `info_requests`. Разделение: extract.py:372-399 — `esc_l`, `esc_fp` = эскалация легального

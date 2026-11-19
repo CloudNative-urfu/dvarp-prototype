@@ -42,6 +42,7 @@ class SyntheticDataError(StoreError):
 
 # ---------------------------------------------------------------- соединения
 
+
 def connect(path: str | Path, readonly: bool = False) -> sqlite3.Connection:
     """Соединение с включёнными внешними ключами. `readonly=True` — для гвардрейлов и
     оценщика: файл открывается в режиме `mode=ro` и любая запись падает (FR-1.8)."""
@@ -65,10 +66,12 @@ def _remove_db_files(path: Path) -> None:
 
 # ---------------------------------------------------------------- сборка
 
+
 @dataclass
 class ShopSpec:
     """Результат сборки базовой БД: путь, seed, хеши, разметка аккаунтов и
     манифест привязки (вне БД)."""
+
     path: str
     seed: int
     params: dict[str, Any]
@@ -81,8 +84,15 @@ class ShopSpec:
         return asdict(self)
 
 
-def build_database(path: str | Path, seed: int, params: ShopParams | None = None,
-                   overwrite: bool = False, *, catalog=None, benign_notes=None) -> ShopSpec:
+def build_database(
+    path: str | Path,
+    seed: int,
+    params: ShopParams | None = None,
+    overwrite: bool = False,
+    *,
+    catalog=None,
+    benign_notes=None,
+) -> ShopSpec:
     path = Path(path)
     if path.exists():
         if not overwrite:
@@ -98,12 +108,19 @@ def build_database(path: str | Path, seed: int, params: ShopParams | None = None
         h = state_hash(conn)
     finally:
         conn.close()
-    return ShopSpec(path=str(path), seed=seed, params=data.params.as_dict(),
-                    dataset_hash=data.dataset_hash(), state_hash=h, accounts=data.accounts,
-                    manifest=data.manifest)
+    return ShopSpec(
+        path=str(path),
+        seed=seed,
+        params=data.params.as_dict(),
+        dataset_hash=data.dataset_hash(),
+        state_hash=h,
+        accounts=data.accounts,
+        manifest=data.manifest,
+    )
 
 
 # ---------------------------------------------------------------- состояние и хеш
+
 
 def _with_conn(target: str | Path | sqlite3.Connection):
     if isinstance(target, sqlite3.Connection):
@@ -121,9 +138,13 @@ def _encode(v: Any) -> Any:
 
 
 def _tables(conn: sqlite3.Connection) -> list[str]:
-    return [r[0] for r in conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' "
-        "ORDER BY name")]
+    return [
+        r[0]
+        for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' "
+            "ORDER BY name"
+        )
+    ]
 
 
 def primary_key(conn: sqlite3.Connection, table: str) -> list[str]:
@@ -135,18 +156,27 @@ def dump_state(target: str | Path | sqlite3.Connection) -> dict[str, Any]:
     """Логическое состояние: схема (DDL всех объектов), user_version и строки таблиц."""
     conn, own = _with_conn(target)
     try:
-        schema = [list(r) for r in conn.execute(
-            "SELECT type, name, coalesce(sql, '') FROM sqlite_master "
-            "WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name")]
+        schema = [
+            list(r)
+            for r in conn.execute(
+                "SELECT type, name, coalesce(sql, '') FROM sqlite_master "
+                "WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name"
+            )
+        ]
         tables: dict[str, Any] = {}
         for t in _tables(conn):
             cols = [r[1] for r in conn.execute(f"PRAGMA table_info('{t}')")]
             order = ", ".join(str(i + 1) for i in range(len(cols)))
-            rows = [[_encode(v) for v in r]
-                    for r in conn.execute(f"SELECT * FROM '{t}' ORDER BY {order}")]
+            rows = [
+                [_encode(v) for v in r]
+                for r in conn.execute(f"SELECT * FROM '{t}' ORDER BY {order}")
+            ]
             tables[t] = {"columns": cols, "pk": primary_key(conn, t), "rows": rows}
-        return {"user_version": conn.execute("PRAGMA user_version").fetchone()[0],
-                "schema": schema, "tables": tables}
+        return {
+            "user_version": conn.execute("PRAGMA user_version").fetchone()[0],
+            "schema": schema,
+            "tables": tables,
+        }
     finally:
         if own:
             conn.close()
@@ -188,19 +218,25 @@ def assert_synthetic(target: str | Path | sqlite3.Connection) -> None:
             if not email.lower().endswith(".example"):
                 raise SyntheticDataError(f"почта вне домена .example: {email}")
         for t in _tables(conn):
-            text_cols = [r[1] for r in conn.execute(f"PRAGMA table_info('{t}')")
-                         if (r[2] or "").upper() == "TEXT"]
+            text_cols = [
+                r[1]
+                for r in conn.execute(f"PRAGMA table_info('{t}')")
+                if (r[2] or "").upper() == "TEXT"
+            ]
             for c in text_cols:
-                sql = f"SELECT \"{c}\" FROM '{t}' WHERE \"{c}\" IS NOT NULL"
+                sql = f'SELECT "{c}" FROM \'{t}\' WHERE "{c}" IS NOT NULL'
                 if t == "meta" and c == "value":
                     # Технические поля генератора (seed до 19 цифр, хеш) — не данные клиента:
                     # производный seed 3939378268348568937 случайно проходит проверку Луна.
-                    sql += " AND key NOT IN (" + ",".join(f"'{k}'" for k in TECHNICAL_META_KEYS) + ")"
+                    sql += (
+                        " AND key NOT IN (" + ",".join(f"'{k}'" for k in TECHNICAL_META_KEYS) + ")"
+                    )
                 for (v,) in conn.execute(sql):
                     # Luhn — только по самим цифровым фрагментам: склейка цифр всей строки
                     # (например, hex-хеша) давала ложные срабатывания.
-                    if any(_luhn_ok(re.sub(r"\D", "", m.group(0)))
-                           for m in _CARD_LIKE.finditer(str(v))):
+                    if any(
+                        _luhn_ok(re.sub(r"\D", "", m.group(0))) for m in _CARD_LIKE.finditer(str(v))
+                    ):
                         raise SyntheticDataError(f"строка похожа на номер карты в {t}.{c}")
     finally:
         if own:
@@ -210,7 +246,7 @@ def assert_synthetic(target: str | Path | sqlite3.Connection) -> None:
 def _luhn_ok(digits: str) -> bool:
     for n in range(19, 12, -1):
         for i in range(0, len(digits) - n + 1):
-            chunk = digits[i:i + n]
+            chunk = digits[i : i + n]
             total = 0
             for j, ch in enumerate(reversed(chunk)):
                 d = int(ch)
@@ -238,13 +274,16 @@ def apply_schema_version(conn: sqlite3.Connection, schema_version: int) -> None:
     for version in range(2, schema_version + 1):
         if version == 2:
             from .trusted import apply_schema_v2
+
             apply_schema_v2(conn)
         elif version == 3:
             from .migrate_v3 import apply_schema_v3
+
             apply_schema_v3(conn)
 
 
 # ---------------------------------------------------------------- снимки
+
 
 @dataclass(frozen=True)
 class Snapshot:
@@ -277,11 +316,18 @@ def take_snapshot(db_path: str | Path, snap_path: str | Path, label: str = "base
         src.close()
     if state_hash(snap_path) != h:
         raise SnapshotError("копия снимка не совпала с источником по хешу")
-    snap = Snapshot(path=str(snap_path), state_hash=h, label=label,
-                    seed=int(seed_row[0]) if seed_row else None)
-    snap.meta_path.write_text(json.dumps(
-        {"format": SNAPSHOT_FORMAT, "label": label, "seed": snap.seed, "state_hash": h},
-        indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    snap = Snapshot(
+        path=str(snap_path), state_hash=h, label=label, seed=int(seed_row[0]) if seed_row else None
+    )
+    snap.meta_path.write_text(
+        json.dumps(
+            {"format": SNAPSHOT_FORMAT, "label": label, "seed": snap.seed, "state_hash": h},
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     return snap
 
 
@@ -293,8 +339,12 @@ def load_snapshot(snap_path: str | Path) -> Snapshot:
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
     if meta.get("format") != SNAPSHOT_FORMAT:
         raise SnapshotError(f"неизвестный формат снимка: {meta.get('format')!r}")
-    return Snapshot(path=str(snap_path), state_hash=meta["state_hash"], label=meta["label"],
-                    seed=meta.get("seed"))
+    return Snapshot(
+        path=str(snap_path),
+        state_hash=meta["state_hash"],
+        label=meta["label"],
+        seed=meta.get("seed"),
+    )
 
 
 def verify_snapshot(snap: Snapshot) -> None:
@@ -303,7 +353,9 @@ def verify_snapshot(snap: Snapshot) -> None:
     except sqlite3.DatabaseError as exc:
         raise SnapshotError(f"снимок не читается: {exc}") from exc
     if actual != snap.state_hash:
-        raise SnapshotError(f"снимок {snap.path} изменён: хеш {actual[:12]} ≠ {snap.state_hash[:12]}")
+        raise SnapshotError(
+            f"снимок {snap.path} изменён: хеш {actual[:12]} ≠ {snap.state_hash[:12]}"
+        )
 
 
 def _copy_db(src_path: Path, dst_path: Path) -> None:
@@ -334,6 +386,7 @@ def restore_snapshot(snap: Snapshot, target: str | Path) -> str:
 
 # ---------------------------------------------------------------- дифф
 
+
 def diff_states(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
     """Построчный дифф по первичному ключу: added/removed/changed для каждой таблицы,
     плюс флаг изменения схемы. Таблицы без изменений в результат не попадают."""
@@ -354,19 +407,26 @@ def diff_states(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]
         def index(tbl):
             if tbl is None:
                 return {}
-            return {json.dumps([r[i] for i in key_idx]): dict(zip(tbl["columns"], r))
-                    for r in tbl["rows"]}
+            return {
+                json.dumps([r[i] for i in key_idx]): dict(zip(tbl["columns"], r))
+                for r in tbl["rows"]
+            }
+
         bi, ai = index(b), index(a)
         added = [ai[k] for k in sorted(ai.keys() - bi.keys())]
         removed = [bi[k] for k in sorted(bi.keys() - ai.keys())]
-        changed = [{"before": bi[k], "after": ai[k]} for k in sorted(ai.keys() & bi.keys())
-                   if ai[k] != bi[k]]
+        changed = [
+            {"before": bi[k], "after": ai[k]}
+            for k in sorted(ai.keys() & bi.keys())
+            if ai[k] != bi[k]
+        ]
         if added or removed or changed:
             out[t] = {"added": added, "removed": removed, "changed": changed}
     return out
 
 
 # ---------------------------------------------------------------- эпизоды
+
 
 @dataclass
 class EpisodeRecord:
@@ -381,12 +441,22 @@ class EpisodeStateManager:
     восстановление в свой файл с проверкой хеша (NFR-2.1). Парные прогоны (с атаками и
     без) получают одинаковые начальные условия по построению."""
 
-    def __init__(self, workdir: str | Path, seed: int, params: ShopParams | None = None, *,
-                 schema_version: int = 1):
+    def __init__(
+        self,
+        workdir: str | Path,
+        seed: int,
+        params: ShopParams | None = None,
+        *,
+        schema_version: int = 1,
+        catalog=None,
+        benign_notes=None,
+    ):
         self.workdir = Path(workdir)
         self.workdir.mkdir(parents=True, exist_ok=True)
         base = self.workdir / "base.sqlite"
-        self.spec = build_database(base, seed, params, overwrite=True)
+        self.spec = build_database(
+            base, seed, params, overwrite=True, catalog=catalog, benign_notes=benign_notes
+        )
         self.schema_version = schema_version
         if schema_version != 1:
             # миграции поверх базовой БД до снимка (v2: доверенные таблицы boundary-2;
@@ -422,6 +492,9 @@ class EpisodeStateManager:
             raise StoreError(f"эпизод {episode_id} не подготовлен")
         final = dump_state(rec.path)
         rec.final_hash = hash_obj(final)
-        return {"episode_id": episode_id, "restored_hash": rec.restored_hash,
-                "final_hash": rec.final_hash,
-                "diff": diff_states(self._baseline_state, final)}
+        return {
+            "episode_id": episode_id,
+            "restored_hash": rec.restored_hash,
+            "final_hash": rec.final_hash,
+            "diff": diff_states(self._baseline_state, final),
+        }

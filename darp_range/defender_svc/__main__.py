@@ -61,6 +61,7 @@ def main(argv: list[str] | None = None) -> int:
         pass
     finally:
         srv.server_close()
+        srv.state.worker.shutdown(wait=True)
     return 0
 
 
