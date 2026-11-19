@@ -44,13 +44,19 @@ from darp_range.configs import ConfigSpec, FreezeGuard
 from darp_range.evaluator import EpisodeTruth, capture_start, evaluate, finalize_pair, record
 from darp_range.event_log import EventLog, summarize
 from darp_range.repro import compare_trajectories, hash_obj, trajectory_fingerprint
-from darp_range.state_store import EpisodeStateManager, apply_fixture, connect, state_hash, verify_snapshot
+from darp_range.state_store import (
+    EpisodeStateManager,
+    apply_fixture,
+    connect,
+    state_hash,
+    verify_snapshot,
+)
 
 from . import default_port
 from .plan import BlockSchedule, FlowSlot, RunnerError, RunPlan
 from .ports import DefenderPort, EpisodeInvite, TrafficPort
 
-ModelFactory = Callable[[EventLog, int], Any]   # (журнал, seed) → llm.ChatModel
+ModelFactory = Callable[[EventLog, int], Any]  # (журнал, seed) → llm.ChatModel
 PortFactory = Callable[["FlowContext"], Any]
 
 # Адаптеры по умолчанию — in-process эталон (`inproc`, `legal_traffic`, `attack`); их
@@ -60,12 +66,14 @@ PortFactory = Callable[["FlowContext"], Any]
 
 # ------------------------------------------------------------------ записи результата
 
+
 @dataclass
 class EpisodeRecord:
     """Итог эпизода для оркестратора и метрик (без текста сторон)."""
+
     episode_id: str
     case_id: str
-    traffic: str               # legal / attack / control (контроль-эталон пары вне очереди)
+    traffic: str  # legal / attack / control (контроль-эталон пары вне очереди)
     entry_id: str
     pair_id: str
     attempt: int
@@ -95,15 +103,27 @@ class EpisodeRecord:
     def to_json(self) -> dict[str, Any]:
         v = self.verdict
         return {
-            "episode_id": self.episode_id, "case_id": self.case_id, "traffic": self.traffic,
-            "entry_id": self.entry_id, "pair_id": self.pair_id, "attempt": self.attempt,
-            "t_arrival": self.t_arrival, "actor_id": self.actor_id,
-            "restored_hash": self.restored_hash, "final_hash": self.final_hash,
-            "rounds": self.rounds, "auto_minutes": self.auto_minutes,
-            "escalated": self.escalated, "escalation_reason": self.escalation_reason,
-            "session_status": self.session_status, "protocol_violation": self.protocol_violation,
-            "error": self.error, "trajectory_sha256": self.trajectory_sha,
-            "costs": self.costs, "user_end": self.user_end, "verdict": v.to_json(),
+            "episode_id": self.episode_id,
+            "case_id": self.case_id,
+            "traffic": self.traffic,
+            "entry_id": self.entry_id,
+            "pair_id": self.pair_id,
+            "attempt": self.attempt,
+            "t_arrival": self.t_arrival,
+            "actor_id": self.actor_id,
+            "restored_hash": self.restored_hash,
+            "final_hash": self.final_hash,
+            "rounds": self.rounds,
+            "auto_minutes": self.auto_minutes,
+            "escalated": self.escalated,
+            "escalation_reason": self.escalation_reason,
+            "session_status": self.session_status,
+            "protocol_violation": self.protocol_violation,
+            "error": self.error,
+            "trajectory_sha256": self.trajectory_sha,
+            "costs": self.costs,
+            "user_end": self.user_end,
+            "verdict": v.to_json(),
         }
 
 
@@ -129,31 +149,46 @@ class FlowResult:
 
     def escalations(self) -> dict[str, int]:
         """Эскалации потока по классам трафика (то, что ушло в общую ручную очередь)."""
-        return {t: sum(e.escalated for e in self.episodes if e.queued and e.traffic == t)
-                for t in ("legal", "attack")}
+        return {
+            t: sum(e.escalated for e in self.episodes if e.queued and e.traffic == t)
+            for t in ("legal", "attack")
+        }
 
     def fingerprint(self) -> str:
         """Отпечаток потока для сравнения повторов: траектории, вердикты, эскалации."""
-        return hash_obj({
-            "episodes": [[e.episode_id, e.trajectory_sha, e.final_hash, e.verdict.fingerprint()]
-                         for e in self.episodes],
-            "escalations": self.escalations(),
-        })
+        return hash_obj(
+            {
+                "episodes": [
+                    [e.episode_id, e.trajectory_sha, e.final_hash, e.verdict.fingerprint()]
+                    for e in self.episodes
+                ],
+                "escalations": self.escalations(),
+            }
+        )
 
     def to_json(self) -> dict[str, Any]:
         return {
-            "config": self.config, "config_fingerprint": self.config_fingerprint,
-            "seed": self.seed, "block": self.block, "variant": self.variant,
-            "flow_seed": self.flow_seed, "schedule_sha256": self.schedule_sha256,
-            "baseline_hash": self.baseline_hash, "research_mode": self.research_mode,
-            "fingerprint": self.fingerprint(), "log": self.log_path,
+            "config": self.config,
+            "config_fingerprint": self.config_fingerprint,
+            "seed": self.seed,
+            "block": self.block,
+            "variant": self.variant,
+            "flow_seed": self.flow_seed,
+            "schedule_sha256": self.schedule_sha256,
+            "baseline_hash": self.baseline_hash,
+            "research_mode": self.research_mode,
+            "fingerprint": self.fingerprint(),
+            "log": self.log_path,
             "episodes": [e.to_json() for e in self.episodes],
             "escalations": self.escalations(),
-            "costs": self.costs, "accounting": self.accounting, "campaigns": self.campaigns,
+            "costs": self.costs,
+            "accounting": self.accounting,
+            "campaigns": self.campaigns,
         }
 
 
 # ------------------------------------------------------------------ контекст потока
+
 
 @dataclass
 class FlowContext:
@@ -168,8 +203,8 @@ class FlowContext:
     model_factory: ModelFactory | None = None
     freeze_guard: FreezeGuard | None = None
     db_prefix: str = ""
-    model: Any = None              # llm.ChatModel потока (in-process; ставит `inproc`)
-    ledger: Any = None             # configs.ProcessLedger потока (in-process; ставит `inproc`)
+    model: Any = None  # llm.ChatModel потока (in-process; ставит `inproc`)
+    ledger: Any = None  # configs.ProcessLedger потока (in-process; ставит `inproc`)
     # Модель атакующего режима A (ревизия 1): в живом прогоне — та же модель на общем
     # счётчике запросов/токенов; None — атакующий создаёт модель сам (заглушка офлайн).
     attacker_model_factory: ModelFactory | None = None
@@ -193,8 +228,18 @@ class FlowContext:
 class _EpisodeRun:
     """Один эпизод: восстановление снимка, фикстура, исполнитель, защищаемая сторона."""
 
-    def __init__(self, ctx: FlowContext, *, case_id: str, traffic: str, entry_id: str,
-                 entry_index: int, t_arrival: float, attempt: int = 1, eid: str | None = None):
+    def __init__(
+        self,
+        ctx: FlowContext,
+        *,
+        case_id: str,
+        traffic: str,
+        entry_id: str,
+        entry_index: int,
+        t_arrival: float,
+        attempt: int = 1,
+        eid: str | None = None,
+    ):
         self.ctx, self.case_id, self.traffic = ctx, case_id, traffic
         self.entry = ctx.entries[entry_id]
         self.attempt, self.t_arrival = attempt, t_arrival
@@ -203,22 +248,34 @@ class _EpisodeRun:
         log = ctx.log
         # Вариант потока (base/attacked) и путь БД в события эпизода не пишутся: траектории
         # легального эпизода в паре и в повторе должны совпадать побайтно (NFR-2.3, NFR-2.8).
-        log.start_episode(self.eid, traffic, entry_id=entry_id, case_id=case_id, block=b,
-                          attempt=attempt, t_arrival=t_arrival, config=ctx.cfg.name)
+        log.start_episode(
+            self.eid,
+            traffic,
+            entry_id=entry_id,
+            case_id=case_id,
+            block=b,
+            attempt=attempt,
+            t_arrival=t_arrival,
+            config=ctx.cfg.name,
+        )
         key = f"{ctx.db_prefix}{ctx.variant}-{self.eid}"
         self.db = ctx.mgr.prepare(key)
         self.restored = ctx.mgr.episodes[key].restored_hash
         ok = self.restored == ctx.mgr.baseline_hash
-        ctx.runner.emit("restore", {"restored_hash": self.restored,
-                                    "baseline_hash": ctx.mgr.baseline_hash, "ok": ok},
-                        episode_id=self.eid, t_sim=t_arrival)
+        ctx.runner.emit(
+            "restore",
+            {"restored_hash": self.restored, "baseline_hash": ctx.mgr.baseline_hash, "ok": ok},
+            episode_id=self.eid,
+            t_sim=t_arrival,
+        )
         if not ok:
             log.end_episode(self.eid, error="restore_mismatch")
             raise RunnerError(f"{self.eid}: восстановленное состояние не совпало со снимком")
         # Привязка обращения к реальным строкам снимка — трафик (`TrafficPort.bind`); строки
         # фикстуры развёртывает оркестратор до открытия эпизода.
-        self.binding = ctx.traffic.bind(self.entry, entry_index, self.db, episode_id=self.eid,
-                                        traffic=traffic)
+        self.binding = ctx.traffic.bind(
+            self.entry, entry_index, self.db, episode_id=self.eid, traffic=traffic
+        )
         self.actor, self.bound = self.binding.actor_id, self.binding.handle
         conn = connect(self.db)
         try:
@@ -227,13 +284,20 @@ class _EpisodeRun:
             conn.close()
         self.start = capture_start(self.db)
         # Исполнитель и БД эпизода — внутри защищаемой стороны (единственный писатель БД).
-        self.dsess = ctx.defender_side.open(EpisodeInvite(
-            episode_id=self.eid, db_path=str(self.db), actor_id=self.actor,
-            ticket_id=self.binding.ticket_id, t_arrival=t_arrival,
-            order_id=self.binding.order_id))
-        self.ex = getattr(self.dsess, "executor", None)   # in-process: исполнитель (для проверок)
-        self.truth = EpisodeTruth.from_bound(self.bound, self.eid,
-                                             kind="legal" if traffic == "legal" else None)
+        self.dsess = ctx.defender_side.open(
+            EpisodeInvite(
+                episode_id=self.eid,
+                db_path=str(self.db),
+                actor_id=self.actor,
+                ticket_id=self.binding.ticket_id,
+                t_arrival=t_arrival,
+                order_id=self.binding.order_id,
+            )
+        )
+        self.ex = getattr(self.dsess, "executor", None)  # in-process: исполнитель (для проверок)
+        self.truth = EpisodeTruth.from_bound(
+            self.bound, self.eid, kind="legal" if traffic == "legal" else None
+        )
         self.session = None
         self.error: str | None = None
         self.verdict = None
@@ -243,8 +307,9 @@ class _EpisodeRun:
             # Канал — свой экземпляр на эпизод: номер сессии в журнале не зависит от того,
             # сколько эпизодов (в т. ч. атакующих) было в потоке до этого.
             channel = TextChannel(self.ctx.log, mode=self.ctx.channel_mode)
-            self.session = channel.run_session(self.eid, user, self.dsess.defender(),
-                                               transcript=self.dsess)
+            self.session = channel.run_session(
+                self.eid, user, self.dsess.defender(), transcript=self.dsess
+            )
         except (RunnerError, *self.ctx.defender_side.fatal_errors):
             self.dsess.close()  # прогон останавливается: защита не заморожена / нет начальных условий
             raise
@@ -256,8 +321,13 @@ class _EpisodeRun:
 
     def evaluate(self) -> None:
         self.dsess.close()
-        self.verdict = evaluate(self.truth, self.start, self.db, self.ctx.log.events,
-                                version=self.ctx.plan.evaluator_version)
+        self.verdict = evaluate(
+            self.truth,
+            self.start,
+            self.db,
+            self.ctx.log.events,
+            version=self.ctx.plan.evaluator_version,
+        )
 
     def finish(self) -> EpisodeRecord:
         """Закрыть эпизод (после `finish_attempt` атакующего) и собрать запись."""
@@ -271,8 +341,7 @@ class _EpisodeRun:
         if svc_error:
             self.error = svc_error
         status = "svc-error" if svc_error else (s.status if s is not None else "error")
-        ctx.log.end_episode(self.eid, final_hash=final, session_status=status,
-                            error=self.error)
+        ctx.log.end_episode(self.eid, final_hash=final, session_status=status, error=self.error)
         traj = ctx.log.trajectory(self.eid)
         if not ctx.plan.keep_db:
             for p in (self.db, Path(str(self.db) + "-journal"), Path(str(self.db) + "-wal")):
@@ -281,16 +350,28 @@ class _EpisodeRun:
         rounds = int(v.log.get("rounds", 0)) if isinstance(v.log, Mapping) else 0
         reviews = list(v.state.get("manual_reviews") or [])
         return EpisodeRecord(
-            episode_id=self.eid, case_id=self.case_id, traffic=self.traffic,
-            entry_id=self.entry["id"], pair_id=self.entry["pair_id"], attempt=self.attempt,
-            t_arrival=self.t_arrival, actor_id=self.actor, restored_hash=self.restored,
-            final_hash=final, rounds=rounds, auto_minutes=rounds * ctx.plan.minutes_per_round,
-            escalated=bool(reviews), escalation_reason=reviews[0] if reviews else None,
+            episode_id=self.eid,
+            case_id=self.case_id,
+            traffic=self.traffic,
+            entry_id=self.entry["id"],
+            pair_id=self.entry["pair_id"],
+            attempt=self.attempt,
+            t_arrival=self.t_arrival,
+            actor_id=self.actor,
+            restored_hash=self.restored,
+            final_hash=final,
+            rounds=rounds,
+            auto_minutes=rounds * ctx.plan.minutes_per_round,
+            escalated=bool(reviews),
+            escalation_reason=reviews[0] if reviews else None,
             session_status=status,
             protocol_violation=bool(s is not None and s.protocol_violation)
             or bool(v.log.get("protocol_violation")),
-            error=self.error, verdict=v, trajectory=traj,
-            trajectory_sha=trajectory_fingerprint(traj))
+            error=self.error,
+            verdict=v,
+            trajectory=traj,
+            trajectory_sha=trajectory_fingerprint(traj),
+        )
 
 
 def trusted_fixture(conn, bound) -> list[dict[str, Any]]:
@@ -317,19 +398,28 @@ def trusted_fixture_gt_rev6(conn, bound, traffic: str) -> list[dict[str, Any]]:
     task = bound.ground_truth.get("task") or {}
     if task.get("kind") != "refund" or "order_item_id" not in task:
         return []
-    row = conn.execute("SELECT final_sale FROM order_items WHERE id = ?",
-                       (task["order_item_id"],)).fetchone()
+    row = conn.execute(
+        "SELECT final_sale FROM order_items WHERE id = ?", (task["order_item_id"],)
+    ).fetchone()
     exc = conn.execute("SELECT params_json FROM refund_policy WHERE rule_id = 'R2'").fetchone()
     import json as _json
+
     reason = _json.loads(exc[0]).get("exception_reason") if exc else None
     if row and row[0] and reason in (task.get("reason_codes") or ()):
-        return [{"role": "operator", "table": "defect_evidence",
-                 "order_item_id": task["order_item_id"], "status": "verified",
-                 "note": "photo checked by operator before the session (fixture, rev6)"}]
+        return [
+            {
+                "role": "operator",
+                "table": "defect_evidence",
+                "order_item_id": task["order_item_id"],
+                "status": "verified",
+                "note": "photo checked by operator before the session (fixture, rev6)",
+            }
+        ]
     return []
 
 
 # ------------------------------------------------------------------ поток
+
 
 def _play_legal(ep: "_EpisodeRun") -> EpisodeRecord:
     user = ep.ctx.traffic.client(ep.binding)
@@ -343,26 +433,54 @@ def _play_legal(ep: "_EpisodeRun") -> EpisodeRecord:
 
 
 def _legal(ctx: FlowContext, slot: FlowSlot) -> EpisodeRecord:
-    ep = _EpisodeRun(ctx, case_id=slot.case_id, traffic="legal", entry_id=slot.entry_id,
-                     entry_index=slot.entry_index, t_arrival=slot.t_arrival)
+    ep = _EpisodeRun(
+        ctx,
+        case_id=slot.case_id,
+        traffic="legal",
+        entry_id=slot.entry_id,
+        entry_index=slot.entry_index,
+        t_arrival=slot.t_arrival,
+    )
     return _play_legal(ep)
 
 
-def run_single_legal(cfg: ConfigSpec, entry_id: str, workdir: Path, model_factory: ModelFactory,
-                     *, seed: int = 7, log: EventLog | None = None) -> EpisodeRecord:
+def run_single_legal(
+    cfg: ConfigSpec,
+    entry_id: str,
+    workdir: Path,
+    model_factory: ModelFactory,
+    *,
+    seed: int = 7,
+    log: EventLog | None = None,
+) -> EpisodeRecord:
     """Один легальный эпизод записи корпуса тем же путём, что и в потоке (`_legal`): снимок,
     фикстура, защищаемая сторона конфигурации, отвечающий клиент, оценщик. Для адресных
     регрессий и живых проб без расписания потока."""
     plan = RunPlan(master_seed=seed, entries=(entry_id,))
     entries, _ = plan.load_corpus()
     emap = {e["id"]: e for e in entries}
-    slot = FlowSlot(case_id="legal-000", traffic="legal", t_arrival=0.0, index=0,
-                    entry_id=entry_id, entry_index=list(emap).index(entry_id))
+    slot = FlowSlot(
+        case_id="legal-000",
+        traffic="legal",
+        t_arrival=0.0,
+        index=0,
+        entry_id=entry_id,
+        entry_index=list(emap).index(entry_id),
+    )
     block = BlockSchedule(block=0, flow_seed=seed, slots=(slot,))
     mgr = EpisodeStateManager(Path(workdir), seed=seed, schema_version=plan.schema_version)
     log = log or EventLog(f"single-{cfg.name}-{entry_id}")
-    ctx = FlowContext(cfg=cfg, plan=plan, seed=seed, block=block, variant="base", mgr=mgr,
-                      entries=emap, log=log, model_factory=model_factory)
+    ctx = FlowContext(
+        cfg=cfg,
+        plan=plan,
+        seed=seed,
+        block=block,
+        variant="base",
+        mgr=mgr,
+        entries=emap,
+        log=log,
+        model_factory=model_factory,
+    )
     return _legal(ctx, slot)
 
 
@@ -373,8 +491,15 @@ def _reference_control(ctx: FlowContext, pair_id: str) -> EpisodeRecord:
         raise RunnerError(f"у пары {pair_id} нет чистого контроля (FR-1.22)")
     entry = ctl[0]
     idx = list(ctx.entries).index(entry["id"])
-    ep = _EpisodeRun(ctx, case_id=f"ref-{entry['id']}", traffic="control", entry_id=entry["id"],
-                     entry_index=idx, t_arrival=0.0, eid=f"b{ctx.block.block}-ref-{entry['id']}")
+    ep = _EpisodeRun(
+        ctx,
+        case_id=f"ref-{entry['id']}",
+        traffic="control",
+        entry_id=entry["id"],
+        entry_index=idx,
+        t_arrival=0.0,
+        eid=f"b{ctx.block.block}-ref-{entry['id']}",
+    )
     return _play_legal(ep)
 
 
@@ -392,35 +517,52 @@ def _finalize_pairs(ctx: FlowContext, episodes: list[EpisodeRecord]) -> None:
         if ref is None:
             ref = refs[e.pair_id] = _reference_control(ctx, e.pair_id)
             extra.append(ref)
-        control = ref.verdict if ref.verdict.kind == "control" else replace(ref.verdict,
-                                                                            kind="control")
+        control = (
+            ref.verdict if ref.verdict.kind == "control" else replace(ref.verdict, kind="control")
+        )
         e.verdict, _ = finalize_pair(e.verdict, control)
     episodes.extend(extra)
 
 
-def _accounting(costs: Mapping[str, Any], episodes: list[EpisodeRecord], variant: str,
-                events: list[dict]) -> dict[str, Any]:
+def _accounting(
+    costs: Mapping[str, Any], episodes: list[EpisodeRecord], variant: str, events: list[dict]
+) -> dict[str, Any]:
     """Проверки раздельного учёта сторон (NFR-2.9) по журналу потока."""
     att_eps = {e.episode_id for e in episodes if e.traffic == "attack"}
-    stray = sorted({str(ev.get("episode_id")) for ev in events if ev["side"] == "attacker"
-                    and ev.get("episode_id") not in att_eps})
-    wrong_side = sorted({f"{ev['component']}:{ev['side']}" for ev in events
-                         if (ev["component"] == "attacker") != (ev["side"] == "attacker")})
+    stray = sorted(
+        {
+            str(ev.get("episode_id"))
+            for ev in events
+            if ev["side"] == "attacker" and ev.get("episode_id") not in att_eps
+        }
+    )
+    wrong_side = sorted(
+        {
+            f"{ev['component']}:{ev['side']}"
+            for ev in events
+            if (ev["component"] == "attacker") != (ev["side"] == "attacker")
+        }
+    )
     sl = costs["self_limited"]
     checks = {
         "attacker_events_only_in_attack_episodes": not stray,
         "component_side_consistent": not wrong_side,
-        "base_flow_has_no_attacker_cost": variant != "base" or (
-            sl["tokens_in"] + sl["tokens_out"] + sl["requests"] == 0),
+        "base_flow_has_no_attacker_cost": variant != "base"
+        or (sl["tokens_in"] + sl["tokens_out"] + sl["requests"] == 0),
         "episode_split_sums_to_sides": all(
-            math.isclose(sum(ep[s]["tokens_in"] + ep[s]["tokens_out"]
-                             for ep in costs["episodes"].values()),
-                         costs[k]["tokens_in"] + costs[k]["tokens_out"]
-                         - _run_level_tokens(events, s))
-            for s, k in (("defender", "defender_borne"), ("attacker", "self_limited"))),
+            math.isclose(
+                sum(ep[s]["tokens_in"] + ep[s]["tokens_out"] for ep in costs["episodes"].values()),
+                costs[k]["tokens_in"] + costs[k]["tokens_out"] - _run_level_tokens(events, s),
+            )
+            for s, k in (("defender", "defender_borne"), ("attacker", "self_limited"))
+        ),
     }
-    return {"checks": checks, "ok": all(checks.values()), "stray_attacker_episodes": stray,
-            "wrong_side": wrong_side}
+    return {
+        "checks": checks,
+        "ok": all(checks.values()),
+        "stray_attacker_episodes": stray,
+        "wrong_side": wrong_side,
+    }
 
 
 def _run_level_tokens(events: list[dict], side: str) -> int:
@@ -447,6 +589,7 @@ def run_flow(ctx: FlowContext, *, log_path: str | None = None) -> FlowResult:
         return _run_flow(ctx, log_path)
     except BaseException:
         abort_log(ctx.log)
+        ctx.traffic.close()
         raise
 
 
@@ -454,12 +597,20 @@ def _run_flow(ctx: FlowContext, log_path: str | None) -> FlowResult:
     mgr, log = ctx.mgr, ctx.log
     verify_snapshot(mgr.snapshot)
     slots = ctx.block.variant(ctx.variant)
-    ctx.runner.emit("snapshot", {"baseline_hash": mgr.baseline_hash, "config": ctx.cfg.name,
-                                 "config_fingerprint": ctx.cfg.fingerprint(), "seed": ctx.seed,
-                                 "block": ctx.block.block, "variant": ctx.variant,
-                                 "flow_seed": ctx.block.flow_seed,
-                                 "schedule_sha256": ctx.block.fingerprint(),
-                                 "slots": len(slots)})
+    ctx.runner.emit(
+        "snapshot",
+        {
+            "baseline_hash": mgr.baseline_hash,
+            "config": ctx.cfg.name,
+            "config_fingerprint": ctx.cfg.fingerprint(),
+            "seed": ctx.seed,
+            "block": ctx.block.block,
+            "variant": ctx.variant,
+            "flow_seed": ctx.block.flow_seed,
+            "schedule_sha256": ctx.block.fingerprint(),
+            "slots": len(slots),
+        },
+    )
     episodes: list[EpisodeRecord] = []
     campaigns: list[dict[str, Any]] = []
     for slot in slots:
@@ -468,8 +619,10 @@ def _run_flow(ctx: FlowContext, log_path: str | None) -> FlowResult:
         else:
             attack = ctx.attack_slot or default_port("attack")
             if attack is None:
-                raise RunnerError(f"{slot.case_id}: атакующий слот, а атакующая сторона не "
-                                  "подключена (issue #19: оркестратор гоняет легальный трафик)")
+                raise RunnerError(
+                    f"{slot.case_id}: атакующий слот, а атакующая сторона не "
+                    "подключена (issue #19: оркестратор гоняет легальный трафик)"
+                )
             eps, camp = attack(ctx, slot)
             episodes.extend(eps)
             campaigns.append(dict(camp, case_id=slot.case_id, entry_id=slot.entry_id))
@@ -481,10 +634,17 @@ def _run_flow(ctx: FlowContext, log_path: str | None) -> FlowResult:
     qw = log.writer("manual_queue")
     for e in episodes:
         if e.queued and e.escalated:
-            qw.emit("enqueue", {"case_id": e.episode_id, "case_episode": e.episode_id,
-                                "case_traffic": e.traffic, "account": e.actor_id,
-                                "reason": e.escalation_reason},
-                    t_sim=e.t_arrival + e.auto_minutes)
+            qw.emit(
+                "enqueue",
+                {
+                    "case_id": e.episode_id,
+                    "case_episode": e.episode_id,
+                    "case_traffic": e.traffic,
+                    "account": e.actor_id,
+                    "reason": e.escalation_reason,
+                },
+                t_sim=e.t_arrival + e.auto_minutes,
+            )
     events = log.events
     costs = summarize(events)
     transport = getattr(ctx.defender_side, "transport", None)
@@ -494,21 +654,34 @@ def _run_flow(ctx: FlowContext, log_path: str | None) -> FlowResult:
         costs["defender_borne_transport"] = transport()
     for e in episodes:
         c = costs["episodes"].get(e.episode_id, {})
-        e.costs = {"defender": c.get("defender", {}), "attacker": c.get("attacker", {}),
-                   "defender_components": c.get("defender_components", {})}
+        e.costs = {
+            "defender": c.get("defender", {}),
+            "attacker": c.get("attacker", {}),
+            "defender_components": c.get("defender_components", {}),
+        }
     acc = _accounting(costs, episodes, ctx.variant, events)
     res = FlowResult(
-        config=ctx.cfg.name, config_fingerprint=ctx.cfg.fingerprint(), seed=ctx.seed,
-        block=ctx.block.block, variant=ctx.variant, flow_seed=ctx.block.flow_seed,
-        schedule_sha256=ctx.block.fingerprint(), baseline_hash=mgr.baseline_hash,
-        research_mode=ctx.plan.research_mode, episodes=episodes, costs=costs,
-        accounting=acc, log_path=log_path, campaigns=campaigns)
-    log.close(flow_fingerprint=res.fingerprint(), episodes=len(episodes),
-              accounting_ok=acc["ok"])
+        config=ctx.cfg.name,
+        config_fingerprint=ctx.cfg.fingerprint(),
+        seed=ctx.seed,
+        block=ctx.block.block,
+        variant=ctx.variant,
+        flow_seed=ctx.block.flow_seed,
+        schedule_sha256=ctx.block.fingerprint(),
+        baseline_hash=mgr.baseline_hash,
+        research_mode=ctx.plan.research_mode,
+        episodes=episodes,
+        costs=costs,
+        accounting=acc,
+        log_path=log_path,
+        campaigns=campaigns,
+    )
+    log.close(flow_fingerprint=res.fingerprint(), episodes=len(episodes), accounting_ok=acc["ok"])
     return res
 
 
 # ------------------------------------------------------------------ парный прогон
+
 
 @dataclass
 class PairedResult:
@@ -520,9 +693,14 @@ class PairedResult:
     attack_induced: dict[str, Any]
 
     def to_json(self) -> dict[str, Any]:
-        return {"config": self.config, "block": self.block, "defects": self.defects,
-                "attack_induced": self.attack_induced,
-                "base": self.base.to_json(), "attacked": self.attacked.to_json()}
+        return {
+            "config": self.config,
+            "block": self.block,
+            "defects": self.defects,
+            "attack_induced": self.attack_induced,
+            "base": self.base.to_json(),
+            "attacked": self.attacked.to_json(),
+        }
 
 
 def _legal_key(e: EpisodeRecord) -> tuple:
@@ -532,32 +710,52 @@ def _legal_key(e: EpisodeRecord) -> tuple:
 def compare_pair(base: FlowResult, attacked: FlowResult) -> list[dict[str, Any]]:
     """NFR-2.8: одинаковые начальные условия пары. Возвращает дефекты (пусто — пара корректна)."""
     defects: list[dict[str, Any]] = []
-    if (base.config_fingerprint, base.seed, base.block, base.baseline_hash) != \
-            (attacked.config_fingerprint, attacked.seed, attacked.block, attacked.baseline_hash):
+    if (base.config_fingerprint, base.seed, base.block, base.baseline_hash) != (
+        attacked.config_fingerprint,
+        attacked.seed,
+        attacked.block,
+        attacked.baseline_hash,
+    ):
         raise RunnerError("пара собрана из разных конфигураций, seed, блоков или снимков")
     if any(e.traffic == "attack" for e in base.episodes):
         raise RunnerError("базовый поток пары содержит атакующий трафик")
     lb = {e.episode_id: e for e in base.episodes if e.traffic == "legal"}
     la = {e.episode_id: e for e in attacked.episodes if e.traffic == "legal"}
-    if [_legal_key(e) for e in lb.values()] != [_legal_key(la[k]) for k in lb if k in la] \
-            or lb.keys() != la.keys():
+    if [_legal_key(e) for e in lb.values()] != [
+        _legal_key(la[k]) for k in lb if k in la
+    ] or lb.keys() != la.keys():
         raise RunnerError("легальный поток пары различается (NFR-2.8)")
     for k, b in lb.items():
         d = compare_trajectories(b.trajectory, la[k].trajectory, episode_id=k)
         if d is not None:
-            defects.append(dict(d, scope="pair", config=base.config, block=base.block,
-                                note="legal episode diverged between paired flows"))
+            defects.append(
+                dict(
+                    d,
+                    scope="pair",
+                    config=base.config,
+                    block=base.block,
+                    note="legal episode diverged between paired flows",
+                )
+            )
     return defects
 
 
 def _delta(a: Mapping[str, Any], b: Mapping[str, Any]) -> dict[str, float]:
-    keys = ("tokens_in", "tokens_out", "requests", "cpu_ms", "latency_ms", "manual_minutes",
-            "usd_compute")
+    keys = (
+        "tokens_in",
+        "tokens_out",
+        "requests",
+        "cpu_ms",
+        "latency_ms",
+        "manual_minutes",
+        "usd_compute",
+    )
     return {k: (a.get(k, 0) or 0) - (b.get(k, 0) or 0) for k in keys}
 
 
-def run_paired(make_ctx: Callable[[str], FlowContext], *,
-               log_paths: Mapping[str, str | None] | None = None) -> PairedResult:
+def run_paired(
+    make_ctx: Callable[[str], FlowContext], *, log_paths: Mapping[str, str | None] | None = None
+) -> PairedResult:
     base = run_flow(make_ctx("base"), log_path=(log_paths or {}).get("base"))
     attacked = run_flow(make_ctx("attacked"), log_path=(log_paths or {}).get("attacked"))
     defects = compare_pair(base, attacked)
@@ -565,6 +763,6 @@ def run_paired(make_ctx: Callable[[str], FlowContext], *,
         "defender_borne": _delta(attacked.costs["defender_borne"], base.costs["defender_borne"]),
         "self_limited": dict(attacked.costs["self_limited"]),
         "note": "defender_borne: attacked - base (same legal flow); self_limited: attacker side "
-                "only, not part of the defender economics (NFR-2.9, §7.2)",
+        "only, not part of the defender economics (NFR-2.9, §7.2)",
     }
     return PairedResult(base.config, base.block, base, attacked, defects, induced)

@@ -34,13 +34,19 @@ from darp_range.configs import ConfigSpec, config_seed, load_frozen
 from darp_range.event_log import EventLog
 from darp_range.repro import hash_obj
 from darp_range.state_store import EpisodeStateManager
+from darp_range.state_store.seed_csv import load_catalog_csv, load_notes_csv
 from darp_range.svckit import (
-    ServiceProcess, ServiceRefused, TransportError, call, write_json_atomic,
+    ServiceProcess,
+    ServiceRefused,
+    TransportError,
+    call,
+    write_json_atomic,
 )
 
 from .flow import FlowContext, FlowResult, abort_log, run_flow
 from .plan import RunnerError, RunPlan
 from .ports import EpisodeInvite, FlowInvite
+from .cleanup import remove_temporary_tree
 
 ROOT = Path(__file__).resolve().parents[2]
 READY_TIMEOUT_S = 60.0
@@ -92,13 +98,25 @@ class DefenderService:
     ):
         self.name, self.configs_dir, self.workdir = cfg_name, Path(configs_dir), Path(workdir)
         self.allow_code_drift = allow_code_drift
-        args = ["--config-dir", str(self.workdir / "configs"), "--config", cfg_name,
-                "--requests-log", str(self.workdir / "requests.jsonl")]
+        args = [
+            "--config-dir",
+            str(self.workdir / "configs"),
+            "--config",
+            cfg_name,
+            "--requests-log",
+            str(self.workdir / "requests.jsonl"),
+        ]
         if allow_code_drift:
             args.append("--allow-code-drift")
-        self.process = ServiceProcess("darp_range.defender_svc", args, self.workdir,
-                                      name=cfg_name, root=root, registry=registry,
-                                      ready_timeout=READY_TIMEOUT_S)
+        self.process = ServiceProcess(
+            "darp_range.defender_svc",
+            args,
+            self.workdir,
+            name=cfg_name,
+            root=root,
+            registry=registry,
+            ready_timeout=READY_TIMEOUT_S,
+        )
         self._req = 0
 
     @property
@@ -319,6 +337,7 @@ class SvcRunner:
         self.run_id = run_id or f"{prefix}svc-run-{plan.fingerprint()[:12]}"
         entries, _ = plan.load_corpus()
         self.entries = {e["id"]: e for e in entries}
+        self._managers: dict[int, EpisodeStateManager] = {}
 
     def _log(self, name: str, sink: Path | None) -> EventLog:
         return EventLog(
@@ -329,12 +348,26 @@ class SvcRunner:
         )
 
     def run_config(self, cfg: ConfigSpec) -> dict[str, Any]:
+        self._active_traffic = None
+        try:
+            return self._run_config(cfg)
+        finally:
+            if self._active_traffic is not None:
+                self._active_traffic.close()
+
+    def _run_config(self, cfg: ConfigSpec) -> dict[str, Any]:
         seed = config_seed(self.plan.master_seed, cfg)
-        mgr = EpisodeStateManager(
-            self.out / "tmp" / f"seed-{seed}-{cfg.name}",
-            seed=seed,
-            schema_version=self.plan.schema_version,
-        )
+        # Configurations sharing a seed restore one physical snapshot, created once.
+        if seed not in self._managers:
+            seed_dir = self.root / "darp_range" / "state_store" / "seed"
+            self._managers[seed] = EpisodeStateManager(
+                self.out / "tmp" / f"seed-{seed}",
+                seed=seed,
+                schema_version=self.plan.schema_version,
+                catalog=load_catalog_csv(seed_dir / "catalog.csv"),
+                benign_notes=load_notes_csv(seed_dir / "benign_notes.csv"),
+            )
+        mgr = self._managers[seed]
         invite = FlowInvite(
             config=cfg.name,
             seed=seed,
@@ -347,6 +380,7 @@ class SvcRunner:
             snapshot_hash=mgr.baseline_hash,
         )
         traffic = self.traffic_port(SimpleNamespace(plan=self.plan, mgr=mgr, entries=self.entries))
+        self._active_traffic = traffic
         blocks = traffic.schedule(invite)
         svc = DefenderService(
             cfg.name,
@@ -359,6 +393,7 @@ class SvcRunner:
         try:
             svc.start()
         except SvcRefused as exc:
+            traffic.close()
             return {
                 "config": cfg.name,
                 "status": "refused",
@@ -441,6 +476,6 @@ class SvcRunner:
                 summary["configs"][n] = {k: v for k, v in res.items() if k != "flows"}
         finally:
             if not self.plan.keep_db:
-                shutil.rmtree(self.out / "tmp", ignore_errors=True)
+                remove_temporary_tree(self.out / "tmp")
         write_json_atomic(self.out / "run.json", summary)
         return summary

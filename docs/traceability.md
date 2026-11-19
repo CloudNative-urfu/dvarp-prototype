@@ -47,7 +47,7 @@
 
 | Требование | Покрытие | Проверка | Статус |
 | --- | --- | --- | --- |
-| FR-1.10 Возвраты на синтетических данных | `state_store` (синтетическая SQLite-БД магазина) | probe `runner`, `test_state_store` | covered |
+| FR-1.10 Возвраты на синтетических данных | `state_store`, CSV-снимок и манифест #38; traffic-svc привязывает эпизоды к реальным заказам read-only | probe `runner`, `test_state_store`, `test_traffic_svc` | covered |
 | FR-1.11 Ровно 5 инструментов | `tools/` (get_order, ticket, rules, ask, finalize) | `test_tools` (+ `tools specs`), probe `tools` | covered |
 | FR-1.12 Свободный текст (отклонение канона: структурированная форма `g_simple` исключена из сравнения) | свободный текст только для понимания сообщения, действия — структурированные вызовы с закрытыми словарями (`agent/prompt.py`); `g_simple` и `simple_baseline/` удалены (#29), базовые линии — `g0`, `g_proc` | `test_configs` (семейство `g_simple` отвергается), `test_agent` | covered |
 | FR-1.13 Строгая граница исполнителя | `executor/` (права, разовые операции, принадлежность; границы v1/v2r) | `test_executor`, `test_server_invariants_v2` | covered |
@@ -82,9 +82,9 @@
 
 | Требование | Покрытие | Проверка | Статус |
 | --- | --- | --- | --- |
-| NFR-2.1 Снимки и восстановление перед эпизодом | `state_store` (снимки, восстановление) | `test_state_store` | covered |
+| NFR-2.1 Снимки и восстановление перед эпизодом | `state_store`; SvcRunner: один физический CSV-снимок на seed, traffic-svc: id/hash приглашения + хеш восстановленного эпизода | `test_state_store`, `test_traffic_svc` | covered |
 | NFR-2.2 Фиксированные seed, версии моделей, хеши корпуса | seeds в планах, хеш корпуса (`corpus verify`), версии в манифесте | шаги `configs_frozen`, `corpus_hash` в `verify.py` | covered |
-| NFR-2.3 Расхождение траектории = дефект воспроизводимости | `repro` (хеши, replay) | `test_repro`, мутации confirm, acceptance | covered |
+| NFR-2.3 Расхождение траектории = дефект воспроизводимости | `repro` (хеши, replay); parity in-process ↔ traffic-svc + defender-svc | `test_repro`, `test_traffic_svc`, `test_defender_svc`, мутации confirm, acceptance | covered |
 | NFR-2.4 Только OSS/self-hosted | адаптеры OSS-детекторов (выключены по умолчанию), закрытых API нет | `test_guard_plugins`, `oss_resource_check` | covered |
 | NFR-2.5 Локальный контур, фиксация версий | socket ban (`contour.json`), `configs.lock.json`, OSS-локи | `report_cli verify` (contour), `configs_frozen` | covered |
 | NFR-2.6 Модели ≤8B | **не подключено**: живая модель через `RESEARCH_LLM_*` не выбрана/не прогнана. Решение команды 2026-11-12: планка расширена до ≤16B (отклонение от рамки — обновить канон в репо `dvarp`) | — | **gap** → issue «модели и пилот live» (#6) |

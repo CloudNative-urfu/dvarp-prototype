@@ -29,6 +29,7 @@ MODULES = (
     "tests.test_tools",
     "tests.test_defender_svc",
     "tests.test_metrics_svc",
+    "tests.test_traffic_svc",
 )
 BUDGET_S = 300.0
 
