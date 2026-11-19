@@ -20,25 +20,43 @@
 CLI: `python3 -m darp_range.configs list|show|freeze|verify|demo`.
 """
 
-from .build import TASK_TEXT, DefenderBundle, assemble_defender, config_seed
+from importlib import import_module
+
 from .freeze import (
     LOCK_NAME, Drift, FreezeGuard, FrozenConfigError, add_post_hoc, defense_code_hashes, freeze,
     load_frozen, load_lock, verify,
-)
-from .process import (
-    PROCESS_VERSION, Admission, ProcessDefender, ProcessError, ProcessGate, ProcessLedger,
-    ProcessSpec, check_refund, normalize_request,
 )
 from .registry import (
     REQUIRED_BASELINES, ConfigSet, detect_only, from_specs, g0, g_proc, guarded,
     leave_one_out, preregistered,
 )
 from .spec import (
-    CONFIG_SCHEMA, FAMILIES, ROLES, ConfigError, ConfigSpec, operational_definition,
+    CONFIG_SCHEMA, FAMILIES, ROLES, ConfigError, ConfigSpec, config_seed, operational_definition,
     same_detector,
 )
 
 FROZEN_DIR = "configs"
+
+_LAZY = {
+    "build": ("TASK_TEXT", "DefenderBundle", "assemble_defender"),
+    "process": ("PROCESS_VERSION", "Admission", "ProcessDefender", "ProcessError",
+                "ProcessGate", "ProcessLedger", "ProcessSpec", "check_refund",
+                "normalize_request"),
+}
+
+
+def __getattr__(name):
+    for module, names in _LAZY.items():
+        if name in names:
+            value = getattr(import_module(f".{module}", __name__), name)
+            globals()[name] = value
+            return value
+    raise AttributeError(name)
+
+
+def __dir__():
+    return sorted(set(globals()) | set(__all__))
+
 
 __all__ = [
     "TASK_TEXT", "DefenderBundle", "assemble_defender", "config_seed", "LOCK_NAME", "Drift", "FreezeGuard",

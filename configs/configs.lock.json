@@ -194,16 +194,16 @@
     }
   },
   "defense_code": {
-    "configs": "c57f37b15b727b0b28ec4617ef65d6a6748c1191913c32feacb0445d776fa289",
+    "configs": "da96764f407925e0b69eb39a70c8b5f063e1942dcdf446c25e27e4020c342530",
     "executor": "e876890e485e2516df47c411cfca8ac597c1f4a2e097e9ddeed89f2bf3f8fc50",
     "guard_contract": "c66c7fed667dad793b256bf895b9edd17f05b7e17ebbcd2097560108db4e55bb",
     "guard_plugins": "a8618eceacd11606232e7994be6247cc5234446c11c7514b0836174ba6526845",
     "guard_policy": "9f4f839c825cad825a0d91b1d468483a87f9a0704bfb7b3584a2c353c48a2e08",
     "tools": "e06352fda06381a2c59d304fe016dfe9deb7cacfabbf5db2e3f5f12ee77b5dc0"
   },
-  "lock_fingerprint": "4a37d85e2f5f6296da78f7ca706c2c3a85de001d0921bbcf1d50aabf29830300",
-  "locked_at": "2026-11-17T16:32:04Z",
-  "note": "issue #57: executor detects v3 by audit columns",
+  "lock_fingerprint": "74a7a2a180cd43672d94815cb39e5ebef49de1325e12b4be0d3a6df630b97ddc",
+  "locked_at": "2026-11-18T16:37:56Z",
+  "note": "issue #60: isolate config data imports from defense runtime",
   "post_hoc": {},
   "preregistered": true,
   "schema": "darp-configs-lock-1",

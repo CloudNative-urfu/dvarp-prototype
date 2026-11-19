@@ -18,23 +18,34 @@ seed, парные прогоны с атакующим трафиком и бе
 Только стандартная библиотека. CLI: `python3 -m darp_range.runner run|demo|schedule`.
 """
 
-from . import flow as _flow
-from .attack import run_attack_slot
-from .flow import (
-    EpisodeRecord, FlowContext, FlowResult, PairedResult, compare_pair, run_flow, run_paired,
-    run_single_legal,
-)
-from .inproc import InProcessDefender
-from .legal_traffic import CorpusTraffic
-from .orchestrator import ConfigResult, Runner, RunResult, default_model_factory, run_seed_floor
+from importlib import import_module
+
 from .plan import (
     AGENT_MODES, REPLAY_MODES, VARIANTS, BlockSchedule, FlowSlot, RunnerError, RunPlan, Schedule,
     blocks_to_replay, build_schedule, select_entries,
 )
-from .replay import compare_flows
 
-# Корень сборки (issue #19): in-process адаптеры портов по умолчанию — эталон паритета.
-_flow.DEFAULT_PORTS.update(defender=InProcessDefender, traffic=CorpusTraffic, attack=run_attack_slot)
+_EXPORTS = {
+    **dict.fromkeys(("EpisodeRecord", "FlowContext", "FlowResult", "PairedResult", "compare_pair",
+                     "run_flow", "run_paired", "run_single_legal"), "flow"),
+    **dict.fromkeys(("ConfigResult", "Runner", "RunResult", "default_model_factory",
+                     "run_seed_floor"), "orchestrator"),
+    "compare_flows": "replay", "InProcessDefender": "inproc",
+    "CorpusTraffic": "legal_traffic", "run_attack_slot": "attack",
+}
+
+
+def __getattr__(name):
+    if name not in _EXPORTS:
+        raise AttributeError(name)
+    value = getattr(import_module("." + _EXPORTS[name], __name__), name)
+    globals()[name] = value
+    return value
+
+
+def default_port(name):
+    return __getattr__({"defender": "InProcessDefender", "traffic": "CorpusTraffic",
+                        "attack": "run_attack_slot"}[name])
 
 __all__ = [
     "EpisodeRecord", "FlowContext", "FlowResult", "PairedResult", "compare_pair", "run_flow",

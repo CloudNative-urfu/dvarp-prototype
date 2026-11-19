@@ -22,7 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping
 
-from ..executor import FINALIZING_OPS
+from ..boundary_contract import FINALIZING_OPS
 
 # Поля событий, которые могут нести текст сторон; оценщик их не видит.
 TEXT_KEYS = frozenset({"text", "reply", "body", "content", "message", "messages", "prompt",

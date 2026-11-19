@@ -72,3 +72,11 @@
   контракты; defender-svc — без `attackers`/`isolation`/`corpus`/`evaluator`/`metrics`,
   статически и по `/health` живого сервиса). Входит в `scripts/dev_smoke.py`.
 - Запуск: `python3 -m darp_range.runner svc --out DIR [--configs g0,g_proc] [--agent-mode live]`.
+## Границы импортов (#60)
+
+`darp_range/configs/__init__.py` загружает сборку защиты по запросу. Импорт
+`ConfigSpec` и `load_frozen` не загружает исполнитель; сам вызов `load_frozen`
+по-прежнему проверяет схемы и отпечатки. Идентификаторы для измерительной стороны
+опубликованы в `darp_range/boundary_contract.py:4`; при новой версии границы их
+нужно сверить с замороженным исполнителем. Расписание строит адаптер
+`darp_range/runner/legal_traffic.py`; формат плана и seed не изменились.

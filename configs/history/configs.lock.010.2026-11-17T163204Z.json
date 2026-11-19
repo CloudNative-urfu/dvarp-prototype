@@ -1,0 +1,211 @@
+{
+  "configs": {
+    "g0": {
+      "control_of": null,
+      "family": "g0",
+      "file": "g0.json",
+      "fingerprint": "003c1c16264ee4af1127d831d23ef2cd2af817eecafc9f135761917fa03b9242",
+      "role": "baseline",
+      "sha256": "41ea8709899b301ee9fa196c61664c8024300b804e5f8abe253fde814c116cf4"
+    },
+    "g0_seed2": {
+      "control_of": "g0",
+      "family": "g0",
+      "file": "g0_seed2.json",
+      "fingerprint": "ec44b00f2954618b4eae678726c88528de267442de7b4bb8cdfc7f36ef9cf321",
+      "role": "control",
+      "sha256": "53d695f8f60daabfaff138ec195da32a00de05c86fd262fdf7563ae464653687"
+    },
+    "g_ctx": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_ctx.json",
+      "fingerprint": "23d0b607642999bc98d5828d15f2b84d543a94abf317b122905ce98cf1f0331d",
+      "role": "main",
+      "sha256": "a833a3b9fb82f94c6c89308aaec1cda7f020a47621f11bbf10d851c2b8ce6037"
+    },
+    "g_ctx_iso": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_ctx_iso.json",
+      "fingerprint": "f9b1ddc96a15e1f4905cc914996e5d20e892ca316a3ad1ce809cc5a13b97559a",
+      "role": "main",
+      "sha256": "4af1e46261aed48edf0e2fac3cbd32d0babde58c401700815f2601fe49c313e1"
+    },
+    "g_ctx_term": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_ctx_term.json",
+      "fingerprint": "e27718c20a30ee6bef9acba32f51a5fb244d5623de6588dafed07357b462f44c",
+      "role": "main",
+      "sha256": "0286c449b95e6d7bd502107c4eee224f8da75b60b4847e1618bdfb28cbd0085b"
+    },
+    "g_in": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_in.json",
+      "fingerprint": "4cf864e845e15e91dbdc52d764546e2f7edfc0718c32c4433cf79179949703c8",
+      "role": "main",
+      "sha256": "afae961374098d5afdf83227d7c1d3c061481fc44262c93a87143bb47ddbd8bf"
+    },
+    "g_in_detect_only": {
+      "control_of": "g_in",
+      "family": "guarded",
+      "file": "g_in_detect_only.json",
+      "fingerprint": "6539dce4ae9a4c4364b411bdeb81b53f76e1743c0e5187df3933984360203682",
+      "role": "control",
+      "sha256": "7aee78ccc218658cc00c4d9ab768260f9828efc7036cde7da5d16f5b53b05406"
+    },
+    "g_in_iso": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_in_iso.json",
+      "fingerprint": "be766213770dfe7ae035b8e94bc1227db92e32ea4e9f192cd21bf787de4f301a",
+      "role": "main",
+      "sha256": "d4e2e5f28b008f784d3a233161cf2ce19aea490ad1d8cd5f9b40917aab456512"
+    },
+    "g_in_oss": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_in_oss.json",
+      "fingerprint": "fe02764222a70fef5b0dcadbbe8327cda26331139a2616d8e40526ec5ed520e8",
+      "role": "main",
+      "sha256": "a7343217e64eb765a64d02a113b266eb74ceabd4af18de20b5c6ef40dd55b8dc"
+    },
+    "g_in_term": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_in_term.json",
+      "fingerprint": "a9fd561db6120ce68b156b92afd4302804c6649cf463c7165c41d03f82c95642",
+      "role": "main",
+      "sha256": "f9e1687e43c094b1ba4eeab17967a71e09d73e1ab2a094e11c68ee12516f2660"
+    },
+    "g_layered": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_layered.json",
+      "fingerprint": "4689f99999d3e2e4f43f7ca37d72d616974ae4be41c102ac4d323116f2443eb7",
+      "role": "main",
+      "sha256": "65b047e7a61f9e3ff3979612694ea3ed215d23a30b78836f7f2e5db79be1f7f0"
+    },
+    "g_layered_iso": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_layered_iso.json",
+      "fingerprint": "28935a99e14f61de3c723591e4f96d8d5c66ee0999f1ba6011f8d58355be8ae4",
+      "role": "main",
+      "sha256": "e99645e80a8c06091b40eb7f65a42a7157f40bacc398b285ce6bbb2efc7e5310"
+    },
+    "g_layered_minus_context_provenance": {
+      "control_of": "g_layered",
+      "family": "guarded",
+      "file": "g_layered_minus_context_provenance.json",
+      "fingerprint": "2f45922c3e2ff9b418aaac06bd7c9794a2c4829d00be0ed61f6527729f842c80",
+      "role": "loo",
+      "sha256": "a5aeaa1554b7ca649e2affbf8a3d89257871e0a9fdb5db9bcd5e65b8c05bb1be"
+    },
+    "g_layered_minus_input_filter": {
+      "control_of": "g_layered",
+      "family": "guarded",
+      "file": "g_layered_minus_input_filter.json",
+      "fingerprint": "132080f96b7f04ab29835c229267661c4019607814721cd9abfe446c233cf3eb",
+      "role": "loo",
+      "sha256": "291c05d34d4f5e763a8f30ce6dc54f8975bc6b9bcfdba77eadf9cf8b205ba82a"
+    },
+    "g_layered_minus_output_leak": {
+      "control_of": "g_layered",
+      "family": "guarded",
+      "file": "g_layered_minus_output_leak.json",
+      "fingerprint": "06013b3b916c9d7a0a730ac8645b752d82d0ac6f3c1c4ce7f3b3e8c01f337cf1",
+      "role": "loo",
+      "sha256": "f51be92a535b3f57426d5ea227a206ce00386f767260f3e94b223a0624ed439c"
+    },
+    "g_layered_minus_tool_arg_validator": {
+      "control_of": "g_layered",
+      "family": "guarded",
+      "file": "g_layered_minus_tool_arg_validator.json",
+      "fingerprint": "52bececa608fb574179c97b29b02ad29faef6cd95288a1490afd14c74b76fdce",
+      "role": "loo",
+      "sha256": "87622694546f0f05d680905c15d7491a78b5dd364045c04bb5b4a8db5a23ae81"
+    },
+    "g_layered_term": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_layered_term.json",
+      "fingerprint": "9b825a23c0cd071f4252f3d05963ad25e04221e7bf50aa0b96d4fe73bc328be8",
+      "role": "main",
+      "sha256": "3e935935c669098f6905c591d5704ffbc54e92dfbe9391141cb79dc374c0759d"
+    },
+    "g_out": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_out.json",
+      "fingerprint": "62d74f869acac2b5e7047d10c99cf455d0878b9238d373021235221e6b3e5e7c",
+      "role": "main",
+      "sha256": "22d4d041028a2bbb867d44d5cdb9551adb348be19e12222d726a9d9b8a433092"
+    },
+    "g_out_iso": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_out_iso.json",
+      "fingerprint": "019aad40d013b0050c38c8b1189852f75adf06288462c60dc56a7f801b09e51c",
+      "role": "main",
+      "sha256": "1275570f19625124a71dd30d8b76b723695cbacbb84d157ce3ab4f993485889c"
+    },
+    "g_out_term": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_out_term.json",
+      "fingerprint": "5be53df15ef798054b3c343cb31b1d02d6c265af95e2bf647b391f0b6273b1ec",
+      "role": "main",
+      "sha256": "dc427f2f7f4ff0a009f37a8b773a3d99ec9fc3a9d0f7015ae0894d18fd53c00e"
+    },
+    "g_proc": {
+      "control_of": null,
+      "family": "g_proc",
+      "file": "g_proc.json",
+      "fingerprint": "3b2ba3a86956ba70c65531235dcdec25653dad82028686d6ae4228e22eb59ad8",
+      "role": "baseline",
+      "sha256": "82fc041c7f263709cdcd95a26c877b3117a871955e4e948a9522de4e1821fe09"
+    },
+    "g_tool": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_tool.json",
+      "fingerprint": "981fd75ce83a6cfb503433241b5a32f0148c9689d7e1dd160980b8814a915fb8",
+      "role": "main",
+      "sha256": "78128cd30ddcc62b9398746439b3924fe88731bc20da1f881ea5a461d6f20722"
+    },
+    "g_tool_iso": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_tool_iso.json",
+      "fingerprint": "3aa918dc6be97cfcb5bf5dd1c6bed2d216b72885d41033866e3970443d572427",
+      "role": "main",
+      "sha256": "a5b663d81bb579de1edf385ba8fcf425e9be7ee54c9897de8cac107ae3034acc"
+    },
+    "g_tool_term": {
+      "control_of": null,
+      "family": "guarded",
+      "file": "g_tool_term.json",
+      "fingerprint": "3a121da8fcdc4337217ad0cdd5302399226168ed9b837ce492df8cc84c86e397",
+      "role": "main",
+      "sha256": "9a42e270645b1e3565f3b5204af16e387d956819e092b7a32095535c173ee79f"
+    }
+  },
+  "defense_code": {
+    "configs": "c57f37b15b727b0b28ec4617ef65d6a6748c1191913c32feacb0445d776fa289",
+    "executor": "e876890e485e2516df47c411cfca8ac597c1f4a2e097e9ddeed89f2bf3f8fc50",
+    "guard_contract": "c66c7fed667dad793b256bf895b9edd17f05b7e17ebbcd2097560108db4e55bb",
+    "guard_plugins": "a8618eceacd11606232e7994be6247cc5234446c11c7514b0836174ba6526845",
+    "guard_policy": "9f4f839c825cad825a0d91b1d468483a87f9a0704bfb7b3584a2c353c48a2e08",
+    "tools": "e06352fda06381a2c59d304fe016dfe9deb7cacfabbf5db2e3f5f12ee77b5dc0"
+  },
+  "lock_fingerprint": "4a37d85e2f5f6296da78f7ca706c2c3a85de001d0921bbcf1d50aabf29830300",
+  "locked_at": "2026-11-17T16:32:04Z",
+  "note": "issue #57: executor detects v3 by audit columns",
+  "post_hoc": {},
+  "preregistered": true,
+  "schema": "darp-configs-lock-1",
+  "set_fingerprint": "fb866105a2b32d053077dda018275402d0b4980fb722d4019f98576ec29ca915"
+}

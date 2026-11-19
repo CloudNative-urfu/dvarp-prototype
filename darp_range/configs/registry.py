@@ -16,14 +16,17 @@
 
 from __future__ import annotations
 
-from typing import Any, Iterable, Iterator, Mapping
+from typing import TYPE_CHECKING, Any, Iterable, Iterator, Mapping
 
-from darp_range.guard_contract import STAGES, GuardSet
-from darp_range.guard_policy import ReactionPolicy, preset
 from darp_range.repro import hash_obj
 
-from .process import ProcessSpec
 from .spec import ConfigError, ConfigSpec, same_detector
+
+if TYPE_CHECKING:
+    from darp_range.guard_contract import GuardSet
+    from darp_range.guard_policy import ReactionPolicy
+
+    from .process import ProcessSpec
 
 REQUIRED_BASELINES = ("g0", "g_proc")
 REGISTRY_VERSION = "configs-registry-2"
@@ -41,6 +44,8 @@ PLACEMENTS = {
 
 
 def _gs(*entries: tuple[str, list[str]]) -> GuardSet:
+    from darp_range.guard_contract import GuardSet
+
     from .spec import _allow_measured
     spec = [{"id": pid, "stages": st} for pid, st in entries]
     return GuardSet.from_spec(spec, allow_disabled=_allow_measured(spec))
@@ -48,23 +53,30 @@ def _gs(*entries: tuple[str, list[str]]) -> GuardSet:
 
 def _policy(name: str, base: str, stages: Iterable[str] | None = None) -> ReactionPolicy:
     """Политика с правилами из предустановки `base` только для точек `stages`."""
+    from darp_range.guard_policy import ReactionPolicy, preset
+
     p = preset(base)
     keep = p.stages if stages is None else {s: p.stages[s] for s in stages if s in p.stages}
     return ReactionPolicy(name, dict(keep), p.max_clarifications)
 
 
-NONE = ReactionPolicy("none")
-
-
 def g0(name: str = "g0", *, role: str = "baseline", seed_label: str = "main",
        control_of: str | None = None) -> ConfigSpec:
-    return ConfigSpec(name, "g0", role, "agent", GuardSet.empty(), NONE, seed_label=seed_label,
+    from darp_range.guard_contract import GuardSet
+    from darp_range.guard_policy import ReactionPolicy
+
+    return ConfigSpec(name, "g0", role, "agent", GuardSet.empty(), ReactionPolicy("none"), seed_label=seed_label,
                       control_of=control_of,
                       notes="Agent + executor, no guardrails: reference point (FR-1.14).")
 
 
 def g_proc(process: ProcessSpec | None = None) -> ConfigSpec:
-    return ConfigSpec("g_proc", "g_proc", "baseline", "agent", GuardSet.empty(), NONE,
+    from darp_range.guard_contract import GuardSet
+    from darp_range.guard_policy import ReactionPolicy
+
+    from .process import ProcessSpec
+
+    return ConfigSpec("g_proc", "g_proc", "baseline", "agent", GuardSet.empty(), ReactionPolicy("none"),
                       process=process or ProcessSpec(), queue_discipline="fair_share",
                       notes="g0 + process rules: dedup, per-customer quota, round/clarification/"
                             "token limits, typed finalization (R1/R2/R5); fair-share manual queue.")
@@ -89,6 +101,9 @@ def detect_only(cfg: ConfigSpec, name: str | None = None) -> ConfigSpec:
 def leave_one_out(cfg: ConfigSpec) -> list[ConfigSpec]:
     """Варианты без одного гвардрейла (break-even §9.3). Правила реакции точек, где не осталось
     гвардрейлов, удаляются; остальное (пороги, параметры, порядок) не меняется."""
+    from darp_range.guard_contract import STAGES, GuardSet
+    from darp_range.guard_policy import ReactionPolicy
+
     if cfg.family != "guarded" or len(cfg.guards) < 2:
         return []
     out = []

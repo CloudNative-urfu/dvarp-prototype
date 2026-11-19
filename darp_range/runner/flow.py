@@ -46,6 +46,7 @@ from darp_range.event_log import EventLog, summarize
 from darp_range.repro import compare_trajectories, hash_obj, trajectory_fingerprint
 from darp_range.state_store import EpisodeStateManager, apply_fixture, connect, state_hash, verify_snapshot
 
+from . import default_port
 from .plan import BlockSchedule, FlowSlot, RunnerError, RunPlan
 from .ports import DefenderPort, EpisodeInvite, TrafficPort
 
@@ -55,7 +56,6 @@ PortFactory = Callable[["FlowContext"], Any]
 # Адаптеры по умолчанию — in-process эталон (`inproc`, `legal_traffic`, `attack`); их
 # регистрирует корень сборки `runner/__init__.py`. Ядро потока знает только контракты `ports`
 # (issue #19): внутрянку защищаемой стороны и трафика оно не импортирует.
-DEFAULT_PORTS: dict[str, Callable[..., Any]] = {}
 
 
 # ------------------------------------------------------------------ записи результата
@@ -178,15 +178,15 @@ class FlowContext:
     # `isolation.sandbox.AttackerFactory` создаёт атакующего в процессе под bubblewrap.
     attacker_factory: Callable[..., Any] | None = None
     # Порты (issue #19): фабрики `ctx -> DefenderPort | TrafficPort` и обработчик атакующего
-    # слота; None — адаптеры по умолчанию (`DEFAULT_PORTS`, in-process эталон).
+    # слота; None — адаптеры по умолчанию (in-process эталон).
     defender_port: PortFactory | None = None
     traffic_port: PortFactory | None = None
     attack_slot: Callable[..., Any] | None = None
 
     def __post_init__(self):
         self.runner = self.log.writer("runner")
-        self.defender_side: DefenderPort = (self.defender_port or DEFAULT_PORTS["defender"])(self)
-        self.traffic: TrafficPort = (self.traffic_port or DEFAULT_PORTS["traffic"])(self)
+        self.defender_side: DefenderPort = (self.defender_port or default_port("defender"))(self)
+        self.traffic: TrafficPort = (self.traffic_port or default_port("traffic"))(self)
         self.channel_mode = "research" if self.plan.research_mode else "main"
 
 
@@ -462,11 +462,11 @@ def _run_flow(ctx: FlowContext, log_path: str | None) -> FlowResult:
                                  "slots": len(slots)})
     episodes: list[EpisodeRecord] = []
     campaigns: list[dict[str, Any]] = []
-    attack = ctx.attack_slot or DEFAULT_PORTS.get("attack")
     for slot in slots:
         if slot.traffic == "legal":
             episodes.append(_legal(ctx, slot))
         else:
+            attack = ctx.attack_slot or default_port("attack")
             if attack is None:
                 raise RunnerError(f"{slot.case_id}: атакующий слот, а атакующая сторона не "
                                   "подключена (issue #19: оркестратор гоняет легальный трафик)")
