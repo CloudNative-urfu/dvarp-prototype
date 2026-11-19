@@ -11,7 +11,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from darp_range.channel import CustomerFacts, LlmUser, Observation
-from darp_range.llm import make_chat_model
+from darp_range.llm import LLMConfigError, LimitExceeded, make_chat_model
 from darp_range.llm.backends import StubReply
 from darp_range.runner import RunPlan
 from darp_range.runner.ports import FlowInvite
@@ -129,7 +129,7 @@ class LlmUserTest(unittest.TestCase):
         user = LlmUser((), FACTS, model=model, episode_id="ep-1")
         user.next_message(Observation(None, 0, 6))
         user.next_message(Observation("What is your order number?", 1, 5))
-        with self.assertRaises(Exception):
+        with self.assertRaises(LimitExceeded):
             user.next_message(Observation("Anything else?", 2, 4))
 
 
@@ -147,7 +147,7 @@ class ClientConfigTest(unittest.TestCase):
 
     def test_live_without_env_refused(self):
         for env in ({}, {"RESEARCH_LLM_BASE_URL": "http://127.0.0.1:9/v1"}):
-            with self.assertRaises(Exception):
+            with self.assertRaises(LLMConfigError):
                 ensure_model_available("llm", "live", environ=env)
 
 
@@ -260,7 +260,7 @@ class TrafficServiceClientTest(unittest.TestCase):
 
         clean = {k: v for k, v in os.environ.items() if not k.startswith("RESEARCH_LLM")}
         with mock.patch.dict(os.environ, clean, clear=True):
-            with self.assertRaises(Exception):
+            with self.assertRaises(LLMConfigError):
                 self._state({"kind": "llm", "mode": "live"})
 
 
