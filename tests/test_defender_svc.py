@@ -45,18 +45,7 @@ MIXED = RunPlan(
 )
 COST_KEYS = ("tokens_in", "tokens_out", "requests")
 
-
-def _decisions(events):
-    return [
-        (
-            e["episode_id"],
-            e["component"],
-            e["kind"],
-            e["data"].get("signal") or e["data"].get("action"),
-        )
-        for e in events
-        if e["component"].startswith(("guard", "policy", "process"))
-    ]
+from tests.helpers import decisions as _decisions  # noqa: E402
 
 
 class _Base(unittest.TestCase):

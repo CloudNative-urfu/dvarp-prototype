@@ -26,7 +26,7 @@ from darp_range.svckit import TransportError, call
 from darp_range.traffic_svc.server import State
 
 from tests._env import loopback_available
-from tests.test_defender_svc import _decisions
+from tests.helpers import decisions as _decisions
 
 ROOT = Path(__file__).resolve().parents[1]
 

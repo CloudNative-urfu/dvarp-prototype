@@ -7,11 +7,18 @@ from pathlib import Path
 
 
 def remove_temporary_tree(path: Path) -> None:
-    def retry_readonly(function, filename, exc_info):
-        if not isinstance(exc_info[1], PermissionError):
-            raise exc_info[1]
-        os.chmod(filename, os.stat(filename).st_mode | stat.S_IWRITE)
-        function(filename)
-
-    if path.exists():
-        shutil.rmtree(path, onerror=retry_readonly)
+    if not path.exists():
+        return
+    try:
+        shutil.rmtree(path)
+    except PermissionError:
+        # Run-owned trees only: add the write bit (other permission bits are kept),
+        # then remove again. Explicit handling instead of the deprecated `onerror=`.
+        for dirpath, dirnames, filenames in os.walk(path):
+            for name in dirnames + filenames:
+                target = Path(dirpath) / name
+                try:
+                    os.chmod(target, os.stat(target).st_mode | stat.S_IWRITE)
+                except OSError:
+                    pass
+        shutil.rmtree(path)
