@@ -1,8 +1,9 @@
 # Мануал: защищаемая сторона как сервис (defender-svc)
 
-> **Статус актуальности:** ветка `refactor/19-svc-decomposition` (issue #19), 2026-11-16.
-> **Устареет при** traffic-svc (#36: адаптер `legal_traffic` заменяется сервисом) и
-> metrics-svc (#33: агрегаты уходят из потока). Спека — `openspec/changes/svc-decomposition/`.
+> **Статус актуальности:** срез `origin/develop` `e3a3ef5` (post-#68), 2026-11-18.
+> Актуализирован: порты/адаптеры по #68 (ленивые экспорты, `default_port`), границы импортов.
+> **Устареет при** traffic-svc (#36: адаптер `legal_traffic` заменяется сервисом).
+> Спека — `openspec/changes/svc-decomposition/`.
 
 Как оркестратор гоняет эпизоды, когда защищаемая сторона — отдельный процесс, и почему
 результат совпадает с in-process путём.
@@ -16,9 +17,11 @@
   `_EpisodeRun` привязывает обращение через `TrafficPort.bind` (flow.py:220-222),
   развёртывает фикстуру (:223-227), открывает эпизод защищаемой стороны `open(EpisodeInvite)`
   (:229-234), канал получает `dsess.defender()` и `dsess` как `ToolPort` (:241-255).
-- Адаптеры по умолчанию (in-process эталон) регистрирует корень сборки
-  `runner/__init__.py:37`: `inproc.InProcessDefender`, `legal_traffic.CorpusTraffic`,
-  `attack.run_attack_slot` (атакующий слот — только legacy `Runner`).
+- Адаптеры по умолчанию (in-process эталон) — ленивые экспорты корня сборки (#68):
+  `runner/__init__.py` не импортирует их при загрузке пакета; `default_port(name)`
+  (`runner/__init__.py:49-54`) подтягивает `inproc.InProcessDefender`,
+  `legal_traffic.CorpusTraffic`, `attack.run_attack_slot` только в момент вызова
+  (атакующий слот — только legacy `Runner`).
 - Атакующий слот без обработчика — `RunnerError` (flow.py:465-476): сервисный режим гоняет
   только легальный трафик.
 

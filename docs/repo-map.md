@@ -9,21 +9,25 @@
 
 ## 1. Ядро измерений
 
-Путь данных одного прогона:
+Путь данных одного прогона (in-process эталон и сервисные пути #19/#33):
 
 ```
-report_cli ──► runner ──► channel ◄──► agent + tools ──► executor ──► state_store
+ report_cli ──► runner ──► channel ◄──► agent + tools ──► executor ──► state_store
  (CLI)        (план,      (текст,      (LLM-агент,       (проверка    (SQLite,
               снапшоты,    барьер)      5 инструментов)   прав)        снимки)
-              пары)                                                       │
+              микс)                                                       │
                                                                           ▼
  report_cli ◄── metrics ◄──────────────────────────────────────────── evaluator
  (таблица)     (L*, ΔNet)                                            (исход по БД)
+
+ Сервисные пути (тот же код, HTTP на 127.0.0.1, каркас svckit):
+ runner svc ──► defender_svc (защита процессом, сырые события наружу)
+ report_cli --metrics-svc ──► metrics_svc (движок метрик, проверка хеш-цепочек)
 ```
 
 | Модуль | Что делает | Тест | Docstring |
 | --- | --- | --- | --- |
-| `runner` | Оркестрация: `RunPlan` → эпизоды и потоки; восстановление снимка с проверкой хеша, парный прогон «без атак / с атаками» (`run_paired`), повтор для поиска расхождений, `Runner` по всем конфигурациям с `FreezeGuard`. | `tests/test_runner.py` | `darp_range/runner/__init__.py`, `flow.py`, `orchestrator.py` |
+| `runner` | Оркестрация: `RunPlan` → эпизоды и потоки; восстановление снимка с проверкой хеша; прогон-микс dvarp#20 (legacy-Runner: пары base/attacked для режима D, `run_paired`), повтор для поиска расхождений; `Runner` по всем конфигурациям с `FreezeGuard`; сервисный режим — `SvcRunner` (`svc.py`, только легальный трафик через `TrafficPort`). | `tests/test_runner.py`, `tests/test_defender_svc.py` | `darp_range/runner/__init__.py`, `flow.py`, `orchestrator.py`, `svc.py`, `plan.py`, `ports.py` |
 | `defender_svc` | Защищаемая сторона как HTTP-сервис на 127.0.0.1 (issue #19): стадированный замороженный конфиг, гварды, политика, правила процесса, агент, LLM-клиент, исполнитель с БД эпизода; наружу — только сырые события; общий с in-process путём `core`. | `tests/test_defender_svc.py` | `darp_range/defender_svc/core.py`, `server.py`, `darp_range/runner/ports.py`, `svc.py` |
 | `metrics_svc` | Расчёт финальных метрик по телеметрии как сервис на 127.0.0.1 (issue #33): формулы `metrics` без изменений, гейты G-tau / honest accounting, независимый L*; адаптер СС — `client.py`, `report_cli --metrics-svc`. | `tests/test_metrics_svc.py` | `darp_range/metrics_svc/gates.py`, `server.py`, `client.py` |
 | `channel` | Единственный текстовый канал между сторонами (`TextChannel.run_session`), барьер интерфейса: атакующий видит только `Observation`, защита — только текст. Отдельно маркированный research-mode. | `tests/test_channel.py` | `darp_range/channel/__init__.py` |
@@ -32,7 +36,7 @@ report_cli ──► runner ──► channel ◄──► agent + tools ──�
 | `state_store` | Синтетическая БД магазина (SQLite), детерминированный генератор, снимок `take_snapshot` и полное восстановление `restore_snapshot`, `diff_states`. | `tests/test_state_store.py` | `darp_range/state_store/__init__.py`, `store.py` |
 | `evaluator` | Независимый оценщик: сверка итогового состояния БД с ground truth без чтения текста агента (FR-1.18), исходы атаки `executed`/`refused`/`ignored` (FR-1.19), `finalize_pair` (slow/burn); эскалация — нейтральный исход, не успех атаки (цель `shift` исключена, FR-1.21). | `tests/test_evaluator.py` | `darp_range/evaluator/__init__.py` |
 | `metrics` | Метрики безопасности, полезности, непрерывности, детекции и экономики (`extract.py`): доля эскалаций по классам трафика `E_L`/`E_A` и аналитический блок очереди λ_Q → W_q/Q_L → SLA; ΔNet и порог L* с членами `C_queue`/`C_sla` и статусом `queue_unstable` (`breakeven.py`), Pareto и leave-one-out (`frontier.py`), сборка отчёта (`analysis.py`). | `tests/test_metrics.py` | `darp_range/metrics/__init__.py`, `breakeven.py` |
-| `report_cli` | CLI `offline` / `live` / `verify`: runner → metrics → L* → индекс артефактов NFR-2.14 → сводная таблица; аудит контура (запрет сети, только stdlib). | `tests/test_report_cli.py` | `darp_range/report_cli/__init__.py`, `__main__.py` (все флаги) |
+| `report_cli` | CLI `offline` / `live` (и `verify` для отчёта): runner → метрики (в процессе или через metrics-svc) → L* → индекс артефактов NFR-2.14 → сводная таблица; аудит контура (запрет сети, только stdlib; allowlist собственных сервисов — в переделке #61). | `tests/test_report_cli.py` | `darp_range/report_cli/__init__.py`, `__main__.py` (все флаги), `pipeline.py`, `acceptance.py` |
 
 Вспомогательные модули, через которые идёт этот путь:
 
@@ -42,8 +46,10 @@ report_cli ──► runner ──► channel ◄──► agent + tools ──�
 | `manual_queue` | Аналитическая очередь операторов (ревизия канона dvarp#18): `analytic.py` — M/M/1 при K=1, M/M/c (Эрланг C) при K>1 от `E_L`/`E_A`, SLA-вероятность, сетка K×S, `self_check`; `arrivals.py` — расписание прибытий потока; `model.py` (DES) — только проверка формулы, в измерительный путь не входит. | `tests/test_manual_queue.py` |
 | `llm` | Клиент OpenAI-совместимой модели (`RESEARCH_LLM_*`) и детерминированная заглушка, лимиты токенов. | `tests/test_llm.py` |
 | `repro` | Seed, манифест прогона, хеши корпуса и конфигураций. | `tests/test_repro.py` |
+| `boundary_contract`, `plan_contract` | Опубликованные константы контрактов для измерительной/оркестраторной стороны (issue #60): отпечатки границ исполнителя, FINALIZING_OPS, режимы атакующего, режимы обслуживания очереди — без импорта executor/attackers; дрейф-чек — `tests/test_issue60_boundaries.py`. | `tests/test_issue60_boundaries.py` |
 | `agent_demo` | Мини-эпизод агента с гвардрейлами для demo/live (вынесен, чтобы агент не ссылался на гвардрейлы). | через `tests/test_agent.py` |
-| `shop_svc`, `pay_emu`, `svckit` | Контур ревизии 11: сервис магазина, платёжный эмулятор, payout-worker на 127.0.0.1. | `tests/test_rev11_*.py`, `scripts/rev11_verify.py` |
+| `shop_svc`, `pay_emu`, `payout-worker` | Контур ревизии 11: сервис магазина (HTTP оператора), платёжный эмулятор, воркер выплат на 127.0.0.1. | `tests/test_rev11_*.py`, `scripts/rev11_verify.py` |
+| `svckit` | Общий каркас локальных сервисов (не только rev11): HTTP-фреймворк (`http.py`: ready.json, JSONL-лог запросов) и запуск процессов (`proc.py`, `ServiceProcess`) — на нём стоят defender-svc и metrics-svc (#19/#33). | `tests/test_svckit.py` (в составе сервисных тестов) | `darp_range/svckit/http.py`, `proc.py` |
 
 ## 2. Атакующий контур
 

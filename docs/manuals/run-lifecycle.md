@@ -1,11 +1,14 @@
 # Мануал: Жизненный цикл прогона и замера
 
-> **Статус актуальности:** срез `origin/develop` `2fd02e3` (post-#29/#32), 2026-11-13; раздел 3
-> (эпизод) актуализирован по распилу #19 (ветка `refactor/19-svc-decomposition`), 2026-11-16.
-> **Устареет при** metrics-svc (#33) и traffic-svc (#36): переписывание логики меняет пути и потоки — после их мержа актуализировать по новым путям (см. правило в `AGENTS.md`, «Трейс для полигона»).
+> **Статус актуальности:** срез `origin/develop` `e3a3ef5` (post-#68), 2026-11-18.
+> Актуализирован: эпизод по распилу #19 (2026-11-16), расписание/метрики по #33 и #68 (2026-11-18).
+> **Устареет при** traffic-svc (#36: расписание уедет в сервис трафика) и переделке #61
+> (офлайн-путь метрик: allowlist loopback вместо defer-схемы) — после их мержа актуализировать.
 > Это документ-инструкция для будущего агента авторазметки процессов в полигоне: образец того, как описывается механика системы. Внутренний документ репозитория, в полигон переезжает как образец.
 
 Внутренняя карта замера: как устроен прогон — от конфигурации до верификации.
+Терминология: по канону dvarp#20 прогон — **микс** (смешанный поток эпизодов на идентичном
+снимке); «base/attacked» ниже — пары вариантов внутри legacy-Runner для режима D-корпуса.
 Атаки/корпус сознательно не анализировались — фокус: как происходит замер.
 
 ## 1. Конфигурация прогона
@@ -23,22 +26,28 @@
 - Проверка seed'ов и каталога — `_prepare` (report_cli/pipeline.py:80-101): непустой каталог,
   уникальные seed, наличие `g0` и атак; расписание строится заранее для всех seed (pipeline.py:92-95).
 
-## 2. Расписание и парные прогоны
+## 2. Расписание и прогон-микс
 
-- `RunPlan` (runner/plan.py:51-91): master_seed, `w_a=0.2`, `mean_gap=3.0`, `sla_minutes=60`,
-  `replay="first_block"`, `foundation` (v1/v2/v2r; замороженная матрица закреплена за **v1**),
-  `trusted_facts` (gt_rev6/declared), corpus_dir → `corpus/` (v2). Отпечаток плана —
-  `fingerprint()` plan.py:186-187.
-- Срез корпуса: `select_entries` plan.py:251-264 — каждой атаке нужен её контроль (FR-1.22).
-- Расписание — чистая функция `build_schedule` plan.py:267-296: блоки подбираются так, чтобы
-  каждая атака попала в поток; порядок шаффлится производными seed'ами; поток блока —
-  `manual_queue.build_flow` (пуассоновские прибытия, `w_a`, `mean_gap`) arrivals.py:52-67;
-  `VARIANTS = ("base", "attacked")` plan.py:27 — base = только legal-слоты.
-- Replay: повтор обоих вариантов в новом каталоге + сверка траекторий (orchestrator.py:292-311),
+- `RunPlan` (runner/plan.py:29-260): master_seed, `w_a=0.2`, `mean_gap=3.0`, `sla_minutes=60`,
+  `replay="first_block"`, `foundation` (v1/v2/v2r; замороженная матрица закреплена за **v1**;
+  отпечатки границы — `plan_contract`/`boundary_contract`, не импорт executor'а), `trusted_facts`
+  (gt_rev6/declared), corpus_dir → `corpus/` (v2). Отпечаток плана — `fingerprint()` plan.py:212.
+- Срез корпуса: `select_entries` plan.py:288 — каждой атаке нужен её контроль (FR-1.22).
+- Расписание: `plan.build_schedule` (plan.py:304-309) — совместимая обёртка; сам алгоритм с #68
+  у адаптера трафика — `legal_traffic.build_schedule` (legal_traffic.py:28-63): блоки
+  подбираются так, чтобы каждая атака попала в поток; порядок шаффлится производными seed'ами;
+  поток блока — `manual_queue.build_flow` (пуассоновские прибытия, `w_a`, `mean_gap`).
+  `VARIANTS = ("base", "attacked")` plan.py:26 — base = только legal-слоты (терминология
+  канона dvarp#20: прогон — микс; пары base/attacked — механика legacy-Runner режима D).
+- Два пути Runner (#19/#55): legacy `Runner` (orchestrator.py:138, пары base/attacked,
+  режим D-корпуса, атакующий в процессе) и сервисный `SvcRunner` (runner/svc.py:296,
+  одноконтурный, только легальный трафик через `TrafficPort`, defender-svc процессом —
+  [defender-svc.md](defender-svc.md)).
+- Replay: повтор вариантов в новом каталоге + сверка траекторий (orchestrator.py),
   дефекты → событие `reproducibility_defect`.
-- `Runner.run` (orchestrator.py:314-347): манифест до первого эпизода (:240-258); на каждую
-  конфигурацию `run_config` (:275-312): seed → расписание → менеджер снимков → пары
-  `run_paired` по блокам; seed floor ≥ 3 (:350-362).
+- `Runner.run` (orchestrator.py:228-348): манифест до первого эпизода; на каждую
+  конфигурацию `run_config` (orchestrator.py:275): seed → расписание → менеджер снимков →
+  пары `run_paired` по блокам; seed floor ≥ 3 (orchestrator.py:350).
 
 ## 3. Жизненный цикл эпизода
 
@@ -146,24 +155,38 @@
 
 ## 7. Сборка отчёта
 
-- `run_offline` (pipeline.py:578-599): `_prepare` → под `no_network` по seed'ам `_run_seed`
-  (:562-575: Runner.run → compute(reference="g0") → metrics.write) → контур-отчёт
-  (:104-136: imports/guards/requirements/no_network) → `_finish` (:446-559).
+- `run_offline` (pipeline.py:628): `_prepare` → под `no_network` по seed'ам `_run_seed`
+  (:611-626: Runner.run → compute(reference="g0") → metrics.write) → контур-отчёт
+  (pipeline.py:104-136: imports/guards/requirements/no_network) → `_finish` (:495).
+- **Метрики через движок-сервис** (#33/#56): `report_cli offline|live --metrics-svc` —
+  смоук исправности прибора (`instrument_smoke` pipeline.py:153: журналы целы, у каждого
+  эпизода вердикт оценщика) → `MetricsService` (metrics_svc/client.py:54, `svckit.ServiceProcess`,
+  `PYTHONHASHSEED=0`) отправляет каталог прогона, сервис проверяет хеш-цепочки (422
+  `telemetry_invalid` при разрыве) и возвращает metrics.json/CSV/отчёт; `write_report`
+  (client.py:83) кладёт файлы в `seed-N/metrics`. В офлайне сервис вызывается после блока
+  запрета сети (loopback под запретом, #61: переделка — allowlist, см. issue #61).
+  Байт-в-байт тесты запирают «сервис == в-процессе» (tests/test_metrics_svc.py).
 - `_finish`: `_verify_logs` (:139-150, хеш-цепочки), артефакты NFR-2.14 (:153-214:
   1_source_code, 2_corpus_with_ground_truth, 3_cost_logs_and_traces, 4_analytic_report с
   чеками lstar_row_per_config/pareto_front_nonempty/…, 5_scientific_article = out_of_scope),
-  seed spread + noise floor (:462-466), summary.json (:217-269, :539-555), report.md
-  (:312-443: контур, таблица L*, queue_section, Pareto, разброс seed, самопроверки).
-- Файлы метрик (metrics/report.py:573-588): metrics.json, report.md, CSV —
+  seed spread + noise floor, summary.json, report.md (контур, таблица L*, queue_section,
+  Pareto, разброс seed, самопроверки).
+- Файлы метрик (metrics/report.py): metrics.json, report.md, CSV —
   metrics_table/lstar_table/pareto/leave_one_out/queue_lstar/temporal/dominance/inefficient.
 - **Приёмка** (report_cli/acceptance.py): KEY_REQUIREMENTS :31-49 = FR-1.2,1.3,1.5,1.6,1.7,1.8,1.9,1.13,
   1.14,1.15,1.16,1.17,1.18,1.19,1.24, NFR-2.8, NFR-2.9; FR-1.24 — независимый пересчёт L*
-  (recompute_lstar :223-241); статистическая честность (:875-933); `_statistics` (:936).
+  из `metrics_svc.gates` (`recompute_lstar`/`lstar_check`, gates.py:32-110; acceptance
+  импортирует их, не дублируя формулы); статистическая честность; `_statistics`.
 - **Honest accounting**: стороны — реестр компонентов (event_log/schema.py:25-42:
   defender/attacker/harness; guard:* → defender); строго раздельно defender_borne /
   self_limited / harness (event_log/costs.py:113-131); в ΔNet — только defender_borne,
-  self_limited — отдельной строкой (breakeven.py:38, analysis.py:147-148).
-- `verify_output` (pipeline.py:708-740): индекс, журналы, пересчёт метрик байт-в-байт,
+  self_limited — отдельной строкой (breakeven.py:38, analysis.py:147-148); транспорт к
+  defender-svc — отдельная строка `defender_borne_transport` (#19).
+- **Гейт G-tau** (#33): ложное прерывание = легальный эпизод base-потока, где политика
+  выбрала isolate/escalate/terminate (`gates.py:26-27, 109-126`); агентская эскалация по
+  открытой просьбе клиента (`customer_request`) не считается; τ=5%, Wilson 95% CI;
+  провалившая конфигурация помечается, не исключается.
+- `verify_output` (pipeline.py:770): индекс, журналы, пересчёт метрик байт-в-байт,
   неизменность хеша кода.
 
 ## 8. Верификация (scripts/verify.py, main :296-451)
