@@ -39,7 +39,9 @@ class State:
 
     def dispatch(self, path, body):
         if path == "flow":
-            if self.closed or self.invite is not None:
+            if self.closed:
+                raise HTTPError(409, "flow_closed")
+            if self.invite is not None:
                 raise HTTPError(409, "flow_already_opened")
             invite = FlowInvite(**body["invite"])
             if (
