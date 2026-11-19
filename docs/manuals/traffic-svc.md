@@ -1,7 +1,7 @@
 # Мануал: сервис легального трафика
 
-> Срез: `develop` e3a3ef5 + ветка `Issue-#36`, 2026-11-19.
-> Актуализировать при изменении TrafficPort, формата снимка/манифеста или канала.
+> Срез: `develop` `ae27e98` (post-#75) + ветка `feat/76-llm-traffic`, 2026-11-19.
+> Актуализировать при изменении TrafficPort, формата снимка/манифеста, канала или клиента.
 
 1. Запускай `python -m darp_range.runner svc --configs g0,g_proc --split dev
    --blocks 1 --out runs/traffic`. Фабрика — `SvcTraffic`
@@ -47,6 +47,29 @@ bind, текст/summary, повтор без двойного шага, отк�
 падение процесса и два блока/две конфигурации с общим CSV-снимком. Сравнение с
 обоими сервисами: `tests/test_traffic_svc.py:189`; регрессия defender-сервиса —
 `tests/test_defender_svc.py:129`. Общий быстрый набор включает оба модуля.
+
+Клиент легального трафика (issue #76). Природа клиента выбирается планом
+(`RunPlan.customer_mode`, `darp_range/runner/plan.py:95`; по умолчанию
+"scripted" — из отпечатка плана исключается) и флагом
+`python -m darp_range.runner svc --customer llm`; адаптер кладёт выбор в
+launch.json (`launch["client"] = {"kind": ...}`, `darp_range/runner/traffic.py:41`).
+В сервисе конфигурация разбирается до ready.json: `client_config` +
+`ensure_model_available` (`darp_range/traffic_svc/customer.py:42`) — живой режим
+без `RESEARCH_LLM_*` отказывает на старте, а не во время диалога. При bind
+клиент создаётся по kind: scripted — прежний путь `CorpusTraffic.client`
+(`ResponsiveUser` по фактам, `darp_range/runner/legal_traffic.py:109`);
+llm — `make_llm_client` (`darp_range/traffic_svc/customer.py:61`): модель
+per-episode через общий `llm.make_chat_model` (role="customer", режим stub —
+детерминированный data-only профиль `CUSTOMER_STUB_PROFILE`, live — `RESEARCH_LLM_*`),
+seed = `derive_seed(invite.seed, "traffic", "customer", episode_id)`. `LlmUser`
+(`darp_range/channel/llm_user.py:62`) реализует тот же протокол: первая реплика —
+скриптовая из корпуса (общий детерминированный старт), далее модель по истории
+(system-промпт строится ТОЛЬКО из фактов клиента; наружу — текст; ground truth
+и guard-решения клиенту не передаются). Расходы модели — в `summary()`
+(usage/turns/версия), harness пишет их событием `legal_user` как данные
+(`darp_range/runner/flow.py:429`), cost-поле не используется — split accounting
+сторон (NFR-2.9) не затронут. Защищаемая сторона не знает, scripted клиент или
+модель: текстовый барьер сохраняется. Проверки: `tests/test_llm_user.py`.
 
 Особенность defender-сервиса: SQLite-соединение нельзя использовать из разных
 HTTP-потоков даже под lock. Все операции эпизода выполняются одним worker

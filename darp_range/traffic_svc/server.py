@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import threading
 from dataclasses import replace
 from pathlib import Path
@@ -14,6 +15,8 @@ from darp_range.runner.ports import FlowInvite
 from darp_range.state_store.manifest import verify_manifest
 from darp_range.state_store.store import load_snapshot, verify_snapshot, state_hash
 from darp_range.svckit import HTTPError, JSONHandler
+
+from .customer import client_config, ensure_model_available, make_llm_client
 
 
 class State:
@@ -29,6 +32,10 @@ class State:
                     raise ValueError("manifest account/archetype references a different order")
         self.snapshot_id = launch["snapshot_id"]
         self.plan = RunPlan(**launch["plan"])
+        # Клиент по launch-конфигу (issue #76): scripted — прежний путь; llm — модель.
+        # Живая модель проверяется здесь: отказ до ready.json, не во время диалога.
+        self.client_cfg = client_config(launch)
+        ensure_model_available(self.client_cfg["kind"], self.client_cfg["mode"], environ=os.environ)
         self.entries = {e["id"]: e for e in launch["entries"]}
         self.lock = threading.Lock()
         self.invite = None
@@ -84,7 +91,18 @@ class State:
                 entry, body["entry_index"], db, episode_id=body["episode_id"], traffic="legal"
             )
             handle = str(len(self.clients))
-            self.clients[handle] = self.traffic.client(bound)
+            if self.client_cfg["kind"] == "scripted":
+                client = self.traffic.client(bound)
+            else:
+                client = make_llm_client(
+                    bound,
+                    kind=self.client_cfg["kind"],
+                    mode=self.client_cfg["mode"],
+                    invite_seed=self.invite.seed,
+                    episode_id=body["episode_id"],
+                    environ=os.environ,
+                )
+            self.clients[handle] = client
             return {
                 "actor_id": bound.actor_id,
                 "ticket_id": bound.ticket_id,
