@@ -4,7 +4,9 @@ NFR-2.5: все проверяемые компоненты запускаютс
 конкретной версией. В zero-версии это сводится к четырём проверяемым фактам:
 
 1. `no_network()` — офлайн-прогон выполняется с запретом сетевых соединений на уровне
-   `socket`: любая попытка (кроме AF_UNIX) обрывается `NetworkBlocked` и записывается.
+   `socket`: любая попытка обрывается `NetworkBlocked` и записывается; исключение —
+   соединения с собственными сервисами по allowlist (порт из их ready.json, только
+   loopback; issue #61), каждый разрешённый ход фиксируется и сводится в contour.json.
    Это доказательство, а не обещание: если какой-то компонент полезет в сеть, прогон упадёт.
 2. `import_audit()` — статический разбор импортов пакета `darp_range` (ast): на уровне
    модулей допустимы только стандартная библиотека и сам пакет; динамические импорты
@@ -20,6 +22,7 @@ NFR-2.5: все проверяемые компоненты запускаютс
 from __future__ import annotations
 
 import ast
+import ipaddress
 import socket
 import sys
 from contextlib import contextmanager
@@ -39,19 +42,64 @@ class NetworkBlocked(ConnectionError):
 @dataclass
 class NetworkGuard:
     attempts: list[str] = field(default_factory=list)
+    allowed: list[dict[str, Any]] = field(default_factory=list)
 
     def to_json(self) -> dict[str, Any]:
-        return {"network_blocked": True, "attempts": len(self.attempts),
-                "targets": sorted(set(self.attempts))}
+        agg: dict[tuple[str, str, int], int] = {}
+        for a in self.allowed:
+            key = (a["service"], a["host"], a["port"])
+            agg[key] = agg.get(key, 0) + 1
+        return {
+            "network_blocked": True,
+            "attempts": len(self.attempts),
+            "targets": sorted(set(self.attempts)),
+            "allowed": [
+                {"service": s, "host": h, "port": p, "connections": n}
+                for (s, h, p), n in sorted(agg.items())
+            ],
+        }
+
+
+def _tcp_target(address: Any) -> tuple[str, int] | None:
+    """(host, port) TCP/UDP-цели; None — цель не разобрать (строки AF_UNIX и прочее)."""
+    if isinstance(address, tuple) and len(address) >= 2 and isinstance(address[1], int):
+        try:
+            return str(address[0]), int(address[1])
+        except (TypeError, ValueError):
+            return None
+    return None
 
 
 @contextmanager
-def no_network() -> Iterator[NetworkGuard]:
+def no_network(allow: Mapping[str, int] | None = None) -> Iterator[NetworkGuard]:
     """Запрет TCP/UDP-соединений внутри блока (AF_UNIX разрешён). `socket.create_connection`
-    и urllib проходят через `socket.connect` и перехватываются им."""
+    и urllib проходят через `socket.connect` и перехватываются им.
+
+    Issue #61: соединения с собственными сервисами пропускаются по allowlist
+    `имя сервиса → порт` (порт — из ready.json сервиса); только loopback, каждый
+    разрешённый ход фиксируется в guard.allowed (в contour.json — сводно)."""
+    allow_ports = {int(p): name for name, p in (allow or {}).items()}
     guard = NetworkGuard()
     orig_connect, orig_connect_ex = socket.socket.connect, socket.socket.connect_ex
     orig_sendto = socket.socket.sendto
+
+    def _allowed_target(address: Any) -> tuple[str, tuple[str, int]] | None:
+        t = _tcp_target(address)
+        if t is None:
+            return None
+        host, port = t
+        name = allow_ports.get(port)
+        if name is None:
+            return None
+        if host == "localhost" or host.endswith(".localhost"):
+            return name, t
+        try:
+            ip = ipaddress.ip_address(host)
+        except ValueError:
+            return None
+        if ip.is_loopback:
+            return name, t
+        return None
 
     def _deny(target: Any) -> None:
         guard.attempts.append(repr(target)[:120])
@@ -60,15 +108,30 @@ def no_network() -> Iterator[NetworkGuard]:
     def connect(self, address):  # noqa: ANN001 — сигнатура socket.connect
         if self.family == getattr(socket, "AF_UNIX", None):
             return orig_connect(self, address)
+        hit = _allowed_target(address)
+        if hit is not None:
+            name, (host, port) = hit
+            guard.allowed.append({"service": name, "host": host, "port": port})
+            return orig_connect(self, address)
         _deny(address)
 
     def connect_ex(self, address):  # noqa: ANN001
         if self.family == getattr(socket, "AF_UNIX", None):
             return orig_connect_ex(self, address)
+        hit = _allowed_target(address)
+        if hit is not None:
+            name, (host, port) = hit
+            guard.allowed.append({"service": name, "host": host, "port": port})
+            return orig_connect_ex(self, address)
         _deny(address)
 
     def sendto(self, data, *args):  # noqa: ANN001
         if self.family == getattr(socket, "AF_UNIX", None):
+            return orig_sendto(self, data, *args)
+        hit = _allowed_target(args[-1] if args else None)
+        if hit is not None:
+            name, (host, port) = hit
+            guard.allowed.append({"service": name, "host": host, "port": port})
             return orig_sendto(self, data, *args)
         _deny(args[-1] if args else None)
 
@@ -115,15 +178,20 @@ def import_audit(package_dir: str | Path) -> dict[str, Any]:
                 top = m.split(".")[0]
                 if top != PACKAGE and top not in stdlib:
                     third_party.append({"file": rel, "line": n.lineno, "module": m})
-    return {"files": len(files), "third_party": third_party, "dynamic": dynamic,
-            "ok": not third_party,
-            "note": "module-level imports: stdlib + darp_range only; dynamic imports are "
-                    "optional deps of disabled-by-default adapters"}
+    return {
+        "files": len(files),
+        "third_party": third_party,
+        "dynamic": dynamic,
+        "ok": not third_party,
+        "note": "module-level imports: stdlib + darp_range only; dynamic imports are "
+        "optional deps of disabled-by-default adapters",
+    }
 
 
 def guard_audit(configs: Iterable[Any], catalog: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
     """Гвардрейлы выбранных конфигураций против каталога реестра (NFR-2.4/2.5)."""
     from darp_range.repro.manifest import FLOATING_VERSIONS
+
     meta = {m["plugin_id"]: m for m in catalog}
     used: dict[str, list[str]] = {}
     for cfg in configs:
@@ -143,32 +211,59 @@ def guard_audit(configs: Iterable[Any], catalog: Iterable[Mapping[str, Any]]) ->
         if any(w in str(m["license"]).lower() for w in FORBIDDEN_LICENSE_WORDS):
             issues.append(f"лицензия {m['license']!r} не OSS")
         problems += [f"{pid}: {i}" for i in issues]
-        rows.append({"plugin_id": pid, "version": m["version"], "deployment": m["deployment"],
-                     "license": m["license"] or "project-internal", "mechanism": m["mechanism"],
-                     "configs": sorted(used[pid]), "ok": not issues})
+        rows.append(
+            {
+                "plugin_id": pid,
+                "version": m["version"],
+                "deployment": m["deployment"],
+                "license": m["license"] or "project-internal",
+                "mechanism": m["mechanism"],
+                "configs": sorted(used[pid]),
+                "ok": not issues,
+            }
+        )
     return {"guards": rows, "problems": problems, "ok": not problems}
 
 
 def endpoint_audit(environ: Mapping[str, str]) -> dict[str, Any]:
     """Живой режим: локальность endpoint и закреплённость модели (без раскрытия ключа)."""
     from darp_range.llm import LLMConfigError, LLMSettings
+
     try:
         s = LLMSettings.from_env(environ)
     except LLMConfigError as exc:
         return {"ok": False, "error": str(exc)}
     d = s.public_dict()
-    return {"ok": True, "base_url": d["base_url"], "model": d["model"], "params_b": d["params_b"],
-            "size_status": d["size_status"], "api_key_set": d["api_key_set"],
-            "size_warning": s.size.warning}
+    return {
+        "ok": True,
+        "base_url": d["base_url"],
+        "model": d["model"],
+        "params_b": d["params_b"],
+        "size_status": d["size_status"],
+        "api_key_set": d["api_key_set"],
+        "size_warning": s.size.warning,
+    }
 
 
 # Признаки внешнего исполнителя модели в ответах/ошибках сервера (прокси-маршрутизаторы).
-EXTERNAL_MARKERS = ("openrouter", "together.ai", "fireworks", "deepinfra", "groq", "anyscale",
-                    "api.openai.com", "anthropic", "darkbloom")
+EXTERNAL_MARKERS = (
+    "openrouter",
+    "together.ai",
+    "fireworks",
+    "deepinfra",
+    "groq",
+    "anyscale",
+    "api.openai.com",
+    "anthropic",
+    "darkbloom",
+)
 
 
-def classify_model_contour(upstream_providers: Mapping[str, int], error_texts: Iterable[str] = (),
-                           served_models: Iterable[str] = ()) -> dict[str, Any]:
+def classify_model_contour(
+    upstream_providers: Mapping[str, int],
+    error_texts: Iterable[str] = (),
+    served_models: Iterable[str] = (),
+) -> dict[str, Any]:
     """Флаг контура NFR-2.5 по ФАКТИЧЕСКОМУ исполнителю модели (ревизия 1, критик №6).
 
     Адрес endpoint на loopback ничего не говорит о том, где исполняется модель: локальный
@@ -182,14 +277,20 @@ def classify_model_contour(upstream_providers: Mapping[str, int], error_texts: I
     Хеш весов через API недоступен и не придумывается (`weights_sha256: None`)."""
     ev = []
     if upstream_providers:
-        ev.append("server reported upstream provider(s): "
-                  + ", ".join(f"{k}×{v}" for k, v in sorted(upstream_providers.items())))
+        ev.append(
+            "server reported upstream provider(s): "
+            + ", ".join(f"{k}×{v}" for k, v in sorted(upstream_providers.items()))
+        )
     hits = sorted({m for t in error_texts for m in EXTERNAL_MARKERS if m in (t or "").lower()})
     if hits:
         ev.append("error messages name external routers/providers: " + ", ".join(hits))
     served = sorted({m for m in served_models if m})
-    return {"model_contour": "external" if ev else "unverified",
-            "local_execution_confirmed": False, "evidence": ev,
-            "served_model_ids": served, "weights_sha256": None,
-            "weights_note": "weight hash/revision is not exposed by the OpenAI-compatible API; "
-                            "only the served model id is pinned"}
+    return {
+        "model_contour": "external" if ev else "unverified",
+        "local_execution_confirmed": False,
+        "evidence": ev,
+        "served_model_ids": served,
+        "weights_sha256": None,
+        "weights_note": "weight hash/revision is not exposed by the OpenAI-compatible API; "
+        "only the served model id is pinned",
+    }

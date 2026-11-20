@@ -36,9 +36,21 @@ from darp_range.configs import load_frozen
 from darp_range.guard_contract.registry import DEFAULT_REGISTRY
 from darp_range.llm import ChatModel, LimitExceeded, LLMConfigError
 from darp_range.report_cli import (
-    BudgetError, LiveBudget, NetworkBlocked, PipelineError, RunMeter, endpoint_audit, guard_audit,
-    import_audit, live_model_factory, no_network, planned_episodes, preflight, run_live,
-    run_offline, verify_output,
+    BudgetError,
+    LiveBudget,
+    NetworkBlocked,
+    PipelineError,
+    RunMeter,
+    endpoint_audit,
+    guard_audit,
+    import_audit,
+    live_model_factory,
+    no_network,
+    planned_episodes,
+    preflight,
+    run_live,
+    run_offline,
+    verify_output,
 )
 from darp_range.report_cli import pipeline as pl
 from darp_range.report_cli.live import live_settings
@@ -47,12 +59,16 @@ from darp_range.runner.testkit import drifting_model_factory
 
 ROOT = Path(__file__).resolve().parents[1]
 # 2 оператора: при K=1 эскалации атак g_in делают аналитическую очередь нестабильной (ρ ≥ 1)
-SMALL = dict(entries=("atk-01", "atk-02", "ctl-01", "ctl-02"), blocks=1, n_legal=4, w_a=0.4,
-             operators=2)
+SMALL = dict(
+    entries=("atk-01", "atk-02", "ctl-01", "ctl-02"), blocks=1, n_legal=4, w_a=0.4, operators=2
+)
 SMALL_CONFIGS = ["g0", "g0_seed2", "g_in", "g_in_detect_only", "g_proc"]
 KEY = "sk-test-SECRET-do-not-leak-4242"
-ENV = {"RESEARCH_LLM_BASE_URL": "http://127.0.0.1:9/v1", "RESEARCH_LLM_MODEL": "fake-qwen3.5-9b",
-       "RESEARCH_LLM_API_KEY": KEY}
+ENV = {
+    "RESEARCH_LLM_BASE_URL": "http://127.0.0.1:9/v1",
+    "RESEARCH_LLM_MODEL": "fake-qwen3.5-9b",
+    "RESEARCH_LLM_API_KEY": KEY,
+}
 
 
 class FakeServer:
@@ -66,10 +82,14 @@ class FakeServer:
     def __call__(self, url, headers, body, timeout):
         self.calls.append(json.loads(body))
         self.headers.append(dict(headers))
-        resp = {"choices": [{"message": {"role": "assistant", "content": self.content},
-                             "finish_reason": "stop"}],
-                "usage": {"prompt_tokens": 100, "completion_tokens": 10}, "model": "fake-qwen3.5-9b",
-                "provider": "UpstreamX"}
+        resp = {
+            "choices": [
+                {"message": {"role": "assistant", "content": self.content}, "finish_reason": "stop"}
+            ],
+            "usage": {"prompt_tokens": 100, "completion_tokens": 10},
+            "model": "fake-qwen3.5-9b",
+            "provider": "UpstreamX",
+        }
         return 200, json.dumps(resp).encode()
 
 
@@ -80,6 +100,7 @@ def _tmp(test: unittest.TestCase) -> Path:
 
 
 # ------------------------------------------------------------------ контур NFR-2.5
+
 
 class ContourTest(unittest.TestCase):
     def test_no_network_blocks_tcp_and_urllib_then_restores(self):
@@ -118,6 +139,49 @@ class ContourTest(unittest.TestCase):
         finally:
             srv.close()
 
+    def test_no_network_allowlist_own_services(self):
+        # свой сервис на loopback: соединения проходят и фиксируются каждый ход
+        srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(8)
+        port = srv.getsockname()[1]
+        try:
+            with no_network(allow={"metrics-svc": port}) as g:
+                for _ in range(3):
+                    c = socket.create_connection(("127.0.0.1", port), timeout=1)
+                    c.close()
+        finally:
+            srv.close()
+        self.assertEqual(len(g.allowed), 3)
+        self.assertEqual(g.allowed[0]["service"], "metrics-svc")
+        self.assertEqual(g.allowed[0]["port"], port)
+        j = g.to_json()
+        self.assertEqual(
+            j["allowed"],
+            [
+                {"service": "metrics-svc", "host": "127.0.0.1", "port": port, "connections": 3},
+            ],
+        )
+        self.assertEqual(j["attempts"], 0)
+
+    def test_no_network_allowlist_strict(self):
+        # чужой порт и не-loopback с разрешённым портом — запрет; connect_ex тоже перехвачен
+        with no_network(allow={"metrics-svc": 7}) as g:
+            with self.assertRaises(NetworkBlocked):
+                socket.create_connection(("127.0.0.1", 9), timeout=1)
+            with self.assertRaises(NetworkBlocked):
+                socket.create_connection(("10.0.0.1", 7), timeout=1)
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            with self.assertRaises(NetworkBlocked):
+                s.connect_ex(("127.0.0.1", 9))
+            u = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            with self.assertRaises(NetworkBlocked):
+                u.sendto(b"x", ("127.0.0.1", 9))
+            u.close()
+            s.close()
+        self.assertEqual(g.allowed, [])
+        self.assertGreaterEqual(len(g.attempts), 4)
+
     def test_import_audit_real_package_is_stdlib_only(self):
         a = import_audit(ROOT / "darp_range")
         self.assertTrue(a["ok"], a["third_party"])
@@ -128,8 +192,9 @@ class ContourTest(unittest.TestCase):
         d = _tmp(self) / "pkg"
         (d / "sub").mkdir(parents=True)
         (d / "__init__.py").write_text("import json\nfrom . import sub\n", encoding="utf-8")
-        (d / "sub" / "m.py").write_text("def f():\n    import numpy as np\n    return np\n",
-                                        encoding="utf-8")
+        (d / "sub" / "m.py").write_text(
+            "def f():\n    import numpy as np\n    return np\n", encoding="utf-8"
+        )
         a = import_audit(d)
         self.assertFalse(a["ok"])
         self.assertEqual([x["module"] for x in a["third_party"]], ["numpy"])
@@ -139,12 +204,21 @@ class ContourTest(unittest.TestCase):
         cat = DEFAULT_REGISTRY.catalog()
         ok = guard_audit([cs[n] for n in cs.names()], cat)
         self.assertTrue(ok["ok"], ok["problems"])
-        self.assertEqual({g["plugin_id"] for g in ok["guards"]},
-                         {"input-filter", "tool-arg-validator", "context-provenance", "output-leak",
-                          "deberta-pi-v2"})     # ревизия 2: OSS-детектор в lock v3 (g_in_oss)
-        for field_, val, word in (("deployment", "cloud_api", "deployment"),
-                                  ("version", "latest", "плавающая"),
-                                  ("license", "Proprietary EULA", "лицензия")):
+        self.assertEqual(
+            {g["plugin_id"] for g in ok["guards"]},
+            {
+                "input-filter",
+                "tool-arg-validator",
+                "context-provenance",
+                "output-leak",
+                "deberta-pi-v2",
+            },
+        )  # ревизия 2: OSS-детектор в lock v3 (g_in_oss)
+        for field_, val, word in (
+            ("deployment", "cloud_api", "deployment"),
+            ("version", "latest", "плавающая"),
+            ("license", "Proprietary EULA", "лицензия"),
+        ):
             bad = [dict(m, **{field_: val}) if m["plugin_id"] == "input-filter" else m for m in cat]
             r = guard_audit([cs["g_in"]], bad)
             self.assertFalse(r["ok"], field_)
@@ -164,6 +238,7 @@ class ContourTest(unittest.TestCase):
 
 
 # ------------------------------------------------------------------ живой бюджет
+
 
 class LiveBudgetTest(unittest.TestCase):
     def _models(self, meter, n=2):
@@ -222,11 +297,13 @@ class LiveBudgetTest(unittest.TestCase):
 
     def test_preflight(self):
         cs = load_frozen(ROOT / "configs")
-        plan = RunPlan(agent_mode="live", replay="none", entries=("atk-02", "ctl-02"),
-                       n_legal=1, w_a=0.5)
+        plan = RunPlan(
+            agent_mode="live", replay="none", entries=("atk-02", "ctl-02"), n_legal=1, w_a=0.5
+        )
         r = Runner(plan, _tmp(self) / "run")
         names = ["g0", "g_in"]
         from darp_range.configs import config_seed
+
         sch = {n: r.schedule(config_seed(7, cs[n])) for n in names}
         dfs = {n: cs[n].defender for n in names}
         pe = planned_episodes(plan, sch, dfs)
@@ -238,17 +315,30 @@ class LiveBudgetTest(unittest.TestCase):
             preflight(plan, LiveBudget(max_episodes=5), sch, dfs)
         # ревизия 1: режим A поддержан в живом прогоне (общий счётчик); каждая лишняя попытка
         # атаки — ещё один эпизод агента в плане
-        mode_a = RunPlan(agent_mode="live", replay="none", entries=("atk-02", "ctl-02"),
-                         n_legal=1, w_a=0.5, attack_mode="A", attack_strategy="llm",
-                         attack_max_attempts=3)
+        mode_a = RunPlan(
+            agent_mode="live",
+            replay="none",
+            entries=("atk-02", "ctl-02"),
+            n_legal=1,
+            w_a=0.5,
+            attack_mode="A",
+            attack_strategy="llm",
+            attack_max_attempts=3,
+        )
         pa = planned_episodes(mode_a, sch, dfs)
         self.assertEqual(pa["per_config"]["g0"], 3 + 2)
-        replay = RunPlan(agent_mode="live", replay="first_block", entries=("atk-02", "ctl-02"),
-                         n_legal=1, w_a=0.5)
+        replay = RunPlan(
+            agent_mode="live",
+            replay="first_block",
+            entries=("atk-02", "ctl-02"),
+            n_legal=1,
+            w_a=0.5,
+        )
         self.assertEqual(planned_episodes(replay, sch, dfs)["total"], 12)
 
 
 # ------------------------------------------------------------------ офлайн-конвейер
+
 
 class OfflinePipelineTest(unittest.TestCase):
     @classmethod
@@ -266,18 +356,34 @@ class OfflinePipelineTest(unittest.TestCase):
     def test_self_checks_and_files(self):
         self.assertTrue(self.res["ok"], self.res["checks"])
         out = self.dir / "a"
-        for f in ("report.md", "summary.json", "artifacts_index.json", "contour.json",
-                  "seed-7/run/manifest.json", "seed-7/run/runner.jsonl",
-                  "seed-7/metrics/metrics.json", "seed-7/metrics/lstar_table.csv",
-                  "seed-7/metrics/metrics_table.csv", "seed-7/metrics/pareto.csv",
-                  "seed-7/metrics/inefficient.csv", "seed-7/metrics/leave_one_out.csv"):
+        for f in (
+            "report.md",
+            "summary.json",
+            "artifacts_index.json",
+            "contour.json",
+            "seed-7/run/manifest.json",
+            "seed-7/run/runner.jsonl",
+            "seed-7/metrics/metrics.json",
+            "seed-7/metrics/lstar_table.csv",
+            "seed-7/metrics/metrics_table.csv",
+            "seed-7/metrics/pareto.csv",
+            "seed-7/metrics/inefficient.csv",
+            "seed-7/metrics/leave_one_out.csv",
+        ):
             self.assertTrue((out / f).is_file(), f)
 
     def test_nfr_2_14_index(self):
         idx = self._json("artifacts_index.json")["items"]
-        self.assertEqual(set(idx), {"1_source_code", "2_corpus_with_ground_truth",
-                                    "3_cost_logs_and_traces", "4_analytic_report",
-                                    "5_scientific_article"})
+        self.assertEqual(
+            set(idx),
+            {
+                "1_source_code",
+                "2_corpus_with_ground_truth",
+                "3_cost_logs_and_traces",
+                "4_analytic_report",
+                "5_scientific_article",
+            },
+        )
         for k in list(idx)[:4]:
             self.assertEqual(idx[k]["status"], "present", k)
         self.assertEqual(idx["5_scientific_article"]["status"], "out_of_scope")
@@ -302,12 +408,16 @@ class OfflinePipelineTest(unittest.TestCase):
         self.assertEqual(summ["configs"]["g0"]["status"], "reference")
         # ревизия 2 (K2.10): статус формулы no_safety_gain, итог при малой выборке — unresolved
         self.assertEqual(summ["configs"]["g_in_detect_only"]["formula_status"], "no_safety_gain")
-        self.assertIn(summ["configs"]["g_in_detect_only"]["status"],
-                      ("no_safety_gain", "unresolved"))
+        self.assertIn(
+            summ["configs"]["g_in_detect_only"]["status"], ("no_safety_gain", "unresolved")
+        )
         be = met["configs"]["g_in"]["break_even"]
         self.assertIn(be["formula_status"], ("threshold", "pays_at_any_price"))
-        self.assertTrue(be["status"] == be["formula_status"]
-                        or (be["status"] == "unresolved" and be["unresolved_reasons"]), be)
+        self.assertTrue(
+            be["status"] == be["formula_status"]
+            or (be["status"] == "unresolved" and be["unresolved_reasons"]),
+            be,
+        )
         md = (self.dir / "a/report.md").read_text(encoding="utf-8")
         for n in SMALL_CONFIGS:
             self.assertIn(f"| {n}", md)
@@ -317,7 +427,13 @@ class OfflinePipelineTest(unittest.TestCase):
         c = self._json("contour.json")
         self.assertTrue(c["ok"])
         self.assertEqual(c["network"]["attempts"], 0)
+        # расчёт метрик шёл через собственный сервис внутри блока запрета (issue #61)
+        self.assertEqual([a["service"] for a in c["network"]["allowed"]], ["metrics-svc"])
         self.assertTrue(c["checks"]["imports_stdlib_only"])
+
+    def test_in_process_metrics_refused(self):
+        with self.assertRaises(PipelineError):
+            run_offline(_tmp(self) / "x", RunPlan(**SMALL), configs=["g0"], metrics_svc=False)
 
     def test_deterministic_repeat(self):
         # Траектории и исходы детерминированы побайтно; в C_ep/C_guard входит измеренное
@@ -339,8 +455,9 @@ class OfflinePipelineTest(unittest.TestCase):
         fa = json.loads((self.dir / "a/seed-7/run/run.json").read_text())
         fb = json.loads((self.dir / "b/seed-7/run/run.json").read_text())
         for n in SMALL_CONFIGS:
-            self.assertEqual(fa["configs"][n]["fingerprint_flows"],
-                             fb["configs"][n]["fingerprint_flows"], n)
+            self.assertEqual(
+                fa["configs"][n]["fingerprint_flows"], fb["configs"][n]["fingerprint_flows"], n
+            )
 
     def test_verify_ok_and_tampering_detected(self):
         self.assertTrue(verify_output(self.dir / "a")["ok"])
@@ -429,14 +546,17 @@ class OfflineGuardsTest(unittest.TestCase):
 
 # ------------------------------------------------------------------ живой конвейер (эмулятор)
 
+
 class LivePipelineTest(unittest.TestCase):
-    PLAN = RunPlan(entries=("atk-02", "ctl-02"), n_legal=1, w_a=0.5, replay="none",
-                   agent_mode="live")
+    PLAN = RunPlan(
+        entries=("atk-02", "ctl-02"), n_legal=1, w_a=0.5, replay="none", agent_mode="live"
+    )
 
     def test_live_within_budget(self):
         d, srv = _tmp(self), FakeServer()
-        res = run_live(d / "l", self.PLAN, LiveBudget(), configs=["g0", "g_in"], environ=ENV,
-                       transport=srv)
+        res = run_live(
+            d / "l", self.PLAN, LiveBudget(), configs=["g0", "g_in"], environ=ENV, transport=srv
+        )
         self.assertTrue(res["ok"], res["checks"])
         lv = json.loads((d / "l/live.json").read_text())
         self.assertEqual(lv["meter"]["used"]["requests"], len(srv.calls))
@@ -444,8 +564,11 @@ class LivePipelineTest(unittest.TestCase):
         self.assertEqual(lv["model"]["name"], "fake-qwen3.5-9b")
         man = json.loads((d / "l/seed-7/run/manifest.json").read_text())
         self.assertIn("fake-qwen3.5-9b", json.dumps(man["models"]))
-        self.assertTrue(json.loads((d / "l/contour.json").read_text())["checks"]
-                        ["endpoint_address_local_and_model_pinned"])
+        self.assertTrue(
+            json.loads((d / "l/contour.json").read_text())["checks"][
+                "endpoint_address_local_and_model_pinned"
+            ]
+        )
         md = (d / "l/report.md").read_text(encoding="utf-8")
         self.assertIn("ЖИВАЯ МОДЕЛЬ", md)
         self.assertEqual(lv["degraded"]["upstream_providers"], {"UpstreamX": len(srv.calls)})
@@ -461,8 +584,14 @@ class LivePipelineTest(unittest.TestCase):
 
     def test_live_run_cap_across_configs_and_degraded_episodes(self):
         d, srv = _tmp(self), FakeServer()
-        res = run_live(d / "l", self.PLAN, LiveBudget(max_requests=3, max_requests_per_episode=2),
-                       configs=["g0", "g_in", "g_proc"], environ=ENV, transport=srv)
+        res = run_live(
+            d / "l",
+            self.PLAN,
+            LiveBudget(max_requests=3, max_requests_per_episode=2),
+            configs=["g0", "g_in", "g_proc"],
+            environ=ENV,
+            transport=srv,
+        )
         self.assertEqual(len(srv.calls), 3)
         lv = res["live"]
         self.assertTrue(lv["meter"]["limit_hit"])
@@ -472,32 +601,71 @@ class LivePipelineTest(unittest.TestCase):
     def test_live_refuses_before_any_request(self):
         d, srv = _tmp(self), FakeServer()
         with self.assertRaises(LLMConfigError):
-            run_live(d / "p", self.PLAN, LiveBudget(), configs=["g0"], transport=srv,
-                     environ=dict(ENV, RESEARCH_LLM_BASE_URL="https://api.example.com/v1"))
+            run_live(
+                d / "p",
+                self.PLAN,
+                LiveBudget(),
+                configs=["g0"],
+                transport=srv,
+                environ=dict(ENV, RESEARCH_LLM_BASE_URL="https://api.example.com/v1"),
+            )
         with self.assertRaises(LLMConfigError):
-            run_live(d / "p", self.PLAN, LiveBudget(), configs=["g0"], transport=srv,
-                     environ=dict(ENV, RESEARCH_LLM_MODEL="big-70b"))
+            run_live(
+                d / "p",
+                self.PLAN,
+                LiveBudget(),
+                configs=["g0"],
+                transport=srv,
+                environ=dict(ENV, RESEARCH_LLM_MODEL="big-70b"),
+            )
         with self.assertRaises(BudgetError):
-            run_live(d / "p", self.PLAN, LiveBudget(max_episodes=2), configs=["g0", "g_in"],
-                     environ=ENV, transport=srv)
+            run_live(
+                d / "p",
+                self.PLAN,
+                LiveBudget(max_episodes=2),
+                configs=["g0", "g_in"],
+                environ=ENV,
+                transport=srv,
+            )
         self.assertEqual(srv.calls, [])
         self.assertFalse((d / "p" / "seed-7" / "run" / "results").exists())
 
 
 # ------------------------------------------------------------------ CLI
 
+
 class CliTest(unittest.TestCase):
     def _cli(self, *args, env=None):
         e = {k: v for k, v in os.environ.items() if not k.startswith("RESEARCH_LLM_")}
         e.update(env or {})
-        return subprocess.run([sys.executable, "-m", "darp_range.report_cli", *args], cwd=ROOT,
-                              env=e, capture_output=True, text=True, timeout=300)
+        return subprocess.run(
+            [sys.executable, "-m", "darp_range.report_cli", *args],
+            cwd=ROOT,
+            env=e,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
 
     def test_offline_verify_and_errors(self):
         d = _tmp(self)
-        args = ["offline", "--out", str(d / "o"), "--configs", "g0,g_in",
-                "--entries", "atk-01,atk-02,ctl-01,ctl-02", "--blocks", "1", "--n-legal", "4",
-                "--w-a", "0.4", "--operators", "2"]
+        args = [
+            "offline",
+            "--out",
+            str(d / "o"),
+            "--configs",
+            "g0,g_in",
+            "--entries",
+            "atk-01,atk-02,ctl-01,ctl-02",
+            "--blocks",
+            "1",
+            "--n-legal",
+            "4",
+            "--w-a",
+            "0.4",
+            "--operators",
+            "2",
+        ]
         r = self._cli(*args)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("PASS NFR-2.5: local contour checks", r.stdout)

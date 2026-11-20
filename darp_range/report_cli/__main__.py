@@ -45,27 +45,38 @@ def _plan(a: argparse.Namespace, *, live: bool) -> RunPlan:
     mode = getattr(a, "attack_mode", "D")
     # Явный список записей берётся из всего корпуса; без него офлайн по умолчанию — срез dev.
     split = a.split or (None if entries or live else "dev")
-    return RunPlan(split=split, entries=tuple(entries.split(",")) if entries else None,
-                   n_legal=a.n_legal, w_a=a.w_a, blocks=a.blocks, attack_mode=mode,
-                   attack_strategy="corpus" if mode == "D" else "llm",
-                   agent_mode="live" if live else "stub", replay=a.replay,
-                   master_seed=getattr(a, "seed", 7), mean_gap=a.mean_gap,
-                   service_mode=a.service_mode, operators=a.operators,
-                   attack_max_attempts=getattr(a, "attack_max_attempts", 3),
-                   guard_fault_rate=getattr(a, "guard_fault_rate", 0.0),
-                   corpus_dir=getattr(a, "corpus", None),
-                   agent_profile=getattr(a, "agent_profile", None) or "default",
-                   foundation=getattr(a, "foundation", "v1"),
-                   legal_confirm=getattr(a, "legal_confirm", "facts"),
-                   trusted_facts=getattr(a, "trusted_facts", None))
+    return RunPlan(
+        split=split,
+        entries=tuple(entries.split(",")) if entries else None,
+        n_legal=a.n_legal,
+        w_a=a.w_a,
+        blocks=a.blocks,
+        attack_mode=mode,
+        attack_strategy="corpus" if mode == "D" else "llm",
+        agent_mode="live" if live else "stub",
+        replay=a.replay,
+        master_seed=getattr(a, "seed", 7),
+        mean_gap=a.mean_gap,
+        service_mode=a.service_mode,
+        operators=a.operators,
+        attack_max_attempts=getattr(a, "attack_max_attempts", 3),
+        guard_fault_rate=getattr(a, "guard_fault_rate", 0.0),
+        corpus_dir=getattr(a, "corpus", None),
+        agent_profile=getattr(a, "agent_profile", None) or "default",
+        foundation=getattr(a, "foundation", "v1"),
+        legal_confirm=getattr(a, "legal_confirm", "facts"),
+        trusted_facts=getattr(a, "trusted_facts", None),
+    )
 
 
 def _print(res: dict) -> None:
     print(f"{'config':38s} {'status':18s} {'L* base':>12s} {'L* low':>12s} {'L* high':>12s}")
     for n, r in res["summary"]["configs"].items():
         f = lambda v: "—" if v is None else f"{v:.6g}"  # noqa: E731
-        print(f"{n:38s} {r['status']:18s} {f(r['L_star']):>12s} "
-              f"{f(r['L_star_low_prices']):>12s} {f(r['L_star_high_prices']):>12s}")
+        print(
+            f"{n:38s} {r['status']:18s} {f(r['L_star']):>12s} "
+            f"{f(r['L_star_low_prices']):>12s} {f(r['L_star_high_prices']):>12s}"
+        )
     for n, ok in res["checks"]:
         print(("PASS " if ok else "FAIL ") + n)
     print(f"report: {res['out']}/report.md  ok={res['ok']}  elapsed={res['elapsed_s']}s")
@@ -73,30 +84,46 @@ def _print(res: dict) -> None:
 
 def cmd_offline(a: argparse.Namespace) -> int:
     seeds = tuple(int(x) for x in a.seeds.split(","))
-    res = run_offline(a.out, _plan(a, live=False), seeds=seeds,
-                      configs=a.configs.split(",") if a.configs else None,
-                      l_viol=_floats(a.l_viol), metrics_svc=a.metrics_svc)
+    res = run_offline(
+        a.out,
+        _plan(a, live=False),
+        seeds=seeds,
+        configs=a.configs.split(",") if a.configs else None,
+        l_viol=_floats(a.l_viol),
+        metrics_svc=a.metrics_svc,
+    )
     res["out"] = str(a.out)
     _print(res)
     return 0 if res["ok"] else 1
 
 
 def cmd_live(a: argparse.Namespace) -> int:
-    budget = LiveBudget(max_requests=a.max_requests, max_tokens=a.max_tokens,
-                        max_requests_per_episode=a.max_requests_per_episode,
-                        max_episodes=a.max_episodes, max_wall_s=a.max_wall_s,
-                        timeout_s=a.timeout_s)
-    res = run_live(a.out, _plan(a, live=True), budget,
-                   configs=(a.configs or LIVE_DEFAULT_CONFIGS).split(","),
-                   l_viol=_floats(a.l_viol), in_process_research=a.in_process_research,
-                   metrics_svc=a.metrics_svc)
+    budget = LiveBudget(
+        max_requests=a.max_requests,
+        max_tokens=a.max_tokens,
+        max_requests_per_episode=a.max_requests_per_episode,
+        max_episodes=a.max_episodes,
+        max_wall_s=a.max_wall_s,
+        timeout_s=a.timeout_s,
+    )
+    res = run_live(
+        a.out,
+        _plan(a, live=True),
+        budget,
+        configs=(a.configs or LIVE_DEFAULT_CONFIGS).split(","),
+        l_viol=_floats(a.l_viol),
+        in_process_research=a.in_process_research,
+        metrics_svc=a.metrics_svc,
+    )
     res["out"] = str(a.out)
     _print(res)
     m = res["live"]["meter"]
-    print(f"live: requests={m['used']['requests']}/{m['budget']['max_requests']} "
-          f"tokens={m['used']['tokens_in'] + m['used']['tokens_out']} "
-          f"refused={m['refused_before_send']} degraded={res['live']['degraded']['total']} "
-          f"defects={res['defects']}")
+    print(
+        f"live: requests={m['used']['requests']}/{m['budget']['max_requests']} "
+        f"tokens={m['used']['tokens_in'] + m['used']['tokens_out']} "
+        f"refused={m['refused_before_send']} degraded={res['live']['degraded']['total']} "
+        f"defects={res['defects']}"
+    )
     return 0 if res["ok"] else 1
 
 
@@ -113,41 +140,76 @@ def main(argv: list[str] | None = None) -> int:
         p = sub.add_parser(name)
         p.add_argument("--out", type=Path, required=True)
         p.add_argument("--configs")
-        p.add_argument("--split", choices=("dev", "holdout"),
-                       help="срез корпуса; по умолчанию dev (офлайн без --entries)")
+        p.add_argument(
+            "--split",
+            choices=("dev", "holdout"),
+            help="срез корпуса; по умолчанию dev (офлайн без --entries)",
+        )
         p.add_argument("--entries")
         p.add_argument("--blocks", type=int)
         p.add_argument("--n-legal", type=int)
         p.add_argument("--w-a", type=float, default=0.2 if name == "offline" else 0.5)
-        p.add_argument("--replay", choices=("none", "first_block", "all"),
-                       default="first_block" if name == "offline" else "none")
+        p.add_argument(
+            "--replay",
+            choices=("none", "first_block", "all"),
+            default="first_block" if name == "offline" else "none",
+        )
         p.add_argument("--l-viol", help="иллюстративные цены нарушения через запятую, USD")
         # Нагрузка на общую очередь (§11 п. 5): интервал прибытия легальных обращений, режим
         # времени обслуживания оператора и число операторов.
-        p.add_argument("--mean-gap", type=float, default=3.0,
-                       help="средний интервал прибытия легальных обращений, мин")
-        p.add_argument("--service-mode", choices=("fast", "base", "slow"), default="base",
-                       help="время обслуживания оператора: 4 / 8 / 15 мин")
+        p.add_argument(
+            "--mean-gap",
+            type=float,
+            default=3.0,
+            help="средний интервал прибытия легальных обращений, мин",
+        )
+        p.add_argument(
+            "--service-mode",
+            choices=("fast", "base", "slow"),
+            default="base",
+            help="время обслуживания оператора: 4 / 8 / 15 мин",
+        )
         p.add_argument("--operators", type=int, default=1)
-        p.add_argument("--metrics-svc", action="store_true",
-                       help="метрики через metrics-svc на 127.0.0.1 (issue #33)")
-        p.add_argument("--attack-mode", choices=("D", "A"), default="D",
-                       help="D — корпус; A — адаптивный LLM-атакующий (живой: та же модель и "
-                            "общий бюджет запросов)")
+        p.add_argument(
+            "--metrics-svc",
+            action=argparse.BooleanOptionalAction,
+            default=True,
+            help="метрики через metrics-svc на 127.0.0.1 (issue #61: только через "
+            "сервис; --no-metrics-svc отклоняется)",
+        )
+        p.add_argument(
+            "--attack-mode",
+            choices=("D", "A"),
+            default="D",
+            help="D — корпус; A — адаптивный LLM-атакующий (живой: та же модель и "
+            "общий бюджет запросов)",
+        )
         p.add_argument("--attack-max-attempts", type=int, default=3, help="только режим A")
-        p.add_argument("--guard-fault-rate", type=float, default=0.0,
-                       help="доля смоделированных сбоев вызовов гвардрейлов (fail-open/closed)")
-        p.add_argument("--agent-profile", default="default",
-                       help="профиль заглушки агента (офлайн): default | claims | hardened | "
-                            "claims_hardened (ревизия 3, K3.2)")
-        p.add_argument("--corpus", help="каталог замороженного корпуса относительно корня "
-                                        "(по умолчанию corpus/; holdout v2 — corpus/holdout_v2)")
+        p.add_argument(
+            "--guard-fault-rate",
+            type=float,
+            default=0.0,
+            help="доля смоделированных сбоев вызовов гвардрейлов (fail-open/closed)",
+        )
+        p.add_argument(
+            "--agent-profile",
+            default="default",
+            help="профиль заглушки агента (офлайн): default | claims | hardened | "
+            "claims_hardened (ревизия 3, K3.2)",
+        )
+        p.add_argument(
+            "--corpus",
+            help="каталог замороженного корпуса относительно корня "
+            "(по умолчанию corpus/; holdout v2 — corpus/holdout_v2)",
+        )
         # ревизия 6: основа (v1 — boundary-1/evaluator-1, исторический baseline; v2 —
         # boundary-2/evaluator-2/схема v2) и режим ответа легального клиента на подтверждение
         p.add_argument("--foundation", choices=("v1", "v2", "v2r"), default="v1")
         # ревизия 7: источник доверенных записей (по умолчанию основы: v2 — gt_rev6, v2r — declared)
         p.add_argument("--trusted-facts", choices=("gt_rev6", "declared"), default=None)
-        p.add_argument("--legal-confirm", choices=("facts", "grammar_rev5", "facts_patient"), default="facts")
+        p.add_argument(
+            "--legal-confirm", choices=("facts", "grammar_rev5", "facts_patient"), default="facts"
+        )
         if name == "offline":
             p.add_argument("--seeds", default="7", help="master seed'ы через запятую")
         else:
@@ -159,9 +221,12 @@ def main(argv: list[str] | None = None) -> int:
             p.add_argument("--max-wall-s", type=float, default=900.0)
             p.add_argument("--timeout-s", type=float, default=60.0)
             # ревизия 11 (broker-fail-closed): режим A по умолчанию — атакующий в sandbox bwrap
-            p.add_argument("--in-process-research", action="store_true",
-                           help="режим A: атакующий в одном процессе с защитой (claim_level "
-                                "in_process_research); по умолчанию — sandbox bwrap")
+            p.add_argument(
+                "--in-process-research",
+                action="store_true",
+                help="режим A: атакующий в одном процессе с защитой (claim_level "
+                "in_process_research); по умолчанию — sandbox bwrap",
+            )
     p = sub.add_parser("verify")
     p.add_argument("--out", type=Path, required=True)
     a = ap.parse_args(argv)

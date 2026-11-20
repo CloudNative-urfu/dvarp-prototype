@@ -1,9 +1,11 @@
-"""Сквозной прогон полигона: runner → metrics → L* → индекс артефактов NFR-2.14 → отчёт.
+"""Сквозной прогон полигона: runner → metrics-svc → L* → индекс артефактов NFR-2.14 → отчёт.
 
 `run_offline` — все (или выбранные) замороженные конфигурации на детерминированной заглушке
-модели, под запретом сети (`contour.no_network`), на одном или нескольких master seed
-(seed floor). `run_live` — тот же конвейер с моделью агента через RESEARCH_LLM_* на общем
-счётчике запросов (`live.RunMeter`) и с бюджетом, проверяемым до старта.
+модели, под запретом сети (`contour.no_network`; соединения с собственными сервисами —
+по allowlist, issue #61), расчёт метрик — только через metrics-svc, на одном или
+нескольких master seed (seed floor). `run_live` — тот же конвейер с моделью агента через
+RESEARCH_LLM_* на общем счётчике запросов (`live.RunMeter`) и с бюджетом, проверяемым
+до старта.
 
 Раскладка выходного каталога (не перезаписывается):
 
@@ -165,8 +167,12 @@ def instrument_smoke(run_dir: str | Path) -> dict[str, Any]:
             for e in f["episodes"]:
                 n += 1
                 v = e.get("verdict") or {}
-                if not (isinstance(v.get("state"), Mapping) and v.get("start_hash")
-                        and v.get("final_hash") == e.get("final_hash") and v.get("task_status")):
+                if not (
+                    isinstance(v.get("state"), Mapping)
+                    and v.get("start_hash")
+                    and v.get("final_hash") == e.get("final_hash")
+                    and v.get("task_status")
+                ):
                     bad_eps.append(f"{p.stem}:{e.get('episode_id')}")
     ok = logs["ok"] and n > 0 and not bad_eps
     return {"ok": ok, "logs": logs, "episodes": n, "episodes_without_diff": bad_eps[:20]}
@@ -188,17 +194,6 @@ def _metrics(rr: Any, seed_dir: Path, l_viol: Sequence[float] | None, svc: Any =
     return json.loads(res["files"]["metrics.json"]), write_report(res, seed_dir / "metrics")
 
 
-def _metrics_service(enabled: bool):
-    """metrics-svc на время расчёта (каталог телеметрии сервиса — временный)."""
-    if not enabled:
-        return None
-    import tempfile
-
-    from darp_range.metrics_svc.client import MetricsService
-
-    return MetricsService(Path(tempfile.mkdtemp(prefix="darp-metrics-svc-")))
-
-
 def _artifacts_index(
     out: Path,
     primary: Path,
@@ -217,9 +212,12 @@ def _artifacts_index(
         "every_config_has_status": all(r["status"] for r in lstar_rows),
         # пустой фронт допустим, только если очередь нестабильна у всех кандидатов (dvarp#18:
         # при ρ ≥ 1 конфигурация недопустима и во фронт не входит)
-        "pareto_front_nonempty": bool(rep["pareto"]["front"]) or all(
-            c["continuity"]["Q"] is None for c in rep["configs"].values()
-            if c["role"] in ("baseline", "main")),
+        "pareto_front_nonempty": bool(rep["pareto"]["front"])
+        or all(
+            c["continuity"]["Q"] is None
+            for c in rep["configs"].values()
+            if c["role"] in ("baseline", "main")
+        ),
         "inefficient_list_written": Path(metrics_files["inefficient.csv"]).exists(),
         "price_bounds_low_high": all(
             r["L_star_low_prices"] != "" or r["status"] != "threshold" for r in lstar_rows
@@ -614,15 +612,12 @@ def _run_seed(
     out: Path,
     names: Sequence[str],
     l_viol: Sequence[float] | None,
-    *,
-    defer_metrics: bool = False,
     **runner_kw: Any,
 ):
+    """Прогон seed под запретом сети; расчёт метрик — отдельным шагом через metrics-svc."""
     p = replace(plan, master_seed=seed)
     rr = Runner(p, out / f"seed-{seed}" / "run", **runner_kw).run(names)
-    if defer_metrics:   # metrics-svc зовётся по 127.0.0.1 уже после блока запрета сети
-        return rr, None, None
-    return (rr, *_metrics(rr, out / f"seed-{seed}", l_viol))
+    return rr, None, None
 
 
 def run_offline(
@@ -632,22 +627,36 @@ def run_offline(
     seeds: Sequence[int] = (7,),
     configs: Sequence[str] | None = None,
     l_viol: Sequence[float] | None = None,
-    metrics_svc: bool = False,
+    metrics_svc: bool = True,
 ) -> dict[str, Any]:
     """Офлайн-конвейер под запретом сети (заглушка модели, режим D или A-заглушка).
-    `metrics_svc` — метрики через metrics-svc на 127.0.0.1 (после блока запрета сети)."""
+
+    Расчёт метрик — только через metrics-svc на 127.0.0.1 (issue #61): прогоны и расчёт
+    идут внутри блока запрета сети; соединения с собственным сервисом пропускаются по
+    allowlist (порт из ready.json), каждый разрешённый ход фиксируется в contour.json;
+    наружу — по-прежнему ничего."""
     if plan.agent_mode != "stub":
         raise PipelineError("офлайн-прогон только с заглушкой модели (agent_mode=stub)")
+    if not metrics_svc:
+        raise PipelineError(
+            "офлайн-расчёт метрик — только через metrics-svc (issue #61); расчёт в процессе "
+            "допустим только как независимая проверка движка (verify/acceptance)"
+        )
     out = Path(out)
     started = time.monotonic()
     cs, names = _prepare(out, plan, configs, seeds)
-    runs = {}
-    svc = _metrics_service(metrics_svc)
-    with no_network() as net:
-        for s in seeds:
-            runs[s] = _run_seed(plan, s, out, names, l_viol, defer_metrics=svc is not None)
-    if svc is not None:
-        with svc:
+    import tempfile
+
+    from darp_range.metrics_svc.client import MetricsService
+
+    runs: dict[int, tuple[Any, Any, Any]] = {}
+    with MetricsService(Path(tempfile.mkdtemp(prefix="darp-metrics-svc-"))) as svc:
+        port = svc.proc.port
+        # порт не определён — allowlist пуст: соединения запрещены целиком (fail-closed)
+        allow = {"metrics-svc": port} if port is not None else None
+        with no_network(allow=allow) as net:
+            for s in seeds:
+                runs[s] = _run_seed(plan, s, out, names, l_viol)
             for s in seeds:
                 rr = runs[s][0]
                 runs[s] = (rr, *_metrics(rr, out / f"seed-{s}", l_viol, svc))
@@ -668,7 +677,7 @@ def run_live(
     l_viol: Sequence[float] | None = None,
     attacker_factory: Any = None,
     in_process_research: bool = False,
-    metrics_svc: bool = False,
+    metrics_svc: bool = True,
 ) -> dict[str, Any]:
     """Живой конвейер: один seed, модель агента через RESEARCH_LLM_* на общем счётчике.
 
@@ -734,12 +743,17 @@ def run_live(
                 import shutil
 
                 shutil.rmtree(own_factory.runtime_dir, ignore_errors=True)
-    svc = _metrics_service(metrics_svc)
-    if svc is None:
-        rep, mfiles = _metrics(rr, out / f"seed-{plan.master_seed}", l_viol)
-    else:
-        with svc:
-            rep, mfiles = _metrics(rr, out / f"seed-{plan.master_seed}", l_viol, svc)
+    if not metrics_svc:
+        raise PipelineError(
+            "расчёт метрик живого прогона — только через metrics-svc (issue #61); "
+            "независимый пересчёт в процессе — шаг verify, а не контура"
+        )
+    import tempfile
+
+    from darp_range.metrics_svc.client import MetricsService
+
+    with MetricsService(Path(tempfile.mkdtemp(prefix="darp-metrics-svc-"))) as svc:
+        rep, mfiles = _metrics(rr, out / f"seed-{plan.master_seed}", l_viol, svc)
     live = {
         "preflight": pre,
         "meter": meter.report(),
