@@ -37,9 +37,13 @@
 - Адаптер `metrics_svc/client.py`: `MetricsService` (:23-81) запускает сервис через
   `svckit.ServiceProcess` (`svckit/proc.py`, `PYTHONHASHSEED=0`), шлёт каталог прогона
   (`compute`, :54-81), `write_report` (:83-…) кладёт файлы в `seed-N/metrics`.
-- `report_cli offline|live --metrics-svc`: `report_cli/pipeline.py` — `_metrics` (:175-188),
-  `_metrics_service` (:191-199); в офлайне прогоны идут под запретом сети, расчёт — после него
-  (:645-652).
+- `report_cli offline|live`: расчёт метрик — **только через metrics-svc** (issue #61);
+  `_metrics` (pipeline.py:175-188): смоук прибора → `svc.compute` → `write_report`.
+  В офлайне сервис стартует до блока запрета сети; прогоны и расчёт идут **внутри**
+  блока, соединения с сервисом пропускаются allowlist'ом `no_network(allow=...)`
+  (contour.py:71: `имя → порт` из ready.json, только loopback, каждый разрешённый ход
+  фиксируется, сводно в `contour.json` → `network.allowed`); расчёт в процессе
+  (`metrics_svc=False`) отклоняется.
 - Смоук «прибор исправен» до отправки: `instrument_smoke` (pipeline.py:153-172) — журналы
   целы и закрыты, у каждого эпизода вердикт оценщика с диффом состояния БД.
 

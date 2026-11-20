@@ -2,9 +2,7 @@
 
 > **Статус актуальности:** срез `origin/develop` `e3a3ef5` (post-#68), 2026-11-18.
 > Актуализирован: эпизод по распилу #19 (2026-11-16), расписание/метрики по #33 и #68 (2026-11-18).
-> Сервисный легальный поток актуализирован по #36 (`Issue-#36`), 2026-11-19.
-> **Устареет при** переделке #61
-> (офлайн-путь метрик: allowlist loopback вместо defer-схемы) — после их мержа актуализировать.
+> Сервисный легальный поток актуализирован по #36 (`Issue-#36`), 2026-11-19; офлайн-путь метрик — по #61, 2026-11-20.
 > Это документ-инструкция для будущего агента авторазметки процессов в полигоне: образец того, как описывается механика системы. Внутренний документ репозитория, в полигон переезжает как образец.
 
 Внутренняя карта замера: как устроен прогон — от конфигурации до верификации.
@@ -168,14 +166,17 @@ traffic-svc; оркестратор сохраняет развёртывани�
 - `run_offline` (pipeline.py:628): `_prepare` → под `no_network` по seed'ам `_run_seed`
   (:611-626: Runner.run → compute(reference="g0") → metrics.write) → контур-отчёт
   (pipeline.py:104-136: imports/guards/requirements/no_network) → `_finish` (:495).
-- **Метрики через движок-сервис** (#33/#56): `report_cli offline|live --metrics-svc` —
-  смоук исправности прибора (`instrument_smoke` pipeline.py:153: журналы целы, у каждого
-  эпизода вердикт оценщика) → `MetricsService` (metrics_svc/client.py:54, `svckit.ServiceProcess`,
-  `PYTHONHASHSEED=0`) отправляет каталог прогона, сервис проверяет хеш-цепочки (422
-  `telemetry_invalid` при разрыве) и возвращает metrics.json/CSV/отчёт; `write_report`
-  (client.py:83) кладёт файлы в `seed-N/metrics`. В офлайне сервис вызывается после блока
-  запрета сети (loopback под запретом, #61: переделка — allowlist, см. issue #61).
-  Байт-в-байт тесты запирают «сервис == в-процессе» (tests/test_metrics_svc.py).
+- **Метрики через движок-сервис** (#33/#56; только через сервис — #61): `report_cli
+  offline|live` — смоук исправности прибора (`instrument_smoke` pipeline.py:153: журналы
+  целы, у каждого эпизода вердикт оценщика) → `MetricsService` (metrics_svc/client.py:54,
+  `svckit.ServiceProcess`, `PYTHONHASHSEED=0`) отправляет каталог прогона, сервис
+  проверяет хеш-цепочки (422 `telemetry_invalid` при разрыве) и возвращает
+  metrics.json/CSV/отчёт; `write_report` (client.py:83) кладёт файлы в `seed-N/metrics`.
+  В офлайне сервис стартует до блока запрета сети, прогоны и расчёт идут **внутри**
+  блока: `no_network(allow={"metrics-svc": порт из ready.json})` пропускает только
+  loopback-соединения с собственным сервисом, каждый разрешённый ход фиксируется
+  в `contour.json` (`network.allowed`, сводно); расчёт в процессе отклоняется
+  (issue #61). Байт-в-байт тесты запирают «сервис == в-процессе» (tests/test_metrics_svc.py).
 - `_finish`: `_verify_logs` (:139-150, хеш-цепочки), артефакты NFR-2.14 (:153-214:
   1_source_code, 2_corpus_with_ground_truth, 3_cost_logs_and_traces, 4_analytic_report с
   чеками lstar_row_per_config/pareto_front_nonempty/…, 5_scientific_article = out_of_scope),
