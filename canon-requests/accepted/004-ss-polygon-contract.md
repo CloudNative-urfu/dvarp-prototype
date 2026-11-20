@@ -2,7 +2,7 @@
 
 - **Дата:** 2026-11-18
 - **Источник:** #19 (PR #55 — svc-decomposition, контракт traffic-svc), #33 (PR #56 — metrics-svc), будущая #36 (traffic-svc)
-- **Статус:** open
+- **Статус:** accepted (канон: dvarp#38)
 
 ## Что сделано в прототипе
 
